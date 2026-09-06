@@ -13,6 +13,8 @@ backend/*/keys/*.pem
 *.sqlite3
 *.db
 .uvicorn.log
+.uvi.out
+.uvi.err
 
 # tooling
 .pytest_cache/
