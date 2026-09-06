@@ -96,7 +96,7 @@ fun ArScreen(
                 )
             }
 
-            CompassStrip(scene.orientation)
+            CompassStrip(scene.orientation, scene.locationAccuracyMeters)
 
             if (scene.locationUnreliable) {
                 UnreliableLocationNotice()

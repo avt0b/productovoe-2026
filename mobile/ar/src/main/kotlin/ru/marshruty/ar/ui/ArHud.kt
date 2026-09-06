@@ -100,7 +100,11 @@ internal fun StepChip(stepIndex: Int, stepTotal: Int, title: String, modifier: M
 
 /** Строка компаса: азимут и угол наклона. */
 @Composable
-internal fun CompassStrip(orientation: DeviceOrientation, modifier: Modifier = Modifier) {
+internal fun CompassStrip(
+    orientation: DeviceOrientation,
+    accuracyMeters: Double? = null,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -111,13 +115,21 @@ internal fun CompassStrip(orientation: DeviceOrientation, modifier: Modifier = M
             style = ArType.LabelArchiveCode,
             color = ArColors.SurfaceBright.copy(alpha = 0.7f),
         )
-        Box(
-            Modifier
-                .height(2.dp)
-                .fillMaxWidth(0.35f)
-                .clip(CircleShape)
-                .background(ArColors.SurfaceBright.copy(alpha = 0.3f)),
-        )
+        if (accuracyMeters != null) {
+            Text(
+                text = "GPS ±%d м".format(accuracyMeters.roundToInt()),
+                style = ArType.LabelArchiveCode,
+                color = ArColors.SurfaceBright.copy(alpha = 0.7f),
+            )
+        } else {
+            Box(
+                Modifier
+                    .height(2.dp)
+                    .fillMaxWidth(0.25f)
+                    .clip(CircleShape)
+                    .background(ArColors.SurfaceBright.copy(alpha = 0.3f)),
+            )
+        }
         Text(
             text = "ELEV %+.1f°".format(orientation.pitchDegrees),
             style = ArType.LabelArchiveCode,

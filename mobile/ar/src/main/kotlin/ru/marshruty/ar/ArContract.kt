@@ -16,14 +16,14 @@ data class NarrationSpec(
     val audioUri: String?,
     /** Субтитры обязательны: на улице шумно, и часть детей читает, а не слушает. */
     val subtitles: List<SubtitleLine>,
-)
+) : java.io.Serializable
 
 /** Строка субтитров с таймкодом от начала аудио. */
 data class SubtitleLine(
     val fromMillis: Long,
     val toMillis: Long,
     val text: String,
-) {
+) : java.io.Serializable {
     init {
         require(toMillis > fromMillis) { "Конец строки субтитров раньше начала" }
     }
@@ -57,7 +57,7 @@ data class CompanionSpec(
     val subtitle: String,
     /** Ассет персонажа: спрайт-лист или видео с альфа-каналом. */
     val assetUri: String,
-)
+) : java.io.Serializable
 
 /** Цель наведения на местности. */
 data class ArTarget(
@@ -66,7 +66,7 @@ data class ArTarget(
     val label: String,
     /** Превышение над наблюдателем, метры. */
     val heightOffsetMeters: Double = 0.0,
-)
+) : java.io.Serializable
 
 /** Всё, что нужно AR-экрану для одной точки маршрута. */
 data class ArPointSpec(
@@ -77,7 +77,7 @@ data class ArPointSpec(
     val target: ArTarget?,
     val companion: CompanionSpec?,
     val narration: NarrationSpec,
-) {
+) : java.io.Serializable {
     init {
         require(stepTotal > 0) { "stepTotal должен быть положительным" }
         require(stepIndex in 1..stepTotal) { "stepIndex вне диапазона 1..$stepTotal" }

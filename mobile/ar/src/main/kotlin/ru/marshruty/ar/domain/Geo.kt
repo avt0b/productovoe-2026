@@ -9,7 +9,7 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /** Точка на местности, градусы WGS-84. */
-data class GeoPoint(val latitude: Double, val longitude: Double)
+data class GeoPoint(val latitude: Double, val longitude: Double) : java.io.Serializable
 
 /** Средний радиус Земли (IUGG), метры. */
 private const val EARTH_RADIUS_M = 6_371_008.8

@@ -54,6 +54,8 @@ data class ArSceneState(
     val markerPosition: ScreenPosition?,
     val offScreenHint: OffScreenHint,
     val aimAccuracy: Float,
+    /** Заявленный разброс позиции, метры. null — фикса ещё нет. */
+    val locationAccuracyMeters: Double?,
     /** Достоверность гео недостаточна — метку показывать нельзя. */
     val locationUnreliable: Boolean,
 ) {
@@ -86,6 +88,7 @@ fun buildSceneState(
             markerPosition = null,
             offScreenHint = OffScreenHint.NONE,
             aimAccuracy = 0f,
+            locationAccuracyMeters = fix?.accuracyMeters,
             locationUnreliable = fix == null && target != null,
         )
     }
@@ -103,6 +106,7 @@ fun buildSceneState(
         markerPosition = if (unreliable) null else position,
         offScreenHint = if (unreliable) OffScreenHint.NONE else offScreenHint(position),
         aimAccuracy = if (unreliable) 0f else aimAccuracy(position),
+        locationAccuracyMeters = fix.accuracyMeters,
         locationUnreliable = unreliable,
     )
 }
