@@ -12,3 +12,4 @@ app = FastAPI(
 @app.get("/health", tags=["service"])
 def health() -> dict[str, str]:
     return {"service": "user_service", "status": "ok", "env": settings.app_env}
+ 
