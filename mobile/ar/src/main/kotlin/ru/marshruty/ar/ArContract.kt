@@ -23,6 +23,25 @@ data class SubtitleLine(
     val fromMillis: Long,
     val toMillis: Long,
     val text: String,
+) {
+    init {
+        require(toMillis > fromMillis) { "Конец строки субтитров раньше начала" }
+    }
+}
+
+/**
+ * Строка, звучащая в данный момент, или null в паузе между репликами.
+ * Границы: начало включительно, конец исключительно — соседние строки не
+ * перекрываются на стыке.
+ */
+fun List<SubtitleLine>.lineAt(positionMillis: Long): SubtitleLine? =
+    firstOrNull { positionMillis >= it.fromMillis && positionMillis < it.toMillis }
+
+/** Состояние проигрывания рассказа. */
+data class NarrationPlayback(
+    val positionMillis: Long = 0L,
+    val isPlaying: Boolean = false,
+    val isMuted: Boolean = false,
 )
 
 /**
