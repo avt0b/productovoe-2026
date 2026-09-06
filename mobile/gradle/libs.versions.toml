@@ -1,0 +1,13 @@
+# Версии взяты те, что уже лежат в локальном кэше Gradle, — сборка не тянет лишнего.
+[versions]
+agp = "9.3.2"
+kotlin = "2.2.10"
+coreKtx = "1.16.0"
+junit = "4.13.2"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+
+[plugins]
+android-library = { id = "com.android.library", version.ref = "agp" }
