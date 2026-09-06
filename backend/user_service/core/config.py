@@ -7,8 +7,10 @@ class Settings(BaseSettings):
     app_env: str = "local"
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/users"
 
-    jwt_public_key_path: str = "./keys/jwt_public.pem"
-    jwt_algorithm: str = "RS256"
+    # Тот же секрет, что у auth_service (HS256) — для локальной проверки JWT.
+    jwt_secret: str = "dev-secret-change-me"
+    jwt_algorithm: str = "HS256"
+    jwt_issuer: str = "auth_service"
 
 
 settings = Settings()

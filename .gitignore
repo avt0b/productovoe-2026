@@ -8,6 +8,12 @@ __pycache__/
 .env
 backend/*/keys/*.pem
 
+# локальные БД / логи
+*.sqlite
+*.sqlite3
+*.db
+.uvicorn.log
+
 # tooling
 .pytest_cache/
 .ruff_cache/
