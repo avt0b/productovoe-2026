@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #app {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-background font-body-md text-body-md text-on-surface antialiased;
+    overscroll-behavior: none;
+  }
+
+  /* Видимый фокус обязателен: админкой пользуются с клавиатуры. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-1 ring-offset-background;
+  }
+}
+
+@layer components {
+  .ms-icon {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Кнопки */
+  .btn {
+    @apply inline-flex h-10 items-center justify-center gap-space-2 rounded-lg px-space-4
+           font-label-action text-label-action uppercase tracking-wide transition-colors
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-primary text-on-primary hover:bg-primary-container;
+  }
+  .btn-secondary {
+    @apply btn bg-surface-container text-on-surface hover:bg-surface-container-high;
+  }
+  .btn-danger {
+    @apply btn bg-error text-on-error hover:bg-on-error-container;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-on-surface-variant hover:bg-surface-container hover:text-on-surface;
+  }
+  .btn-sm {
+    @apply h-8 px-space-3;
+  }
+
+  /* Поля ввода */
+  .field {
+    @apply h-11 w-full rounded-lg bg-surface-container px-space-3 font-body-md text-body-md
+           text-on-surface placeholder:text-outline focus:bg-surface-container-lowest
+           focus:outline-none focus:ring-2 focus:ring-primary;
+  }
+  .field-label {
+    @apply mb-space-1 block font-label-archive-code text-label-archive-code uppercase
+           text-on-surface-variant;
+  }
+
+  /* Карточка-«архивная учётная карточка» */
+  .card {
+    @apply rounded-xl bg-surface-container-low p-card-padding shadow-sm;
+  }
+  .card-header-strip {
+    @apply mb-space-3 flex items-center justify-between rounded bg-surface-container/60 p-space-2
+           font-label-archive-code text-label-archive-code uppercase text-on-surface-variant;
+  }
+
+  /* Таблицы */
+  .table-head {
+    @apply bg-surface-container font-label-archive-code text-label-archive-code uppercase
+           tracking-wider text-on-surface-variant;
+  }
+  .table-head th {
+    @apply px-space-4 py-space-3 text-left font-normal;
+  }
+  .table-row {
+    @apply border-t border-surface-container-high transition-colors hover:bg-surface-container/60;
+  }
+  .table-row td {
+    @apply px-space-4 py-space-3 align-middle;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-space-2 py-0.5
+           font-label-archive-code text-label-archive-code uppercase;
+  }
+  .mono {
+    @apply font-label-archive-code text-label-archive-code;
+  }
+}

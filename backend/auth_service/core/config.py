@@ -19,5 +19,8 @@ class Settings(BaseSettings):
     bootstrap_root_email: str | None = None
     bootstrap_root_password: str | None = None
 
+    # Внутренний служебный ключ: по нему admin_service ходит в /internal/*.
+    internal_api_key: str = "dev-internal-key-change-me"
+
 
 settings = Settings()

@@ -14,5 +14,8 @@ class Settings(BaseSettings):
     # Токен воркера рендера; пусто -> дёргать может moderator/root.
     render_worker_token: str = ""
 
+    # Внутренний служебный ключ: по нему admin_service ходит в /internal/*.
+    internal_api_key: str = "dev-internal-key-change-me"
+
 
 settings = Settings()

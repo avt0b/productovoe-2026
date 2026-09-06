@@ -11,5 +11,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_issuer: str = "auth_service"
 
+    # Внутренний служебный ключ: по нему admin_service ходит в /internal/*.
+    internal_api_key: str = "dev-internal-key-change-me"
+
 
 settings = Settings()
