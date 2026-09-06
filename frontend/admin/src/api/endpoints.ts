@@ -32,7 +32,11 @@ import type {
   Trip,
 } from './types'
 
-export interface ListParams {
+/**
+ * Именно `type`, а не `interface`: интерфейсы в TypeScript не получают неявную
+ * индексную сигнатуру и потому не подходят под `Record<string, …>` в клиенте.
+ */
+export type ListParams = {
   query?: string
   limit?: number
   offset?: number
