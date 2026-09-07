@@ -1,6 +1,5 @@
 FROM python:3.12-slim
 
-# ️ МЕНЯТЬ ТОЛЬКО ЭТИ ДВЕ СТРОКИ ДЛЯ КАЖДОГО СЕРВИСА!
 ARG SERVICE_MODULE=main:app
 ARG SERVICE_PORT=8001
 
@@ -35,5 +34,4 @@ EXPOSE ${SERVICE_PORT}
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=5 \
     CMD curl -fsS "http://localhost:${SERVICE_PORT}/health" || exit 1
 
-# Используем переменную ${SERVICE_MODULE} вместо жесткого main:app
 CMD ["sh", "-lc", "exec /opt/venv/bin/python -m uvicorn ${SERVICE_MODULE} --host 0.0.0.0 --port ${SERVICE_PORT}"]
