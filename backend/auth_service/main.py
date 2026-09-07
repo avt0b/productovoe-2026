@@ -15,7 +15,7 @@ async def lifespan(_: FastAPI):
     init_db()
     ensure_root_user()
     yield
-
+ 
 
 app = FastAPI(
     title="auth_service — Маршруты победы",
