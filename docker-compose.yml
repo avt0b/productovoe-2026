@@ -1,0 +1,249 @@
+name: marshruty
+
+x-backend-common: &backend-common
+  restart: unless-stopped
+  env_file:
+    - ./.env
+  networks:
+    - marshruty_network
+  depends_on:
+    postgres:
+      condition: service_healthy
+    nats:
+      condition: service_started
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: marshruty_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_USER}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - marshruty_network
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: marshruty_nats
+    restart: unless-stopped
+    command: ["-js"]
+    ports:
+      - "4222:4222"
+    networks:
+      - marshruty_network
+
+  minio:
+    image: minio/minio:latest
+    container_name: marshruty_minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - marshruty_network
+
+  auth_service:
+    <<: *backend-common
+    container_name: marshruty_auth
+    build:
+      context: ./backend/auth_service
+      dockerfile: Dockerfile
+      args:
+        SERVICE_MODULE: main:app
+        SERVICE_PORT: 8001
+    ports:
+      - "8001:8001"
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/auth
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_ISSUER: ${JWT_ISSUER}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      BOOTSTRAP_ROOT_EMAIL: ${BOOTSTRAP_ROOT_EMAIL}
+      BOOTSTRAP_ROOT_PASSWORD: ${BOOTSTRAP_ROOT_PASSWORD}
+
+  user_service:
+    <<: *backend-common
+    container_name: marshruty_user
+    build:
+      context: ./backend/user_service
+      dockerfile: Dockerfile
+      args:
+        SERVICE_MODULE: main:app
+        SERVICE_PORT: 8002
+    ports:
+      - "8002:8002"
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/users
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_ISSUER: ${JWT_ISSUER}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+  map_service:
+    <<: *backend-common
+    container_name: marshruty_map
+    build:
+      context: ./backend/map_service
+      dockerfile: Dockerfile
+      args:
+        SERVICE_MODULE: main:app
+        SERVICE_PORT: 8003
+    ports:
+      - "8003:8003"
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/map
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_ISSUER: ${JWT_ISSUER}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+  search_hq_service:
+    <<: *backend-common
+    container_name: marshruty_search_hq
+    build:
+      context: ./backend/search_hq_service
+      dockerfile: Dockerfile
+      args:
+        SERVICE_MODULE: main:app
+        SERVICE_PORT: 8004
+    ports:
+      - "8004:8004"
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/search_hq
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_ISSUER: ${JWT_ISSUER}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+  archive_service:
+    <<: *backend-common
+    container_name: marshruty_archive
+    build:
+      context: ./backend/archive_service
+      dockerfile: Dockerfile
+      args:
+        SERVICE_MODULE: main:app
+        SERVICE_PORT: 8005
+    ports:
+      - "8005:8005"
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/archive
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_ISSUER: ${JWT_ISSUER}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+  route_service:
+    <<: *backend-common
+    container_name: marshruty_route
+    build:
+      context: ./backend/route_service
+      dockerfile: Dockerfile
+      args:
+        SERVICE_MODULE: main:app
+        SERVICE_PORT: 8006
+    ports:
+      - "8006:8006"
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/routes
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_ISSUER: ${JWT_ISSUER}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+  media_service:
+    <<: *backend-common
+    container_name: marshruty_media
+    build:
+      context: ./backend/media_service
+      dockerfile: Dockerfile
+      args:
+        SERVICE_MODULE: main:app
+        SERVICE_PORT: 8007
+    ports:
+      - "8007:8007"
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/media
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_ISSUER: ${JWT_ISSUER}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+
+  admin_service:
+    <<: *backend-common
+    container_name: marshruty_admin
+    build:
+      context: ./backend/admin_service
+      dockerfile: Dockerfile
+      args:
+        SERVICE_MODULE: main:app
+        SERVICE_PORT: 8010
+    ports:
+      - "8010:8010"
+    environment:
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/admin
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_ISSUER: ${JWT_ISSUER}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      ADMIN_JWT_ALGORITHM: ${ADMIN_JWT_ALGORITHM}
+      ADMIN_JWT_ISSUER: ${ADMIN_JWT_ISSUER}
+      ACCESS_TOKEN_TTL_MINUTES: ${ACCESS_TOKEN_TTL_MINUTES}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS}
+      MFA_TOKEN_TTL_MINUTES: ${MFA_TOKEN_TTL_MINUTES}
+      TOTP_ISSUER_NAME: ${TOTP_ISSUER_NAME}
+      TOTP_VALID_WINDOW: ${TOTP_VALID_WINDOW}
+      REQUIRE_TOTP: ${REQUIRE_TOTP}
+      RECOVERY_CODES_COUNT: ${RECOVERY_CODES_COUNT}
+      MAX_FAILED_ATTEMPTS: ${MAX_FAILED_ATTEMPTS}
+      LOCKOUT_MINUTES: ${LOCKOUT_MINUTES}
+      UPSTREAM_TIMEOUT_SECONDS: ${UPSTREAM_TIMEOUT_SECONDS}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD}
+      AUTH_SERVICE_URL: http://auth_service:8001
+      USER_SERVICE_URL: http://user_service:8002
+      MAP_SERVICE_URL: http://map_service:8003
+      SEARCH_HQ_SERVICE_URL: http://search_hq_service:8004
+      ARCHIVE_SERVICE_URL: http://archive_service:8005
+      ROUTE_SERVICE_URL: http://route_service:8006
+      MEDIA_SERVICE_URL: http://media_service:8007
+
+volumes:
+  pg_data:
+  minio_data:
+
+networks:
+  marshruty_network:
+    driver: bridge
