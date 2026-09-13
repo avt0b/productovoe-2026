@@ -77,6 +77,41 @@ Tailwind CSS. Тот же набор, что у админки, — чтобы �
 переучивания. UI-библиотеки нет: вёрстка макета Stitch переносится классами
 Tailwind почти один в один.
 
+## APK (Android)
+
+Обёртка — Capacitor 8: та же сборка Vite внутри Android WebView, код окон не
+меняется.
+
+```bash
+cd frontend/client
+cp .env.example .env.android.local   # адреса сервисов — IP компьютера в локальной сети
+npm run android:sync                 # сборка с .env.android.local и копирование в android/
+cd android
+./gradlew assembleDebug              # app/build/outputs/apk/debug/app-debug.apk
+```
+
+Нужны Android SDK (`ANDROID_HOME` или `android/local.properties`) и JDK 21+
+(подойдёт JBR из Android Studio). За прокси Gradle нужны
+`-Dhttps.proxyHost=… -Dhttps.proxyPort=…`. Открыть проект в Android Studio —
+`npm run android:open`.
+
+- **Gradle 9.5 — не выше и не ниже.** Шаблон Capacitor собран на AGP 8.13:
+  Gradle 9.6 удалил внутренний API, на который опирается AGP 8, а Gradle 8.14
+  из шаблона не запускается на Java 25 из свежей Android Studio. Поднимать
+  вместе с переходом Capacitor на AGP 9.
+- **Сервисы по http в локальной сети.** Приложение открывается с
+  `https://localhost` (этот origin уже есть в CORS сервисов), поэтому в
+  `capacitor.config.ts` включены `cleartext` и `allowMixedContent`. В проде
+  — https и эти флаги убрать.
+- **Телефон должен достучаться до компьютера:** сервисы запускаются с
+  `--host 0.0.0.0`, брандмауэр пропускает порты 8003 и 8006, телефон в той
+  же сети. Не достучался — приложение покажет демо-данные с плашкой.
+- **Геолокация** — разрешения `ACCESS_FINE_LOCATION` и
+  `ACCESS_COARSE_LOCATION` в манифесте; система спрашивает их по кнопке
+  «Где я».
+- **AR** в APK пока не встроен: нативный модуль из `mobile/` подключается
+  отдельным шагом.
+
 ## Модули — как добавить или убрать окно
 
 Каждое окно — папка в `src/modules/`:
@@ -166,7 +201,6 @@ src/
 
 ## Дальше
 
-- APK — через Capacitor.
 - AR-экран — нативный модуль из `mobile/`, запускается из приложения по кнопке
   «Запустить AR-поиск».
 - Остальные окна — из публичных сервисов вместо заглушек в `data.ts`.
