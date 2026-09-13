@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
+import { formatDistance } from '@/core/geo'
 import { shareCurrentPage } from '@/core/share'
+import DemoDataBadge from '@/ui/DemoDataBadge.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
@@ -14,15 +16,32 @@ import { fetchRoutePoint } from './data'
 
 const props = defineProps<{ pointId: string }>()
 
+const currentRoute = useRoute()
 const router = useRouter()
-const { data: point, loading, error, retry } = useAsync(() => fetchRoutePoint(props.pointId))
+
+/** Маршрут, в котором открыта точка, — из `?route=`. */
+const routeId = computed(() => (typeof currentRoute.query.route === 'string' ? currentRoute.query.route : null))
+
+const { data: point, loading, error, retry } = useAsync(() => fetchRoutePoint(props.pointId, routeId.value))
 
 const bookmarked = ref(false)
 const arNotice = ref(false)
 
+// «Дальше» открывает тот же экран с другой точкой: компонент переиспользуется, данные надо перезагрузить.
+watch([() => props.pointId, routeId], () => {
+  arNotice.value = false
+  void retry()
+})
+
 const canOpenMap = computed(() => router.hasRoute('routes'))
 
-function openWalkingRoute(): void {
+function openNext(): void {
+  const next = point.value?.next
+  if (!next || !routeId.value) return
+  void router.push({ name: 'route-point', params: { pointId: next.id }, query: { route: routeId.value } })
+}
+
+function openMap(): void {
   if (canOpenMap.value) void router.push({ name: 'routes' })
 }
 </script>
@@ -33,14 +52,14 @@ function openWalkingRoute(): void {
 
     <template v-else-if="point">
       <!-- Где мы на маршруте -->
-      <div class="flex items-center justify-between pt-space-xs">
+      <div class="flex items-center justify-between gap-space-xs pt-space-xs">
         <div
-          class="inline-flex items-center gap-space-xs rounded-full bg-secondary-container px-3 py-1 font-label-md text-label-md text-on-secondary-fixed-variant"
+          class="inline-flex min-w-0 items-center gap-space-xs rounded-full bg-secondary-container px-3 py-1 font-label-md text-label-md text-on-secondary-fixed-variant"
         >
-          <MsIcon name="flag" :size="16" />
-          <span>Точка {{ point.step }} из {{ point.totalSteps }} • {{ point.routeTitle }}</span>
+          <MsIcon name="flag" :size="16" class="shrink-0" />
+          <span class="truncate">Точка {{ point.step }} из {{ point.totalSteps }} • {{ point.routeTitle }}</span>
         </div>
-        <div class="flex items-center gap-space-xs">
+        <div class="flex shrink-0 items-center gap-space-xs">
           <button
             type="button"
             :aria-label="bookmarked ? 'Убрать из закладок' : 'Добавить в закладки'"
@@ -62,6 +81,8 @@ function openWalkingRoute(): void {
         </div>
       </div>
 
+      <DemoDataBadge v-if="point.source === 'demo'" />
+
       <!-- Название -->
       <div class="flex flex-col gap-space-xs">
         <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">{{ point.title }}</h2>
@@ -70,6 +91,7 @@ function openWalkingRoute(): void {
           <span>{{ point.place }}</span>
         </p>
         <div
+          v-if="point.verifiedBy"
           class="mt-space-xs inline-flex items-center gap-1.5 self-start rounded-full bg-secondary-container/70 px-3 py-1 font-label-md text-label-md text-on-secondary-fixed-variant"
         >
           <MsIcon name="verified" :size="16" filled class="text-secondary" />
@@ -77,48 +99,72 @@ function openWalkingRoute(): void {
         </div>
       </div>
 
-      <CompareSlider v-bind="point.comparison" />
-
-      <EpochAudioCard v-bind="point.audio" />
-
-      <FamilyQuestCard v-bind="point.quest" />
-
-      <!-- Воспоминания -->
-      <div class="flex flex-col gap-space-xs rounded-DEFAULT bg-surface-container-lowest p-space-md shadow-sm">
+      <!-- История места -->
+      <div v-if="point.story" class="flex flex-col gap-space-xs rounded-DEFAULT bg-surface-container-lowest p-space-md shadow-sm">
         <div class="flex items-center gap-space-xs text-on-surface">
           <MsIcon name="menu_book" :size="20" class="text-primary" />
-          <h4 class="font-label-lg text-label-lg">Из воспоминаний очевидца</h4>
+          <h4 class="font-label-lg text-label-lg">История места</h4>
         </div>
-        <p class="font-body-sm text-body-sm italic text-on-surface-variant">{{ point.witness }}</p>
+        <p class="font-body-md text-body-md text-on-surface-variant">{{ point.story }}</p>
       </div>
+
+      <CompareSlider v-if="point.comparison" v-bind="point.comparison" />
+
+      <EpochAudioCard v-if="point.audio" v-bind="point.audio" />
+
+      <FamilyQuestCard v-if="point.quest" :key="point.id" v-bind="point.quest" />
 
       <!-- Действия -->
       <div class="flex flex-col gap-space-xs pt-space-xs">
         <button
+          v-if="point.next"
           type="button"
-          class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md transition-all hover:bg-primary-container active:scale-[0.99] disabled:opacity-60"
-          :disabled="!canOpenMap"
-          @click="openWalkingRoute"
+          class="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-space-md py-3.5 font-label-lg text-label-lg text-on-primary shadow-md transition-all hover:bg-primary-container active:scale-[0.99]"
+          @click="openNext"
         >
-          <MsIcon name="directions_walk" :size="20" />
-          <span>Построить пеший маршрут ({{ point.walkingDistanceMeters }} м)</span>
+          <MsIcon name="directions_walk" :size="20" class="shrink-0" />
+          <span class="truncate">Дальше: {{ point.next.title }}</span>
+          <span class="shrink-0 opacity-80">· {{ formatDistance(point.next.distanceKm) }}</span>
         </button>
+        <p
+          v-else
+          class="flex items-center justify-center gap-2 rounded-full bg-secondary-container px-space-md py-3 font-label-lg text-label-lg text-on-secondary-container"
+          role="status"
+        >
+          <MsIcon name="emoji_events" :size="20" />
+          Маршрут пройден — спасибо, что помните!
+        </p>
+
         <button
+          v-if="canOpenMap"
+          type="button"
+          class="flex w-full items-center justify-center gap-2 rounded-full bg-surface-container-lowest py-3 font-label-lg text-label-lg text-on-surface shadow-sm transition-all hover:bg-surface-container-low active:scale-[0.99]"
+          @click="openMap"
+        >
+          <MsIcon name="map" :size="20" />
+          <span>Маршрут на карте</span>
+        </button>
+
+        <button
+          v-if="point.arHint"
           type="button"
           class="flex w-full items-center justify-center gap-2 rounded-full bg-surface-container-lowest py-3 font-label-lg text-label-lg text-secondary shadow-sm transition-all hover:bg-surface-container-low active:scale-[0.99]"
           @click="arNotice = true"
         >
           <MsIcon name="view_in_ar" :size="20" />
-          <span>Запустить AR-поиск {{ point.arTarget }}</span>
+          <span>Запустить AR-поиск</span>
         </button>
-        <p
-          v-if="arNotice"
+        <div
+          v-if="arNotice && point.arHint"
           class="flex items-start gap-2 rounded-DEFAULT bg-tertiary-fixed/40 px-3 py-2 font-body-sm text-body-sm text-on-tertiary-fixed-variant"
           role="status"
         >
           <MsIcon name="smartphone" :size="18" class="mt-0.5 shrink-0" />
-          AR-поиск работает в мобильном приложении: камера и компас телефона наведут на место прямо на местности.
-        </p>
+          <p>
+            {{ point.arHint }}
+            <span class="block pt-1 opacity-80">AR-поиск работает в мобильном приложении с камерой и компасом телефона.</span>
+          </p>
+        </div>
       </div>
     </template>
   </div>

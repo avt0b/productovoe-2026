@@ -20,6 +20,9 @@ const verdict = ref<Verdict>(null)
 /**
  * Ответ засчитывается, если в нём есть любой из верных фрагментов. Дети пишут
  * «76 мм», «ЗиС», «пушка зис-3» — строгое сравнение отбраковало бы всё это.
+ *
+ * Верных ответов нет («постойте минуту в тишине») — поля ввода нет, задание
+ * отмечается выполненным кнопкой.
  */
 function check(): void {
   const normalized = answer.value.trim().toLowerCase()
@@ -46,7 +49,17 @@ function check(): void {
       <p class="font-body-sm text-body-sm text-on-surface-variant">{{ description }}</p>
     </div>
 
-    <form class="flex items-center gap-space-xs pt-space-xs" @submit.prevent="check">
+    <button
+      v-if="!acceptedAnswers.length && verdict !== 'correct'"
+      type="button"
+      class="mt-space-xs flex h-11 items-center justify-center gap-1.5 self-start rounded-full bg-tertiary-container px-space-md font-label-md text-label-md text-on-tertiary-container transition-transform active:scale-95"
+      @click="verdict = 'correct'"
+    >
+      <MsIcon name="task_alt" :size="18" />
+      Задание выполнено
+    </button>
+
+    <form v-if="acceptedAnswers.length" class="flex items-center gap-space-xs pt-space-xs" @submit.prevent="check">
       <label class="relative flex-1">
         <span class="sr-only">Ответ на задание</span>
         <input

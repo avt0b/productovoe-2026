@@ -1,10 +1,16 @@
-import { withLatency } from '@/core/mock'
+import type { DataSource } from '@/core/api'
+import { distanceKm } from '@/core/geo'
+import { getRoute } from '@/core/services/routes'
 
 /**
- * Данные окна «Точка маршрута».
+ * Данные окна «Точка маршрута» — точка из `route_service` (`/routes/{id}`).
  *
- * Пока заглушка из макета. Когда подключим `route_service` и `archive_service`,
- * поменяется только тело `fetchRoutePoint`.
+ * Сервис отдаёт точки только в составе маршрута, поэтому в адресе рядом с
+ * точкой идёт маршрут: `/routes/<точка>?route=<маршрут>`. Если сервис не
+ * ответил, приходит демо-маршрут Орловщины с теми же id.
+ *
+ * Архивных кадров «тогда и сейчас» и аудио в сервисе пока нет — эти блоки
+ * появятся, когда их начнёт отдавать `media_service`.
  */
 
 export interface RoutePoint {
@@ -14,74 +20,39 @@ export interface RoutePoint {
   routeTitle: string
   title: string
   place: string
-  verifiedBy: string
-  comparison: {
+  verifiedBy?: string
+  comparison?: {
     archiveImage: string
     archiveLabel: string
     modernImage: string
     modernLabel: string
     source: string
   }
-  audio: {
+  audio?: {
     title: string
     author: string
     durationSeconds: number
-    /** С какого места продолжить — в макете слушатель уже на 1:24. */
     positionSeconds: number
   }
-  quest: {
+  quest?: {
     points: number
     title: string
     description: string
-    /** Фрагменты, по которым ответ засчитывается: «76-мм», «ЗиС-3» — всё это верно. */
+    /** Фрагменты, по которым ответ засчитывается. Пусто — задание без ответа, отмечается выполненным. */
     acceptedAnswers: string[]
     success: string
     hint: string
   }
-  witness: string
-  walkingDistanceMeters: number
-  arTarget: string
+  story?: string
+  /** Следующая точка маршрута и расстояние до неё по прямой. У последней точки — `null`. */
+  next: { id: string; title: string; distanceKm: number } | null
+  /** Подсказка для AR-поиска. Нет — AR на этой точке не предлагаем (например, у братской могилы). */
+  arHint: string | null
+  source: DataSource
 }
 
-const POINTS: Record<string, RoutePoint> = {
-  'kromy-line': {
-    id: 'kromy-line',
-    step: 2,
-    totalSteps: 6,
-    routeTitle: 'Кромской рубеж',
-    title: 'Рубеж обороны 5-го десантного корпуса',
-    place: 'Орловско-Курская дуга, высота 243.0 • 1941 г.',
-    verifiedBy: 'Подтверждено отрядом «Высота»',
-    comparison: {
-      archiveImage:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuCnOwZDfmDA8TrLXQjapE-wcnNiCPJu-Om8S0q4wo5LRFlM_81aXzZxvOsEoQ_eHZGwscMzXITBQPiWI9CynMoR346NAFoXDDkeLJIh1NJMK71Xj_Hj08_tTCfWWyaTHh6Gdr2Tf1Zyk5k1a21agaJijf7C42T3sLgDXLwjQ8hS6vE7jy7AtYK-gXDMpEDFsQqoj1_UmRd_1A48A_lwCne00sUwtNS9uiAjZuznX4agR2ZfgQIp9ulI',
-      archiveLabel: '1941 • Архивный кадр',
-      modernImage:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuDtLwhtkPJGOwmsS1O8yAwY0SFXag6hniQbIUWTQIWQbqU-m-HyvEilm6yBZJSYCnO3Qd4x2n3IA4NbUpHBohcDYP5u1Sb5Xh30j_BAy3yALKicTD1pVH_DOiRDy0f1ZkV3TxUACdHQ0-BmKjbhBYcdDsxdqlwNgZK873KDqGsuCXXqtuEfsmAF3MHDb_KoLf0_iffpVMh97McMIvoKRe3BYPlgeQGCHXmzBWR0jlBpnCtPFXivQuJV',
-      modernLabel: '2024 • Мемориал',
-      source: 'Архив ЦАМО РФ, дело №148',
-    },
-    audio: {
-      title: 'Голоса эпохи',
-      author: 'Сводка Совинформбюро • Ю. Левитан',
-      durationSeconds: 190,
-      positionSeconds: 84,
-    },
-    quest: {
-      points: 50,
-      title: 'Найди калибр орудия на постаменте',
-      description:
-        'Внимательно изучи табличку на 76-мм пушке ЗИС-3. Введи номер батареи или отсканируй QR-код постамента, чтобы открыть секретный архив десантников!',
-      acceptedAnswers: ['76', 'зис'],
-      success: 'Верно! Вы открыли архив батареи лейтенанта Гущина.',
-      hint: 'Пока неверно. Подсказка: взгляните на щит орудия!',
-    },
-    witness:
-      '«На рассвете 4 октября десантники приняли бой с передовыми танковыми частями. Позиции удерживали до последнего патрона, прикрывая отход мирного населения к Мценску...»',
-    walkingDistanceMeters: 120,
-    arTarget: 'окопа',
-  },
-}
+/** Очки за семейное задание — одинаковые, пока сервис не научится отдавать свои. */
+const QUEST_POINTS = 50
 
 export class PointNotFoundError extends Error {
   constructor() {
@@ -90,11 +61,37 @@ export class PointNotFoundError extends Error {
   }
 }
 
-export async function fetchRoutePoint(pointId: string): Promise<RoutePoint> {
-  const point = POINTS[pointId]
-  if (!point) {
-    await withLatency(undefined)
-    throw new PointNotFoundError()
+export async function fetchRoutePoint(pointId: string, routeId: string | null): Promise<RoutePoint> {
+  if (!routeId) throw new PointNotFoundError()
+
+  const { data: route, source } = await getRoute(routeId)
+  const stops = [...route.waypoints].sort((a, b) => a.order_index - b.order_index)
+  const index = stops.findIndex((stop) => stop.id === pointId)
+  if (index === -1) throw new PointNotFoundError()
+
+  const stop = stops[index]
+  const next = stops[index + 1]
+
+  return {
+    id: stop.id,
+    step: index + 1,
+    totalSteps: stops.length,
+    routeTitle: route.title,
+    title: stop.title,
+    place: [route.city, route.mode === 'family' ? 'семейный маршрут' : 'маршрут'].filter(Boolean).join(' • '),
+    quest: stop.kid_task
+      ? {
+          points: QUEST_POINTS,
+          title: 'Задание для юного исследователя',
+          description: stop.kid_task,
+          acceptedAnswers: [],
+          success: 'Задание выполнено — так держать, следопыт!',
+          hint: '',
+        }
+      : undefined,
+    story: stop.story || undefined,
+    next: next ? { id: next.id, title: next.title, distanceKm: distanceKm(stop, next) } : null,
+    arHint: stop.ar_hint || null,
+    source,
   }
-  return withLatency(point)
 }
