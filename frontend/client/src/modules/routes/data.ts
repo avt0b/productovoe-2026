@@ -1,97 +1,155 @@
-import { withLatency } from '@/core/mock'
+import type { DataSource } from '@/core/api'
+import { pathLengthKm, type GeoTone, type LatLon } from '@/core/geo'
+import { listPoi, type Poi, type PoiKind } from '@/core/services/map'
+import { getRoute, listRoutes, type RouteDetail } from '@/core/services/routes'
 
 /**
- * Данные окна «Маршруты».
+ * Данные окна «Маршруты»: места слоя «ВОВ» из `map_service` и семейный
+ * маршрут дня из `route_service`.
  *
- * Пока заглушка из макета. Когда подключим `route_service` и `map_service`,
- * поменяется только тело `fetchRoutesOverview` — типы и экран останутся.
+ * Если сервис не ответил, приходит демо-набор Орловщины из
+ * `core/services/demoOrel.ts`, а экран показывает плашку «демо-данные».
  */
 
 export interface RouteFilter {
   id: string
   title: string
   icon: string
-  /** Подсвеченная категория, даже когда фильтр не выбран («Для детей»). */
+  /** Подсвеченная категория, даже когда фильтр не выбран. */
   highlight?: boolean
   /** Цвет иконки у невыбранного фильтра. */
   iconClass?: string
   filledIcon?: boolean
 }
 
-export type MapPinKind = 'you' | 'memorial' | 'battle'
-
-export interface MapPin {
-  id: string
-  kind: MapPinKind
-  title: string
-  subtitle?: string
-  /** Координаты на нарисованной карте, в единицах холста макета 390×460. */
-  x: number
-  y: number
+/**
+ * Как места слоя «ВОВ» выглядят на карте. Легенда из кейса: звезда — бой,
+ * щит — окоп (шлема в Material Symbols нет), книга — штаб и музей.
+ */
+export const PLACE_KINDS: Record<PoiKind, { title: string; icon: string; tone: GeoTone }> = {
+  battle: { title: 'Места боёв', icon: 'star', tone: 'primary' },
+  monument: { title: 'Памятники', icon: 'military_tech', tone: 'secondary' },
+  grave: { title: 'Захоронения', icon: 'local_florist', tone: 'neutral' },
+  trench: { title: 'Окопы', icon: 'security', tone: 'tertiary' },
+  airfield: { title: 'Аэродромы', icon: 'flight', tone: 'tertiary' },
+  hospital: { title: 'Госпитали', icon: 'local_hospital', tone: 'primary' },
+  other: { title: 'Музеи и штабы', icon: 'menu_book', tone: 'neutral' },
 }
 
-export interface FeaturedRoute {
+const KIND_ORDER: PoiKind[] = ['battle', 'monument', 'grave', 'trench', 'airfield', 'hospital', 'other']
+
+const ICON_CLASS: Record<GeoTone, string> = {
+  primary: 'text-primary',
+  secondary: 'text-secondary',
+  tertiary: 'text-tertiary',
+  neutral: 'text-on-surface-variant',
+}
+
+export interface MapPlace extends LatLon {
+  id: string
+  kind: PoiKind
+  title: string
+  description: string
+  dateText: string
+  source: string
+}
+
+export interface RouteStop extends LatLon {
+  id: string
+  /** Номер точки на маршруте, с единицы. */
+  step: number
+  title: string
+  kidTask: string
+  hasAr: boolean
+  /** То же место на слое «ВОВ» — его отдельную метку прячем, чтобы не рисовать две на одной точке. */
+  poiId: string | null
+}
+
+export interface FamilyRoute {
   id: string
   title: string
   description: string
+  city: string
   distanceKm: number
   durationMinutes: number
-  difficulty: string
-  rating: number
-  reviews: number
-  /** Подпись маршрута в углу карты. */
-  mapLabel: string
-  /** Метка, с которой начинается маршрут, — её подсвечиваем. */
-  pinId: string
-  /** Первая точка маршрута — сюда ведёт «Начать путешествие». */
-  startPointId: string
-  task: {
-    title: string
-    text: string
-    reward: string
-  }
+  stops: RouteStop[]
 }
 
 export interface RoutesOverview {
+  places: MapPlace[]
+  /** Фильтры — только по тем видам мест, что есть на карте. */
   filters: RouteFilter[]
-  pins: MapPin[]
-  featured: FeaturedRoute
+  route: FamilyRoute | null
+  source: DataSource
 }
 
-const OVERVIEW: RoutesOverview = {
-  filters: [
-    { id: 'walking', title: 'Пешие (до 3 км)', icon: 'directions_walk' },
-    { id: 'kids', title: 'Для детей', icon: 'star', highlight: true, iconClass: 'text-tertiary', filledIcon: true },
-    { id: 'tanks', title: 'Танковые рубежи', icon: 'military_tech', iconClass: 'text-secondary' },
-    { id: 'normandie', title: 'Нормандия-Неман', icon: 'flight', iconClass: 'text-secondary' },
-    { id: 'audio', title: 'С аудиогидом', icon: 'headphones', iconClass: 'text-primary' },
-  ],
-  pins: [
-    { id: 'you', kind: 'you', title: 'Вы здесь', x: 64, y: 270 },
-    { id: 'signal-node', kind: 'memorial', title: 'Узел связи', subtitle: 'и окопы 1941', x: 175, y: 185 },
-    { id: 'defense-line', kind: 'battle', title: 'Рубеж обороны', x: 78, y: 108 },
-    { id: 'kromy', kind: 'battle', title: 'Кромской рубеж', x: 292, y: 95 },
-  ],
-  featured: {
-    id: 'kromy-sailors',
-    title: 'Кромской рубеж: по следам моряков',
-    description: 'Мемориальная тропа героев 116-й отдельной морской стрелковой бригады',
-    distanceKm: 2.8,
-    durationMinutes: 45,
-    difficulty: 'Легкий',
-    rating: 4.9,
-    reviews: 128,
-    mapLabel: 'Маршрут «Тропа памяти»',
-    pinId: 'kromy',
-    startPointId: 'kromy-line',
-    task: {
-      title: 'Задание исследователя',
-      text: 'Расшифруйте радиограмму Морзе на 2-й точке маршрута и получите памятный значок',
-      reward: '«Юный связист»',
-    },
-  },
+/** Семейный темп с ребёнком и остановки у каждой точки — для оценки времени маршрута. */
+const WALKING_KMH = 4
+const MINUTES_PER_STOP = 8
+
+export async function fetchRoutesOverview(): Promise<RoutesOverview> {
+  const [places, routes] = await Promise.all([listPoi(), listRoutes({ mode: 'family' })])
+  const featured = routes.data[0]
+  const detail = featured ? await getRoute(featured.id) : null
+
+  const sources = [places.source, routes.source, detail?.source]
+  return {
+    places: places.data.map(toPlace),
+    filters: buildFilters(places.data),
+    route: detail ? toRoute(detail.data) : null,
+    source: sources.includes('demo') ? 'demo' : 'live',
+  }
 }
 
-export function fetchRoutesOverview(): Promise<RoutesOverview> {
-  return withLatency(OVERVIEW)
+function toPlace(poi: Poi): MapPlace {
+  return {
+    id: poi.id,
+    kind: poi.kind,
+    title: poi.title,
+    description: poi.description,
+    dateText: poi.date_text,
+    source: poi.source,
+    lat: poi.lat,
+    lon: poi.lon,
+  }
+}
+
+function buildFilters(pois: Poi[]): RouteFilter[] {
+  const present = new Set(pois.map((poi) => poi.kind))
+  return KIND_ORDER.filter((kind) => present.has(kind)).map((kind) => ({
+    id: kind,
+    title: PLACE_KINDS[kind].title,
+    icon: PLACE_KINDS[kind].icon,
+    iconClass: ICON_CLASS[PLACE_KINDS[kind].tone],
+    filledIcon: kind === 'battle',
+  }))
+}
+
+function toRoute(route: RouteDetail): FamilyRoute {
+  const stops: RouteStop[] = [...route.waypoints]
+    .sort((a, b) => a.order_index - b.order_index)
+    .map((waypoint, index) => ({
+      id: waypoint.id,
+      step: index + 1,
+      title: waypoint.title,
+      kidTask: waypoint.kid_task,
+      hasAr: Boolean(waypoint.ar_hint),
+      poiId: waypoint.poi_id,
+      lat: waypoint.lat,
+      lon: waypoint.lon,
+    }))
+
+  // Длину указывает автор маршрута; не указал — считаем по прямым между точками.
+  const distanceKm = route.distance_km > 0 ? route.distance_km : Math.round(pathLengthKm(stops) * 10) / 10
+  const minutes = (distanceKm / WALKING_KMH) * 60 + stops.length * MINUTES_PER_STOP
+
+  return {
+    id: route.id,
+    title: route.title,
+    description: route.description,
+    city: route.city,
+    distanceKm,
+    durationMinutes: Math.max(5, Math.round(minutes / 5) * 5),
+    stops,
+  }
 }
