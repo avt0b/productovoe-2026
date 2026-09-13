@@ -205,7 +205,6 @@ onMounted(() => {
   map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>')
   L.tileLayer(TILES.url, {
     attribution: TILES.attribution,
-    subdomains: TILES.subdomains,
     maxZoom: TILES.maxZoom,
     className: 'geo-tiles',
   }).addTo(map)
