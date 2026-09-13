@@ -1,5 +1,6 @@
 package ru.marshruty.ar.ui
 
+import ru.marshruty.ar.domain.MarkerStatus
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -227,5 +228,31 @@ internal fun UnreliableLocationNotice(modifier: Modifier = Modifier) {
             style = ArType.BodySm,
             color = ArColors.InverseOnSurface,
         )
+    }
+}
+
+/** Заголовок и текст подсказки о маркере; null — когда говорить не о чем. */
+internal fun markerNoticeText(status: MarkerStatus): Pair<String, String>? = when (status) {
+    MarkerStatus.SEARCHING ->
+        "ИЩУ ТАБЛИЧКУ" to "Наведите камеру на табличку у точки — проводник встанет прямо на неё."
+    MarkerStatus.LOST ->
+        "ТЕРЯЮ ОКРУЖЕНИЕ" to "Ведите телефон медленнее. Нужен свет и предметы в кадре, а не голая стена."
+    MarkerStatus.BAD_MARKER ->
+        "МАРКЕР НЕ ПОДХОДИТ" to "На картинке слишком мало деталей — ARCore не за что зацепиться."
+    MarkerStatus.TRACKING, MarkerStatus.HOLDING, MarkerStatus.IN_FRONT -> null
+}
+
+/** Подсказка о маркере — в том же виде, что и предупреждение о GPS. */
+@Composable
+internal fun MarkerNotice(notice: Pair<String, String>, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(ArColors.InverseSurface.copy(alpha = 0.85f))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(notice.first, style = ArType.LabelArchiveCode, color = ArColors.TertiaryFixedDim)
+        Text(notice.second, style = ArType.BodySm, color = ArColors.InverseOnSurface)
     }
 }

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import ru.marshruty.ar.ArPointSpec
 import ru.marshruty.ar.NarrationPlayback
 import ru.marshruty.ar.domain.ArSceneState
+import ru.marshruty.ar.domain.MarkerStatus
 import ru.marshruty.ar.domain.OffScreenHint
 import ru.marshruty.ar.lineAt
 
@@ -32,7 +33,10 @@ data class ArScreenActions(
     val onReplay: () -> Unit = {},
     val onAim: () -> Unit = {},
     val onMarkerTap: () -> Unit = {},
+    /** Тап по персонажу — тоже трюк: так его находят без чтения кнопок. */
     val onCompanionTap: () -> Unit = {},
+    /** null — у персонажа нет клипа трюка, кнопку не показываем. */
+    val onTrick: (() -> Unit)? = null,
 )
 
 /**
@@ -55,6 +59,10 @@ fun ArScreen(
     modifier: Modifier = Modifier,
     discoveryMessage: String? = null,
     cameraFeed: @Composable BoxScope.() -> Unit = { CameraUnavailablePlaceholder() },
+    /** null — фигуры внизу нет: проводник стоит в 3D-сцене, здесь остаётся только реплика. */
+    companionArtwork: (@Composable () -> Unit)? = { CompanionPlaceholder() },
+    /** Состояние поиска таблички; null — экран работает без маркера. */
+    markerStatus: MarkerStatus? = null,
 ) {
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
         cameraFeed()
@@ -98,7 +106,12 @@ fun ArScreen(
 
             CompassStrip(scene.orientation, scene.locationAccuracyMeters)
 
-            if (scene.locationUnreliable) {
+            val markerNotice = markerStatus?.let(::markerNoticeText)
+            if (markerNotice != null) {
+                // Пока проводник не стоит на табличке, главное — её найти; про GPS потом.
+                MarkerNotice(markerNotice)
+            } else if (scene.locationUnreliable && markerStatus == null) {
+                // С табличкой проводник уже стоит где надо — жалоба на GPS была бы шумом.
                 UnreliableLocationNotice()
             } else if (scene.offScreenHint != OffScreenHint.NONE) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -128,11 +141,14 @@ fun ArScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             spec.companion?.let { companion ->
-                CompanionCharacter(
-                    spec = companion,
-                    onTap = actions.onCompanionTap,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
+                if (companionArtwork != null) {
+                    CompanionCharacter(
+                        spec = companion,
+                        onTap = actions.onCompanionTap,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                        artwork = companionArtwork,
+                    )
+                }
                 DialoguePanel(
                     spec = companion,
                     subtitle = spec.narration.subtitles.lineAt(playback.positionMillis)?.text,
@@ -140,6 +156,7 @@ fun ArScreen(
                     aimLabel = spec.target?.let { "Навести на цель" },
                     onReplay = actions.onReplay,
                     onAim = actions.onAim,
+                    onTrick = actions.onTrick,
                 )
             }
         }

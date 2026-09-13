@@ -73,3 +73,31 @@ fun croppedFieldOfView(
         )
     }
 }
+
+/**
+ * Угол обзора по параметрам камеры в пикселях — так их отдаёт ARCore.
+ *
+ * Фокусное расстояние [focalX] относится к оси [width], [focalY] — к оси [height].
+ * Размеры приходят в ориентации матрицы, обычно альбомной (1920×1080), но на это
+ * не полагаемся: короткая сторона кадра в портрете всегда идёт поперёк экрана.
+ */
+fun fieldOfViewFromIntrinsics(
+    focalX: Float,
+    focalY: Float,
+    width: Int,
+    height: Int,
+    portrait: Boolean = true,
+): CameraFieldOfView {
+    require(focalX > 0f && focalY > 0f) { "Фокусное расстояние должно быть положительным" }
+    require(width > 0 && height > 0) { "Размер кадра должен быть положительным" }
+
+    val angleX = Math.toDegrees(2.0 * kotlin.math.atan(width / 2.0 / focalX))
+    val angleY = Math.toDegrees(2.0 * kotlin.math.atan(height / 2.0 / focalY))
+    val (alongLong, alongShort) = if (width >= height) angleX to angleY else angleY to angleX
+
+    return if (portrait) {
+        CameraFieldOfView(horizontalDegrees = alongShort, verticalDegrees = alongLong)
+    } else {
+        CameraFieldOfView(horizontalDegrees = alongLong, verticalDegrees = alongShort)
+    }
+}

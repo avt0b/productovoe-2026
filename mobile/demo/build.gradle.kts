@@ -13,6 +13,10 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1"
+
+        // Filament везёт нативные библиотеки под четыре ABI и раздувает APK
+        // до ~40 МБ. Оставляем реальный телефон и эмулятор.
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
 
     buildFeatures {

@@ -3,6 +3,7 @@ package ru.marshruty.ar.sim
 import ru.marshruty.ar.ArPointSpec
 import ru.marshruty.ar.ArTarget
 import ru.marshruty.ar.CompanionSpec
+import ru.marshruty.ar.MarkerSpec
 import ru.marshruty.ar.NarrationSpec
 import ru.marshruty.ar.SubtitleLine
 import ru.marshruty.ar.domain.DeviceOrientation
@@ -29,7 +30,20 @@ object Simulation {
     val companion = CompanionSpec(
         name = "Санитарный пёс Верный",
         subtitle = "41-й СП",
-        assetUri = "asset:///companion/verny.webp",
+        // Временная затычка: настоящей модели проводника ещё нет.
+        assetUri = "companion/shrek.glb",
+    )
+
+    /**
+     * Табличка точки: tools/make_marker.py.
+     *
+     * Ширина не задана намеренно: на стенде маркер показывают то на ноутбуке,
+     * то на телефоне, то печатают — пусть ARCore меряет сам. Для настоящей
+     * таблички на точке ширину стоит указать.
+     */
+    val marker = MarkerSpec(
+        assetPath = "markers/wp-2.png",
+        fallbackInFrontAfterMillis = 4_000,
     )
 
     val point = ArPointSpec(
@@ -57,6 +71,7 @@ object Simulation {
                 ),
             ),
         ),
+        marker = marker,
     )
 
     /** Точка без проводника: у братской могилы маскот неуместен. */
@@ -66,6 +81,7 @@ object Simulation {
         stepIndex = 4,
         companion = null,
         target = null,
+        marker = null,
     )
 
     val fix = LocationFix(point = Observer, accuracyMeters = 6.0)

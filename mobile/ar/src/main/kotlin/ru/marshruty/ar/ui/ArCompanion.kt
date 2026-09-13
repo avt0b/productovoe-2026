@@ -79,7 +79,7 @@ internal fun CompanionCharacter(
 
 /** Заглушка персонажа, пока нет ассета: силуэт вместо пустоты. */
 @Composable
-private fun CompanionPlaceholder(modifier: Modifier = Modifier) {
+internal fun CompanionPlaceholder(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .size(width = 170.dp, height = 170.dp)
@@ -108,6 +108,8 @@ internal fun DialoguePanel(
     onReplay: () -> Unit,
     onAim: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Трюк по кнопке. null — у персонажа нет такого клипа. */
+    onTrick: (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -164,6 +166,21 @@ internal fun DialoguePanel(
             ) {
                 Text("↻", style = ArType.LabelAction, color = ArColors.TertiaryFixed)
                 Text("Повторить", style = ArType.LabelAction, color = ArColors.SurfaceBright)
+            }
+
+            if (onTrick != null) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(ArColors.SurfaceContainerHighest.copy(alpha = 0.2f))
+                        .clickable(onClick = onTrick)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text("↻", style = ArType.LabelAction, color = ArColors.TertiaryFixedDim)
+                    Text("Сальто", style = ArType.LabelAction, color = ArColors.SurfaceBright)
+                }
             }
 
             if (aimLabel != null) {

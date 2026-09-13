@@ -141,23 +141,33 @@ private fun DemoScreen() {
             modifier = Modifier.fillMaxWidth(),
         )
 
+        // Одна точка, два режима: с маркером проводник встаёт на картинку через
+        // ARCore, без маркера — прежний экран на CameraX и компасе.
+        fun launchPoint(withMarker: Boolean) {
+            val lat = latitude.trim().toDoubleOrNull()
+            val lon = longitude.trim().toDoubleOrNull()
+            if (lat == null || lon == null) {
+                hint = "Координаты не разобраны — нужны числа, разделитель точка"
+                return
+            }
+            hint = null
+            launcher.launch(
+                Simulation.point.copy(
+                    target = ArTarget(GeoPoint(lat, lon), label = label),
+                    marker = Simulation.marker.takeIf { withMarker },
+                ),
+            )
+        }
+
         Button(
-            onClick = {
-                val lat = latitude.trim().toDoubleOrNull()
-                val lon = longitude.trim().toDoubleOrNull()
-                if (lat == null || lon == null) {
-                    hint = "Координаты не разобраны — нужны числа, разделитель точка"
-                } else {
-                    hint = null
-                    launcher.launch(
-                        Simulation.point.copy(
-                            target = ArTarget(GeoPoint(lat, lon), label = label),
-                        ),
-                    )
-                }
-            },
+            onClick = { launchPoint(withMarker = true) },
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Открыть AR с этой целью") }
+        ) { Text("Открыть AR с маркером") }
+
+        OutlinedButton(
+            onClick = { launchPoint(withMarker = false) },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Открыть AR без маркера (компас)") }
 
         OutlinedButton(
             onClick = { launcher.launch(Simulation.memorialPoint) },

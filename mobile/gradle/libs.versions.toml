@@ -1,14 +1,20 @@
 # Версии взяты те, что уже лежат в локальном кэше Gradle, — сборка не тянет лишнего.
 [versions]
 agp = "9.3.2"
-# Версия Compose-компилятора обязана совпадать с Kotlin, который несёт AGP.
-kotlin = "2.2.10"
+# 2.4.10, а не встроенная в AGP 9.3.2 2.2.10: ARSceneView собран Kotlin 2.4.10,
+# и компилятор младше его метаданные не читает. AGP берёт KGP с classpath
+# старше своего, если тот объявлен в корневом plugins { … apply false }.
+kotlin = "2.4.10"
 coreKtx = "1.16.0"
 lifecycle = "2.9.4"
 composeBom = "2026.02.01"
 activityCompose = "1.8.2"
 camerax = "1.4.2"
 coroutines = "1.9.0"
+# Filament отдельно не подключаем: SceneView везёт свой (1.72.1), и его материалы
+# собраны под эту версию движка. Более новый Filament поднял бы версию и уронил
+# загрузку материалов на старте.
+sceneview = "4.34.0"
 junit = "4.13.2"
 
 [libraries]
@@ -34,6 +40,9 @@ camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.r
 camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 
+# AR-сцена: сессия ARCore, фон камеры, Filament, glTF и трекинг картинок.
+arsceneview = { group = "io.github.sceneview", name = "arsceneview", version.ref = "sceneview" }
+
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -42,3 +51,4 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

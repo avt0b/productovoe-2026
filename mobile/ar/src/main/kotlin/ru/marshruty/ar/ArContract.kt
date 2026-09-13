@@ -37,6 +37,22 @@ data class SubtitleLine(
 fun List<SubtitleLine>.lineAt(positionMillis: Long): SubtitleLine? =
     firstOrNull { positionMillis >= it.fromMillis && positionMillis < it.toMillis }
 
+/**
+ * Позиция, которая меняется только на границах строк.
+ *
+ * Экран перерисовывает субтитры, когда меняется позиция. Отдавать ему живые
+ * миллисекунды — значит перерисовывать его каждый кадр, 120 раз в секунду на
+ * таком телефоне, хотя строка сменится через шесть секунд. Здесь все моменты
+ * одной строки сворачиваются в её начало, а пауза — в конец предыдущей:
+ * [lineAt] от результата даёт ту же строку, что и от живой позиции.
+ *
+ * Строки должны идти по порядку и не перекрываться — как их и пишут.
+ */
+fun List<SubtitleLine>.stablePositionAt(positionMillis: Long): Long {
+    val line = lastOrNull { it.fromMillis <= positionMillis } ?: return -1L
+    return if (positionMillis < line.toMillis) line.fromMillis else line.toMillis
+}
+
 /** Состояние проигрывания рассказа. */
 data class NarrationPlayback(
     val positionMillis: Long = 0L,
@@ -55,7 +71,19 @@ data class NarrationPlayback(
 data class CompanionSpec(
     val name: String,
     val subtitle: String,
-    /** Ассет персонажа: спрайт-лист или видео с альфа-каналом. */
+    /**
+     * Ассет персонажа внутри `assets`. Различается по расширению:
+     *
+     * - `companion/verny.glb` — 3D-модель glTF. Рисуется только в режиме
+     *   маркера, где есть сцена ARCore; модель должна быть пропущена через
+     *   tools/normalize_companion.py (рост 1.0, ноги на нуле, лицом к +Z);
+     * - `companion/verny` — папка с кадрами `idle_000.png`,
+     *   `talking_000.png`, `trick_000.png`. Достаточно одного
+     *   `idle_000.png`: статичная картинка это клип из одного кадра.
+     *
+     * Покадровая ветка остаётся запасной: без маркера или без ARCore
+     * экран показывает плоского персонажа, а не пустоту.
+     */
     val assetUri: String,
 ) : java.io.Serializable
 
@@ -68,6 +96,45 @@ data class ArTarget(
     val heightOffsetMeters: Double = 0.0,
 ) : java.io.Serializable
 
+/**
+ * Картинка-маркер, на которую встаёт проводник.
+ *
+ * Компас и GPS дают направление с ошибкой в десятки метров и градусов — чтобы
+ * показать «вон за той берёзой», этого хватает, а чтобы поставить персонажа
+ * на конкретное место — нет: он будет плавать по кадру. Табличка на точке даёт
+ * позу с точностью до сантиметров.
+ *
+ * Нужен ARCore. Если его на телефоне нет, экран работает как раньше — на компасе.
+ */
+data class MarkerSpec(
+    /** Картинка внутри `assets`, например `markers/wp-2.png`. */
+    val assetPath: String,
+    /**
+     * Ширина картинки, метры, или null — тогда ARCore измерит её сам.
+     *
+     * Известная ширина даёт точную позу с первого кадра — для напечатанной
+     * таблички на точке её стоит указывать. Без ширины ARCore нужно пару секунд
+     * движения камеры, зато картинку можно показать на экране любого размера.
+     * Неверная ширина хуже отсутствующей: маркер на экране телефона шириной
+     * 6 см при заявленных 30 см дал проводника впятеро больше таблички и мимо неё.
+     */
+    val physicalWidthMeters: Float? = null,
+    /** Рост проводника, метры. null — чуть больше ширины таблички, заданной или измеренной. */
+    val companionHeightMeters: Float? = null,
+    /**
+     * Через сколько миллисекунд без таблички поставить проводника перед камерой.
+     * null — ждать табличку сколько угодно. Нужно там, где табличку сняли или
+     * закрыли, и в зале защиты: пустой экран с «ищу» хуже персонажа рядом.
+     * Найдётся табличка позже — проводник перейдёт на неё.
+     */
+    val fallbackInFrontAfterMillis: Long? = null,
+) : java.io.Serializable {
+    init {
+        require(physicalWidthMeters == null || physicalWidthMeters > 0f) { "Ширина маркера должна быть положительной" }
+        require(companionHeightMeters == null || companionHeightMeters > 0f) { "Рост проводника должен быть положительным" }
+    }
+}
+
 /** Всё, что нужно AR-экрану для одной точки маршрута. */
 data class ArPointSpec(
     val pointId: String,
@@ -77,6 +144,8 @@ data class ArPointSpec(
     val target: ArTarget?,
     val companion: CompanionSpec?,
     val narration: NarrationSpec,
+    /** Табличка на точке. null — маркера нет, проводник показывается без привязки к месту. */
+    val marker: MarkerSpec? = null,
 ) : java.io.Serializable {
     init {
         require(stepTotal > 0) { "stepTotal должен быть положительным" }

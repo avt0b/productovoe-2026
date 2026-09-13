@@ -13,8 +13,16 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <!-- ARCore нужен только режиму с маркером: без него экран работает на компасе. -->
+    <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
 
     <application>
+        <!--
+          optional, а не required: иначе Play скроет приложение на телефонах без
+          ARCore, хотя маршруты и компасный AR-экран там работают.
+        -->
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
+
         <!--
           Портрет зафиксирован: пересчёт осей датчика вращения сделан для
           вертикально удерживаемого телефона, для альбомной он был бы другим.
