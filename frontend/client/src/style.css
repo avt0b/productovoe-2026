@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #app {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-surface font-body-md text-body-md text-on-surface antialiased;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-1 ring-offset-surface;
+  }
+}
+
+@layer components {
+  /* Иконка Material Symbols: сам класс `material-symbols-outlined` приходит из CSS Google Fonts. */
+  .icon-filled {
+    font-variation-settings: 'FILL' 1;
+  }
+}
+
+@layer utilities {
+  /* Отступы под вырез экрана и системную полосу — для APK и «на экран Домой». */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
