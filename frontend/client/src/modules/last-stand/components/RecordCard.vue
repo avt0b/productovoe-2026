@@ -41,23 +41,17 @@ onBeforeUnmount(() => {
         <MsIcon name="timelapse" :size="14" />
         {{ record.stage }}
       </span>
-      <span class="rounded-full bg-surface-container-high px-2.5 py-1 font-label-sm text-label-sm text-on-surface-variant">
-        {{ record.square }}
+      <span
+        v-if="record.unit"
+        class="rounded-full bg-surface-container-high px-2.5 py-1 font-label-sm text-label-sm text-on-surface-variant"
+      >
+        {{ record.unit }}
       </span>
     </div>
 
     <div>
       <h3 class="font-headline-lg-mobile text-headline-lg-mobile leading-tight text-on-surface">{{ record.title }}</h3>
       <p class="mt-1 font-body-md text-body-md text-outline">{{ record.period }}</p>
-    </div>
-
-    <div v-if="record.photos.length" class="grid grid-cols-2 gap-space-sm">
-      <div v-for="photo in record.photos" :key="photo.src" class="relative h-28 overflow-hidden rounded-lg shadow-sm">
-        <img :src="photo.src" :alt="photo.caption" class="h-full w-full object-cover" />
-        <div class="absolute bottom-1.5 left-2 rounded-full bg-inverse-surface/75 px-2 py-0.5 font-label-sm text-label-sm text-inverse-on-surface">
-          {{ photo.caption }}
-        </div>
-      </div>
     </div>
 
     <div class="space-y-space-xs rounded-lg bg-surface-container-low p-space-md">

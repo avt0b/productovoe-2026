@@ -5,8 +5,8 @@ const visible = defineModel<Set<FindStatus>>({ required: true })
 
 /** Цвет стадии: тот же, что у метки на карте, — чтобы фильтр читался как легенда. */
 const TONES: Record<FindStatus, { on: string; dot: string }> = {
-  found: { on: 'bg-tertiary-fixed text-on-tertiary-fixed', dot: 'bg-tertiary' },
-  confirmed: { on: 'bg-primary-fixed text-on-primary-fixed-variant', dot: 'bg-primary' },
+  found: { on: 'bg-primary-fixed text-on-primary-fixed-variant', dot: 'bg-primary' },
+  confirmed: { on: 'bg-secondary-container text-on-secondary-container', dot: 'bg-secondary' },
   raised: { on: 'bg-secondary-container text-on-secondary-container', dot: 'bg-secondary' },
 }
 

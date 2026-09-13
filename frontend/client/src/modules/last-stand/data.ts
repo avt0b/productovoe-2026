@@ -1,10 +1,13 @@
-import { withLatency } from '@/core/mock'
+import type { DataSource } from '@/core/api'
+import { formatCoordinates, type GeoTone, type LatLon } from '@/core/geo'
+import { listLastStand, type LastStandPoint, type LastStandStatus } from '@/core/services/map'
 
 /**
- * Данные окна «Последний бой».
+ * Данные окна «Последний бой» — места гибели бойцов из `map_service`
+ * (`/last-stand`).
  *
- * Пока заглушка из макета. Когда подключим `archive_service` и `map_service`,
- * поменяется только тело `fetchLastStand`.
+ * Если сервис не ответил, приходит демо-набор Орловщины из
+ * `core/services/demoOrel.ts`, а экран показывает плашку «демо-данные».
  */
 
 /** Стадия находки: обнаружено и проверяется → подтверждено архивом → останки подняты. */
@@ -16,82 +19,55 @@ export const STATUS_LABELS: Record<FindStatus, string> = {
   raised: 'Останки подняты',
 }
 
-export interface SectorPin {
-  id: string
-  status: FindStatus
-  label: string
-  icon: string
-  /** Положение на плане сектора, проценты от ширины и высоты. */
-  x: number
-  y: number
-  recordId: string
+/** Метки на карте — как в кейсе: красные ждут проверки, зелёные подтверждены или отработаны. */
+export const STATUS_STYLE: Record<FindStatus, { icon: string; tone: GeoTone }> = {
+  found: { icon: 'person_search', tone: 'primary' },
+  confirmed: { icon: 'verified', tone: 'secondary' },
+  raised: { icon: 'local_florist', tone: 'secondary' },
 }
 
-export interface FindRecord {
+const FROM_SERVICE: Record<LastStandStatus, FindStatus> = {
+  discovered: 'found',
+  archive_confirmed: 'confirmed',
+  remains_raised: 'raised',
+}
+
+export interface FindRecord extends LatLon {
   id: string
+  status: FindStatus
   stage: string
-  square: string
   title: string
+  unit: string
   period: string
-  photos: { src: string; caption: string }[]
   coordinates: string
   source: string
   evidence: string
 }
 
 export interface LastStandOverview {
-  alert: { title: string; distance: string; text: string }
-  sector: string
-  pins: SectorPin[]
-  records: Record<string, FindRecord>
+  records: FindRecord[]
+  source: DataSource
 }
 
-const OVERVIEW: LastStandOverview = {
-  alert: {
-    title: 'Внимание поисковика',
-    distance: '5 км рядом',
-    text: 'Обнаружено предположительное место боя осени 1941 г. Помогите архивистам и поисковикам с верификацией местности.',
-  },
-  sector: 'Сектор: Орел — Мценск',
-  pins: [
-    { id: 'a-14', status: 'found', label: 'Кв. А-14', icon: 'flag', x: 16, y: 20, recordId: 'a-14' },
-    { id: 'v-12', status: 'confirmed', label: 'В-12 • Выс. 214', icon: 'person_search', x: 78, y: 70, recordId: 'v-12' },
-  ],
-  records: {
-    'v-12': {
-      id: 'v-12',
-      stage: 'Полевая разведка (12-15 мая)',
-      square: 'Квадрат № 84-Юг',
-      title: 'Неизвестный десантник 9-й воздушно-десантной бригады',
-      period: 'Октябрь 1941 г. • Бои на шоссе Орел — Мценск',
-      photos: [
-        {
-          src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAnjoy4fngIxUIPxU9OWAgkmlzPDOezfjrB_2OUsDWlj5pe3wybgPDIKaC5aBFv9sHmUjgQX-W6sQBlzX2xaPfxBZQXjDwU8HqWBPkFDL-atBvPZvFZao_YfUiHj64WDN3vr8Tt6bjX9eZQpXZEJVnhQOoKg5ISlZk8wDtGcmnUXyjojKbPI-oiKf56F5ZAG24QDWcU5pDLGnwznO_en2YKlzsG8-9Zs91O1IspvnMyPg2h4mPwjjyB',
-          caption: 'Карта 1941 г.',
-        },
-        {
-          src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuClC9EfG28LKQDhzvWb4n525jz6x3HkqQKj_xJF96m_V-qmjPNdo-gAj1uFoRkgxCgTyqjkizsx2VXJTojC_cg5gclUZa-QyFwJbYs37b7Z0aiS9RHr-6Rvi4B_gVY6YHWE723_KGDSpCh_BfyM9XJEa9U1mHMIYOYnBKK_BjLvSvKS9UkmdPFfAVgklqxDwNFMNosjPPKw8AahDwn0Rye9IRGJq0hx9yHnncJYCu0Vys-BwUe_x0oM',
-          caption: 'Полевой сектор',
-        },
-      ],
-      coordinates: '53°14′28″ N, 36°28′12″ E (высота 214)',
-      source: 'Книга Памяти Орловской области, Том 5, стр. 182',
-      evidence: 'Найден смертный медальон (вкладыш на экспертизе в лаборатории «Солдатский медальон»)',
-    },
-    'a-14': {
-      id: 'a-14',
-      stage: 'Ожидает проверки',
-      square: 'Квадрат № А-14',
-      title: 'Предполагаемая позиция боевого охранения',
-      period: 'Осень 1941 г. • Подступы к шоссе Орел — Мценск',
-      photos: [],
-      coordinates: '53°15′02″ N, 36°26′40″ E',
-      source: 'Сообщение местного жителя, требует сверки с картами',
-      evidence: 'На поверхности — следы окопа и гильзы; раскопки не проводились',
-    },
-  },
+export async function fetchLastStand(): Promise<LastStandOverview> {
+  const { data, source } = await listLastStand()
+  return { records: data.map(toRecord), source }
 }
 
-export function fetchLastStand(): Promise<LastStandOverview> {
-  return withLatency(OVERVIEW)
+function toRecord(point: LastStandPoint): FindRecord {
+  const status = FROM_SERVICE[point.status]
+  return {
+    id: point.id,
+    status,
+    stage: STATUS_LABELS[status],
+    // Имя бойца часто неизвестно — это нормально для «Последнего боя», а не пропуск в данных.
+    title: point.soldier_name || 'Неизвестный боец',
+    unit: point.unit,
+    period: point.date_text || 'Дата гибели не установлена',
+    coordinates: formatCoordinates(point),
+    source: point.source || 'Источник не указан',
+    evidence: point.circumstances || 'Обстоятельства гибели уточняются',
+    lat: point.lat,
+    lon: point.lon,
+  }
 }
