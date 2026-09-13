@@ -14,6 +14,25 @@ uv run uvicorn main:app --reload --port 8006
 
 Swagger — <http://127.0.0.1:8006/docs>. Тесты: `uv run pytest`.
 
+## Демо-маршрут
+
+```bash
+uv run python -m scripts.seed_orel
+```
+
+«Тропа памяти: центр Орла» — сценарий кейса «мама с ребёнком 10 лет»:
+опубликованный семейный маршрут из четырёх точек у реальных мемориалов
+(координаты из OpenStreetMap) с историями, заданиями для ребёнка и
+AR-подсказками. `poi_id` точек совпадает с id тех же мест, которые заливает
+`map_service/scripts/seed_orel.py`: общий неймспейс uuid5, запросов между
+сервисами не нужно.
+
+## CORS
+
+Клиентское приложение ходит в сервис напрямую — его origin должен быть в
+`CORS_ORIGINS`. По умолчанию разрешены dev-сервер клиента (`:5174`) и APK
+(`https://localhost`, Capacitor на Android).
+
 ## Сущности
 
 - **Route** — маршрут: `mode` (`family` / `general`), `city`, `distance_km`,
