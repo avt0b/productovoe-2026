@@ -13,16 +13,19 @@ const DEMO_USER: SessionUser = {
 }
 
 /**
- * Вход без проверки учётных данных.
+ * Демо-вход без аккаунта и без проверки учётных данных.
  *
- * Любой способ — пароль, регистрация, Госуслуги, VK ID, Сбер ID — пускает
- * внутрь демо-пользователем. При регистрации подставляется введённое имя,
- * чтобы было видно, что форма вообще что-то передаёт.
+ * Пускает демо-пользователем, токенов не выдаёт. При регистрации подставляется
+ * введённое имя, чтобы было видно, что форма вообще что-то передаёт.
  */
 export const stubAuthProvider: AuthProvider = {
   async signIn(request) {
     const name = request.name?.trim()
-    return withLatency({ ...DEMO_USER, name: name || DEMO_USER.name })
+    return withLatency({ user: { ...DEMO_USER, name: name || DEMO_USER.name }, tokens: null })
+  },
+
+  async refresh() {
+    throw new Error('У демо-сессии нет токена')
   },
 
   async signOut() {
