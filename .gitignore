@@ -27,3 +27,6 @@ backend/*/keys/*.pem
 .vscode/
 
 # uv.lock коммитим в каждом сервисе — не игнорируем
+
+# Claude Code local tooling state
+.claude/
