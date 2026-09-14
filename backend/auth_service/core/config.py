@@ -22,5 +22,14 @@ class Settings(BaseSettings):
     # Внутренний служебный ключ: по нему admin_service ходит в /internal/*.
     internal_api_key: str = "dev-internal-key-change-me"
 
+    # Клиентское приложение входит напрямую: dev-сервер Vite и APK
+    # (Capacitor на Android отдаёт приложение с https://localhost).
+    cors_origins: list[str] = [
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "https://localhost",
+        "capacitor://localhost",
+    ]
+
 
 settings = Settings()
