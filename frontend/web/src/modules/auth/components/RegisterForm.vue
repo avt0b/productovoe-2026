@@ -1,17 +1,21 @@
 <script setup>
 import { reactive, ref } from 'vue'
+import { useAuthSession } from '../session.js'
+import { ROLE_LABELS } from '../roles.js'
 
 const emit = defineEmits(['success'])
 
-const roles = [
-  { id: 'researcher', label: 'Поисковик-исследователь' },
-  { id: 'historian', label: 'Краевед / наставник' },
-  { id: 'family', label: 'Родитель / семейный режим' },
-]
+const { register } = useAuthSession()
+
+// moderator намеренно не предлагается при самостоятельной регистрации — эта
+// роль выдаётся из админки для модерации «народного архива».
+const roles = Object.entries(ROLE_LABELS)
+  .filter(([id]) => id !== 'moderator')
+  .map(([id, label]) => ({ id, label }))
 
 const form = reactive({
   name: '',
-  contact: '',
+  email: '',
   role: 'family',
   password: '',
   passwordConfirm: '',
@@ -20,10 +24,14 @@ const form = reactive({
 const status = ref('idle')
 const error = ref('')
 
-function submit() {
+async function submit() {
   error.value = ''
-  if (!form.name || !form.contact || !form.password) {
-    error.value = 'Заполните ФИО, контакт и пароль'
+  if (!form.email || !form.password) {
+    error.value = 'Заполните e-mail и пароль'
+    return
+  }
+  if (form.password.length < 8) {
+    error.value = 'Пароль должен быть не короче 8 символов'
     return
   }
   if (form.password !== form.passwordConfirm) {
@@ -35,17 +43,23 @@ function submit() {
     return
   }
   status.value = 'pending'
-  setTimeout(() => {
+  try {
+    await register({ email: form.email, password: form.password, role: form.role })
     status.value = 'done'
     emit('success')
-  }, 900)
+  } catch (err) {
+    status.value = 'idle'
+    error.value = err.detail ?? 'Не удалось создать аккаунт'
+  }
 }
 </script>
 
 <template>
   <form class="flex flex-col gap-4" @submit.prevent="submit">
     <div>
-      <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">ФИО</label>
+      <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">
+        ФИО <span class="normal-case font-normal text-on-surface-variant/70">(появится в профиле позже)</span>
+      </label>
       <input
         v-model="form.name"
         type="text"
@@ -54,13 +68,11 @@ function submit() {
       />
     </div>
     <div>
-      <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">
-        Телефон или e-mail
-      </label>
+      <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">E-mail</label>
       <input
-        v-model="form.contact"
-        type="text"
-        placeholder="+7 (900) 000-00-00 или you@mail.ru"
+        v-model="form.email"
+        type="email"
+        placeholder="you@mail.ru"
         class="w-full h-12 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
       />
     </div>
@@ -85,7 +97,7 @@ function submit() {
         <input
           v-model="form.password"
           type="password"
-          placeholder="••••••••"
+          placeholder="минимум 8 символов"
           class="w-full h-12 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
         />
       </div>

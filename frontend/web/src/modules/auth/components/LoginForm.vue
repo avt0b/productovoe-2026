@@ -1,36 +1,41 @@
 <script setup>
 import { reactive, ref } from 'vue'
+import { useAuthSession } from '../session.js'
 
 const emit = defineEmits(['success'])
 
-const form = reactive({ login: '', password: '', remember: true })
+const { login } = useAuthSession()
+
+const form = reactive({ email: '', password: '', remember: true })
 const status = ref('idle')
 const error = ref('')
 
-function submit() {
+async function submit() {
   error.value = ''
-  if (!form.login || !form.password) {
-    error.value = 'Заполните телефон/e-mail и пароль'
+  if (!form.email || !form.password) {
+    error.value = 'Заполните e-mail и пароль'
     return
   }
   status.value = 'pending'
-  setTimeout(() => {
+  try {
+    await login({ email: form.email, password: form.password })
     status.value = 'done'
     emit('success')
-  }, 800)
+  } catch (err) {
+    status.value = 'idle'
+    error.value = err.detail ?? 'Не удалось войти. Проверьте e-mail и пароль'
+  }
 }
 </script>
 
 <template>
   <form class="flex flex-col gap-4" @submit.prevent="submit">
     <div>
-      <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">
-        Телефон или e-mail
-      </label>
+      <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">E-mail</label>
       <input
-        v-model="form.login"
-        type="text"
-        placeholder="+7 (900) 000-00-00 или you@mail.ru"
+        v-model="form.email"
+        type="email"
+        placeholder="you@mail.ru"
         class="w-full h-12 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
       />
     </div>
