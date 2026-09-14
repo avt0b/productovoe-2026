@@ -1,11 +1,15 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
+import { useAuthSession } from '@modules/auth'
+import * as fundraisingApi from '../api.js'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   campaign: { type: Object, default: null },
 })
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'donated'])
+
+const { session } = useAuthSession()
 
 const amounts = [100, 300, 500, 1000]
 const methods = [
@@ -16,13 +20,17 @@ const methods = [
 
 const form = reactive({ amount: 300, customAmount: '', method: 'card' })
 const step = ref('form')
+const error = ref('')
 
 const effectiveAmount = computed(() => Number(form.customAmount) || form.amount)
 
 watch(
   () => props.modelValue,
   (open) => {
-    if (open) step.value = 'form'
+    if (open) {
+      step.value = 'form'
+      error.value = ''
+    }
   },
 )
 
@@ -31,12 +39,28 @@ function pickAmount(value) {
   form.customAmount = ''
 }
 
-function pay() {
+async function pay() {
   if (!effectiveAmount.value || effectiveAmount.value < 10) return
+  if (session.status !== 'authenticated') {
+    error.value = 'Войдите, чтобы оформить пожертвование'
+    return
+  }
   step.value = 'processing'
-  setTimeout(() => {
+  try {
+    // search_hq_service пока не интегрирован с платёжным провайдером (см.
+    // README сервиса — «Интеграция ЮKassa/CloudPayments» в планах). Реально
+    // сохраняется сумма и комментарий, деньги физически не списываются.
+    const methodLabel = methods.find((m) => m.id === form.method)?.label
+    await fundraisingApi.donate(session.accessToken, props.campaign.id, {
+      amount: effectiveAmount.value,
+      comment: `Демо-оплата: ${methodLabel}`,
+    })
+    emit('donated', { needId: props.campaign.id, amount: effectiveAmount.value })
     step.value = 'done'
-  }, 1200)
+  } catch (err) {
+    step.value = 'form'
+    error.value = err.detail ?? 'Не удалось оформить пожертвование'
+  }
 }
 
 function close() {
@@ -102,6 +126,8 @@ function close() {
           </label>
         </div>
 
+        <p v-if="error" class="font-label-sm text-label-sm text-error font-bold text-center">{{ error }}</p>
+
         <button
           class="h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md hover:opacity-95 transition-all flex items-center justify-center gap-2"
           @click="pay"
@@ -110,14 +136,14 @@ function close() {
           <span>Пожертвовать {{ effectiveAmount }} ₽</span>
         </button>
         <span class="text-center font-body-sm text-body-sm text-on-surface-variant">
-          Демо-оплата — реальный платёж не списывается
+          Сумма реально сохранится в search_hq_service — платёжного провайдера пока нет, деньги не списываются
         </span>
       </template>
 
       <template v-else-if="step === 'processing'">
         <div class="flex flex-col items-center gap-3 py-8">
           <span class="material-symbols-outlined text-primary text-[40px] animate-spin">sync</span>
-          <span class="font-label-md text-label-md text-on-surface font-bold">Обрабатываем платёж...</span>
+          <span class="font-label-md text-label-md text-on-surface font-bold">Сохраняем взнос...</span>
         </div>
       </template>
 
@@ -126,7 +152,7 @@ function close() {
           <span class="material-symbols-outlined text-secondary text-[48px]">check_circle</span>
           <span class="font-headline-sm text-headline-sm text-on-surface font-bold">Спасибо за поддержку!</span>
           <span class="font-body-sm text-body-sm text-on-surface-variant">
-            {{ effectiveAmount }} ₽ отправлено отряду «{{ campaign?.squadName }}»
+            {{ effectiveAmount }} ₽ добавлено к сбору отряда «{{ campaign?.squadName }}»
           </span>
           <button class="mt-2 px-5 py-2 rounded-full bg-surface-container text-on-surface font-label-md text-label-md font-bold" @click="close">
             Закрыть
