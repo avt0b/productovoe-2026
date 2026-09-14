@@ -10,7 +10,7 @@ withDefaults(
     label: string
     icon: string
     placeholder?: string
-    type?: 'text' | 'password'
+    type?: 'text' | 'password' | 'email'
     autocomplete?: string
   }>(),
   { type: 'text', placeholder: '', autocomplete: 'off' },

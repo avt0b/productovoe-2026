@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { errorText } from '@/core/format'
 import { usePreferencesStore } from '@/core/preferences'
 import { useSessionStore, type SignInMethod } from '@/core/session'
 import MsIcon from '@/ui/MsIcon.vue'
@@ -23,6 +24,9 @@ const name = ref('')
 const contact = ref('')
 const password = ref('')
 const passwordVisible = ref(false)
+/** Регистрируется краевед или наставник — он сможет водить экскурсии и собирать группу бампом. */
+const isGuide = ref(false)
+const signInError = ref<string | null>(null)
 /** Какой способ входа сейчас в работе — чтобы крутилка была на нажатой кнопке, а не на всех. */
 const activeMethod = ref<SignInMethod | null>(null)
 
@@ -40,14 +44,18 @@ function nextPath(): string | null {
 async function enter(method: SignInMethod): Promise<void> {
   if (session.pending) return
   activeMethod.value = method
+  signInError.value = null
   try {
     await session.signIn({
       method,
       contact: contact.value,
       password: password.value,
       name: mode.value === 'register' ? name.value : undefined,
+      role: mode.value === 'register' && isGuide.value ? 'local_historian' : undefined,
     })
     await router.replace(nextPath() ?? { name: 'home' })
+  } catch (reason) {
+    signInError.value = errorText(reason)
   } finally {
     activeMethod.value = null
   }
@@ -116,9 +124,10 @@ function submit(): void {
 
         <AuthField
           v-model="contact"
-          label="Телефон или почта"
+          label="Почта"
           icon="mail"
-          placeholder="name@mail.ru или +7 (900)..."
+          type="email"
+          placeholder="name@mail.ru"
           autocomplete="username"
         />
 
@@ -127,7 +136,7 @@ function submit(): void {
           label="Пароль"
           icon="lock"
           :type="passwordVisible ? 'text' : 'password'"
-          :placeholder="mode === 'login' ? 'Введите ваш пароль' : 'Придумайте пароль'"
+          :placeholder="mode === 'login' ? 'Введите ваш пароль' : 'Не короче 8 символов'"
           :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
         >
           <template v-if="mode === 'login'" #label-action>
@@ -146,6 +155,20 @@ function submit(): void {
             </button>
           </template>
         </AuthField>
+
+        <!-- Краевед при регистрации: сможет водить экскурсии и собирать группу бампом -->
+        <div v-if="mode === 'register'" class="flex items-center justify-between rounded-xl bg-surface-container-low p-space-sm">
+          <div class="flex items-center space-x-space-sm">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary-fixed text-secondary">
+              <MsIcon name="record_voice_over" :size="15" />
+            </div>
+            <div class="flex flex-col">
+              <span class="font-label-md text-label-md text-on-surface">Я краевед или наставник</span>
+              <span class="font-label-sm text-label-sm text-on-surface-variant">Буду водить экскурсии и собирать группы</span>
+            </div>
+          </div>
+          <ToggleSwitch v-model="isGuide" label="Я краевед или наставник" class="ml-2" />
+        </div>
 
         <!-- Семейный режим -->
         <div class="flex items-center justify-between rounded-xl bg-surface-container-low p-space-sm">
@@ -174,8 +197,16 @@ function submit(): void {
           <span>{{ submitLabel }}</span>
         </button>
 
+        <p
+          v-if="signInError"
+          class="rounded-xl bg-error-container px-space-sm py-2 text-center font-body-sm text-body-sm text-on-error-container"
+          role="alert"
+        >
+          {{ signInError }}
+        </p>
+
         <p class="text-center font-label-sm text-label-sm text-outline">
-          Демо-вход: данные пока не проверяются, поля можно оставить пустыми.
+          Оставьте поля пустыми, чтобы войти в демо-режиме без аккаунта. Записаться на экскурсию в нём нельзя.
         </p>
       </form>
 
