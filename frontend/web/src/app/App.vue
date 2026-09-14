@@ -1,11 +1,19 @@
 <script setup>
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from './components/AppSidebar.vue'
 import AppHeader from './components/AppHeader.vue'
 import { useSidebar } from './composables/useSidebar.js'
+import { useAuthSession, roleLabel } from '@modules/auth'
 
 const route = useRoute()
 const { isOpen, toggle, close, closeOnMobile } = useSidebar()
+const { session } = useAuthSession()
+
+const headerUserName = computed(() => session.user?.email ?? 'Гость')
+const headerUserRole = computed(() =>
+  session.user ? roleLabel(session.user.role) : 'Войдите, чтобы видеть свои данные',
+)
 </script>
 
 <template>
@@ -20,7 +28,12 @@ const { isOpen, toggle, close, closeOnMobile } = useSidebar()
     />
     <AppSidebar :open="isOpen" @navigate="closeOnMobile" @close="close" />
     <div class="transition-[padding] duration-300 ease-out" :class="isOpen ? 'lg:pl-72' : 'lg:pl-0'">
-      <AppHeader :sidebar-open="isOpen" @toggle-sidebar="toggle" />
+      <AppHeader
+        :sidebar-open="isOpen"
+        :user-name="headerUserName"
+        :user-role="headerUserRole"
+        @toggle-sidebar="toggle"
+      />
       <main class="relative pt-16 w-full px-4 sm:px-6 lg:px-8 bg-surface min-h-screen">
         <RouterView />
       </main>

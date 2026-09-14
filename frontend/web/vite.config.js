@@ -20,4 +20,16 @@ export default defineConfig({
       '@shared': fileURLToPath(new URL('./src/shared', import.meta.url)),
     },
   },
+  server: {
+    // Backend-сервисы не настраивают CORS (см. backend/README.md — их код
+    // трогать нельзя), поэтому проксируем запросы через dev-сервер: браузер
+    // видит только localhost:5173, кросс-origin запроса просто не возникает.
+    proxy: {
+      '/api/auth': {
+        target: 'http://127.0.0.1:8001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
 })
