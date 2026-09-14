@@ -5,6 +5,7 @@ import { routes as expeditionHqRoutes } from '@modules/expedition-hq'
 import { routes as fundraisingRoutes } from '@modules/fundraising'
 import { routes as livingMemoryRoutes } from '@modules/living-memory'
 import { routes as profileRoutes } from '@modules/profile'
+import { routes as authRoutes } from '@modules/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -16,6 +17,7 @@ const router = createRouter({
     ...fundraisingRoutes,
     ...livingMemoryRoutes,
     ...profileRoutes,
+    ...authRoutes,
   ],
 })
 
