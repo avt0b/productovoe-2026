@@ -1,9 +1,26 @@
 <script setup>
-const metrics = [
+import { computed } from 'vue'
+
+const props = defineProps({
+  points: { type: Array, default: () => [] },
+})
+
+// "Радиус поиска" и "Отрядов на месте" — в map_service нет таких полей,
+// оставлены как декоративная витрина. "Останков поднято" — честный счётчик
+// по реальным точкам (status === remains_raised).
+const raisedCount = computed(() => props.points.filter((p) => p.status === 'remains_raised').length)
+
+const metrics = computed(() => [
   { icon: 'explore', bg: 'bg-secondary-fixed', fg: 'text-on-secondary-fixed', label: 'Радиус поиска', value: '14.8 км²' },
   { icon: 'person_search', bg: 'bg-tertiary-fixed', fg: 'text-on-tertiary-fixed', label: 'Отрядов на месте', value: '3 группы' },
-  { icon: 'badge', bg: 'bg-primary-fixed', fg: 'text-on-primary-fixed', label: 'Медальонов 2024', value: '7 передано' },
-]
+  {
+    icon: 'badge',
+    bg: 'bg-primary-fixed',
+    fg: 'text-on-primary-fixed',
+    label: 'Останков поднято',
+    value: `${raisedCount.value} из ${props.points.length}`,
+  },
+])
 </script>
 
 <template>

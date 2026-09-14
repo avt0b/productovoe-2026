@@ -20,7 +20,9 @@ const props = defineProps({
   path: { type: Array, default: () => [] },
   pathColor: { type: String, default: '#ab2e22' },
   scrollWheelZoom: { type: Boolean, default: false },
+  fitToMarkers: { type: Boolean, default: true },
 })
+const emit = defineEmits(['marker-click'])
 
 const mapEl = ref(null)
 let map = null
@@ -36,6 +38,9 @@ function render() {
     if (m.title) {
       marker.bindPopup(`<b>${m.title}</b>${m.subtitle ? `<br>${m.subtitle}` : ''}`)
     }
+    if (m.id !== undefined) {
+      marker.on('click', () => emit('marker-click', m.id))
+    }
   })
 
   if (pathLayer) {
@@ -45,7 +50,7 @@ function render() {
   if (props.path.length > 1) {
     pathLayer = L.polyline(props.path, { color: props.pathColor, weight: 4, opacity: 0.9 }).addTo(map)
     map.fitBounds(pathLayer.getBounds(), { padding: [32, 32] })
-  } else if (props.markers.length) {
+  } else if (props.markers.length && props.fitToMarkers) {
     const bounds = L.latLngBounds(props.markers.map((m) => [m.lat, m.lng]))
     map.fitBounds(bounds, { padding: [48, 48], maxZoom: props.zoom })
   }
