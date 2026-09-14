@@ -1,2 +1,10 @@
 export { useSessionStore } from './store'
-export type { AuthProvider, SessionUser, SignInMethod, SignInRequest } from './types'
+export type {
+  AuthProvider,
+  SessionTokens,
+  SessionUser,
+  SignInMethod,
+  SignInRequest,
+  SignInResult,
+  UserRole,
+} from './types'
