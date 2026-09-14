@@ -20,7 +20,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd ~/productovoe-2026
-            git pull origin develop
+            git pull origin main
             docker compose down
             docker compose build
             docker compose up -d
