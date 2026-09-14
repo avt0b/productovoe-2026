@@ -172,14 +172,16 @@ async function onShake(shakenAt: number): Promise<void> {
 function showResult(result: BumpResult): void {
   if (result.result === 'matched') {
     notice.value = null
-    const group = `в группе ${result.checked_in_count} ${plural(result.checked_in_count, ['человек', 'человека', 'человек'])}`
+    // Число «в группе» из ответа краеведу не берём: отметку ставит запрос участника,
+    // и он может сохраниться на долю секунды позже. Счётчик на экране догонит опросом.
+    const matched = result.matched_user_ids.length
     together.value = isGuide.value
       ? {
           title: 'Вы вместе!',
           subtitle:
-            result.matched_user_ids.length === 1
-              ? `Участник отмечен — ${group}`
-              : `Отмечено участников: ${result.matched_user_ids.length} — ${group}`,
+            matched === 1
+              ? 'Участник отмечен — он в группе'
+              : `Отмечены ${matched} ${plural(matched, ['участник', 'участника', 'участников'])}`,
         }
       : { title: 'Вы вместе!', subtitle: 'Краевед отметил, что вы пришли. Хорошей экскурсии!' }
     return

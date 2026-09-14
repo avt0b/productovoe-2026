@@ -56,15 +56,14 @@ onBeforeUnmount(() => clearTimeout(timer))
         </span>
       </div>
 
+      <!-- Буква — в одну строку с тегом: перенос вокруг {{ letter }} Vue превратил бы в пробел, и буквы разъехались бы. -->
       <h2 class="together__title">
         <span
           v-for="(letter, index) in letters"
           :key="index"
           class="together__letter"
           :style="{ animationDelay: `${650 + index * 55}ms` }"
-        >
-          {{ letter }}
-        </span>
+        >{{ letter }}</span>
       </h2>
 
       <p v-if="subtitle" class="together__subtitle">{{ subtitle }}</p>
