@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api.routers import api_router
@@ -17,9 +18,21 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="search_hq_service — Маршруты победы",
-    description="Поисковый штаб: отряды, потребности, целевые сборы, «Выходные с поисковиком»",
+    description=(
+        "Поисковый штаб: отряды, потребности, целевые сборы, «Выходные с поисковиком», "
+        "экскурсии краеведов и сбор группы бампом"
+    ),
     version="0.1.0",
     lifespan=lifespan,
+)
+
+# Клиентское приложение (браузер и APK) ходит в сервис напрямую, с другого origin.
+# Токен идёт в заголовке, cookie нет — credentials не нужны.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

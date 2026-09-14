@@ -13,6 +13,9 @@ from api.schemas.trip import TripOut
 from core.internal import InternalActor, require_internal_key
 from core.models import (
     Donation,
+    Excursion,
+    ExcursionParticipant,
+    ExcursionStatus,
     NeedKind,
     NeedStatus,
     RegistrationStatus,
@@ -85,6 +88,20 @@ def stats(db: DbSession) -> dict:
         "registrations_active": db.scalar(
             select(func.count(TripRegistration.id)).where(
                 TripRegistration.status == RegistrationStatus.registered
+            )
+        )
+        or 0,
+        "excursions_total": db.scalar(select(func.count(Excursion.id))) or 0,
+        "excursions_active": db.scalar(
+            select(func.count(Excursion.id)).where(
+                Excursion.status.in_((ExcursionStatus.scheduled, ExcursionStatus.gathering))
+            )
+        )
+        or 0,
+        # Сколько раз бамп отметил пришедшего участника.
+        "excursion_check_ins": db.scalar(
+            select(func.count(ExcursionParticipant.id)).where(
+                ExcursionParticipant.checked_in_at.is_not(None)
             )
         )
         or 0,
