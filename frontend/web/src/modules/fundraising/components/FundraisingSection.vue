@@ -1,55 +1,70 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import FundraisingCard from './FundraisingCard.vue'
 import DonationModal from './DonationModal.vue'
+import * as fundraisingApi from '../api.js'
 
-const campaigns = [
-  {
-    squadName: 'Отряд «Высота»',
-    location: 'г. Орёл',
-    emblemUrl: 'https://loremflickr.com/96/96/patch?lock=210',
-    tag: 'Срочный сбор',
-    tagClass: 'bg-surface-container-high text-on-surface-variant',
-    title: 'Бензин для мотопомп и дизельный генератор',
-    text: 'Откачка грунтовых вод из заболоченных воронок у ручья Озерна. Без помпы невозможно поднять затопленный блиндаж.',
-    raised: '35 000 ₽',
-    goal: 'из 50 000 ₽',
-    percent: 70,
-    donors: '142 благотворителя',
-    barClass: 'bg-primary',
-    raisedTextClass: 'text-primary',
-    ctaLabel: 'Помочь отряду (от 100 ₽)',
-    ctaClass: 'bg-primary hover:bg-primary/90 text-on-primary shadow-md',
-    ctaIcon: 'volunteer_activism',
-    ctaIconClass: '',
-  },
-  {
-    squadName: 'Отряд «Рубеж»',
-    location: 'г. Болхов',
-    emblemUrl: 'https://loremflickr.com/96/96/compass?lock=299',
-    tag: 'Оборудование',
-    tagClass: 'bg-secondary-container text-on-secondary-container',
-    title: 'Глубинное металлодетекторное оборудование',
-    text: 'Приобретение импульсного глубинного прибора для локализации засыпанных окопов и тяжелой бронетехники на глубине до 3.5 метров.',
-    raised: '78 000 ₽',
-    goal: 'из 120 000 ₽',
-    percent: 65,
-    donors: '89 благотворителей',
-    barClass: 'bg-secondary',
-    raisedTextClass: 'text-on-surface',
-    ctaLabel: 'Поддержать снаряжение',
-    ctaClass: 'bg-surface-container hover:bg-surface-container-high text-on-surface',
-    ctaIcon: 'handshake',
-    ctaIconClass: 'text-secondary',
-  },
-]
+const needs = ref([])
+const squadsById = ref({})
+const loadStatus = ref('idle') // idle | loading | loaded | error
+
+async function load() {
+  loadStatus.value = 'loading'
+  try {
+    const [needsList, squadsList] = await Promise.all([
+      fundraisingApi.listNeeds({ kind: 'funds' }),
+      fundraisingApi.listSquads(),
+    ])
+    needs.value = needsList
+    squadsById.value = Object.fromEntries(squadsList.map((s) => [s.id, s]))
+    loadStatus.value = 'loaded'
+  } catch {
+    loadStatus.value = 'error'
+  }
+}
+
+onMounted(load)
+
+const campaigns = computed(() =>
+  needs.value.map((need) => {
+    const squad = squadsById.value[need.squad_id]
+    const percent = need.target_amount ? Math.min(100, Math.round((need.collected_amount / need.target_amount) * 100)) : 0
+    return {
+      id: need.id,
+      squadName: squad?.name || 'Отряд неизвестен',
+      location: squad?.region || '',
+      tag: 'Целевой сбор',
+      tagClass: 'bg-surface-container-high text-on-surface-variant',
+      title: need.title,
+      text: need.description,
+      raised: `${need.collected_amount.toLocaleString('ru-RU')} ₽`,
+      goal: need.target_amount ? `из ${need.target_amount.toLocaleString('ru-RU')} ₽` : 'без цели',
+      percent,
+      statusLabel: need.status === 'open' ? 'Сбор открыт' : 'Сбор закрыт',
+      barClass: 'bg-primary',
+      raisedTextClass: 'text-primary',
+      ctaLabel: need.status === 'open' ? 'Помочь отряду' : 'Сбор завершён',
+      ctaClass:
+        need.status === 'open'
+          ? 'bg-primary hover:bg-primary/90 text-on-primary shadow-md'
+          : 'bg-surface-container text-on-surface-variant cursor-not-allowed',
+      ctaIcon: 'volunteer_activism',
+    }
+  }),
+)
 
 const donationOpen = ref(false)
 const selectedCampaign = ref(null)
 
 function openDonation(campaign) {
+  if (campaign.ctaLabel === 'Сбор завершён') return
   selectedCampaign.value = campaign
   donationOpen.value = true
+}
+
+function onDonated({ needId, amount }) {
+  const need = needs.value.find((n) => n.id === needId)
+  if (need) need.collected_amount += amount
 }
 </script>
 
@@ -59,24 +74,27 @@ function openDonation(campaign) {
       <div>
         <h2 class="font-headline-lg text-headline-lg text-on-surface font-bold">Целевые сборы отрядов</h2>
         <p class="font-body-md text-body-md text-outline">
-          Прямая адресная поддержка поисковых экспедиций на местах сражений
+          Прямая адресная поддержка поисковых экспедиций — данные из search_hq_service
         </p>
       </div>
-      <span class="font-label-md text-label-md text-secondary font-bold flex items-center gap-1 cursor-pointer hover:underline">
-        Все 6 сборов
-        <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
-      </span>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <p
+      v-if="loadStatus === 'loaded' && !campaigns.length"
+      class="bg-surface-container-lowest rounded-lg p-6 text-on-surface-variant font-body-md text-body-md"
+    >
+      В search_hq_service пока нет открытых денежных сборов.
+    </p>
+
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <FundraisingCard
         v-for="campaign in campaigns"
-        :key="campaign.squadName"
+        :key="campaign.id"
         v-bind="campaign"
         @donate="openDonation(campaign)"
       />
     </div>
 
-    <DonationModal v-model="donationOpen" :campaign="selectedCampaign" />
+    <DonationModal v-model="donationOpen" :campaign="selectedCampaign" @donated="onDonated" />
   </div>
 </template>

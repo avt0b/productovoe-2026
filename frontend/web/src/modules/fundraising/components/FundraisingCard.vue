@@ -16,7 +16,7 @@ defineProps({
   raised: { type: String, default: '35 000 ₽' },
   goal: { type: String, default: 'из 50 000 ₽' },
   percent: { type: Number, default: 70 },
-  donors: { type: String, default: '142 благотворителя' },
+  statusLabel: { type: String, default: 'Сбор открыт' },
   barClass: { type: String, default: 'bg-primary' },
   raisedTextClass: { type: String, default: 'text-primary' },
   ctaLabel: { type: String, default: 'Помочь отряду (от 100 ₽)' },
@@ -67,7 +67,7 @@ defineEmits(['donate'])
         <div class="flex justify-between items-center text-label-sm font-label-sm text-outline pt-0.5">
           <span class="flex items-center gap-1">
             <span class="material-symbols-outlined text-[15px] text-tertiary">favorite</span>
-            {{ donors }}
+            {{ statusLabel }}
           </span>
           <span class="font-bold text-on-surface">{{ percent }}% собрано</span>
         </div>

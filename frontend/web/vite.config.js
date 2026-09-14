@@ -40,6 +40,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/map/, ''),
       },
+      '/api/search-hq': {
+        target: 'http://127.0.0.1:8004',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/search-hq/, ''),
+      },
     },
   },
 })

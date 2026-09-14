@@ -22,7 +22,12 @@ function submit() {
     <div class="flex items-center gap-2.5">
       <span class="material-symbols-outlined text-primary text-[22px]">groups_3</span>
       <div class="flex flex-col">
-        <h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">Заявки школ и клубов на экскурсии</h2>
+        <h2 class="font-headline-sm text-headline-sm font-bold text-on-surface flex items-center gap-2 flex-wrap">
+          Заявки школ и клубов на экскурсии
+          <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-bold normal-case">
+            демо — модуль ещё не реализован в search_hq_service
+          </span>
+        </h2>
         <span class="font-body-sm text-body-sm text-on-surface-variant">
           Выберите гида-поисковика или краеведа и оставьте заявку на групповой выезд
         </span>
