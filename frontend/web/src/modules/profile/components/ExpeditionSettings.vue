@@ -1,13 +1,46 @@
 <script setup>
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import ToggleSwitch from '@shared/components/ToggleSwitch.vue'
 import MobileOnlyBadge from '@shared/components/MobileOnlyBadge.vue'
+import { useAuthSession } from '@modules/auth'
+import { useProfileStore } from '../profileStore.js'
+
+const router = useRouter()
+const { session, logout } = useAuthSession()
+const { profile, saveMyProfile } = useProfileStore()
 
 const toggles = reactive({
-  geoAlerts: true,
+  geoAlerts: false,
   familyMode: true,
   audioGuides: true,
 })
+const alertRadiusKm = reactive({ value: 15 })
+
+watch(
+  () => profile.data,
+  (data) => {
+    if (!data) return
+    toggles.geoAlerts = data.subscribed_to_search
+    alertRadiusKm.value = data.alert_radius_km
+  },
+  { immediate: true },
+)
+
+async function onGeoAlertsChange(value) {
+  toggles.geoAlerts = value
+  if (session.status !== 'authenticated') return
+  try {
+    await saveMyProfile({ subscribed_to_search: value })
+  } catch {
+    toggles.geoAlerts = !value // откатываем переключатель, если сохранение не удалось
+  }
+}
+
+async function signOut() {
+  await logout()
+  router.push('/auth')
+}
 </script>
 
 <template>
@@ -51,14 +84,15 @@ const toggles = reactive({
           <div class="flex flex-col">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="font-label-md text-label-md font-bold text-on-surface">Гео-оповещения раскопок</span>
-              <MobileOnlyBadge />
+              <MobileOnlyBadge label="Push — в приложении" />
             </div>
             <span class="font-body-sm text-body-sm text-on-surface-variant">
-              Уведомлять при приближении к вахте (радиус 15 км) — push работает только в приложении
+              Подписка на «поисковую деятельность» (user_service), радиус {{ alertRadiusKm.value }} км —
+              сама доставка push пока доступна только в приложении
             </span>
           </div>
         </div>
-        <ToggleSwitch v-model="toggles.geoAlerts" />
+        <ToggleSwitch :model-value="toggles.geoAlerts" @update:model-value="onGeoAlertsChange" />
       </div>
 
       <div class="flex items-center justify-between gap-4">
@@ -97,6 +131,7 @@ const toggles = reactive({
       </button>
       <button
         class="w-full sm:w-auto bg-error-container hover:bg-error/20 text-on-error-container font-label-md text-label-md font-bold py-3 px-5 rounded-full transition-colors flex items-center justify-center gap-1.5"
+        @click="signOut"
       >
         <span class="material-symbols-outlined text-[18px]">logout</span>
         <span>Выйти</span>
