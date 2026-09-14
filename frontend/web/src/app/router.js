@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { routes as victoryRoutes } from '@modules/routes'
 import { routes as lastBattleRoutes } from '@modules/last-battle'
 import { routes as expeditionHqRoutes } from '@modules/expedition-hq'
+import { routes as fundraisingRoutes } from '@modules/fundraising'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -10,6 +11,7 @@ const router = createRouter({
     ...victoryRoutes,
     ...lastBattleRoutes,
     ...expeditionHqRoutes,
+    ...fundraisingRoutes,
   ],
 })
 
