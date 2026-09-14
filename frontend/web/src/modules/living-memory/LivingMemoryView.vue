@@ -7,6 +7,7 @@ import SoldierBio from './components/SoldierBio.vue'
 import QuickActions from './components/QuickActions.vue'
 import FamilyRelics from './components/FamilyRelics.vue'
 import CommunityArchive from './components/CommunityArchive.vue'
+import LiveMemorialStudio from './components/LiveMemorialStudio.vue'
 </script>
 
 <template>
@@ -25,6 +26,7 @@ import CommunityArchive from './components/CommunityArchive.vue'
         <QuickActions />
         <FamilyRelics />
         <CommunityArchive />
+        <LiveMemorialStudio />
       </div>
     </div>
   </div>
