@@ -3,6 +3,8 @@ import MobileOnlyBadge from '@shared/components/MobileOnlyBadge.vue'
 import SmartImage from '@shared/components/SmartImage.vue'
 
 defineProps({
+  id: { type: String, default: '' },
+  waypoints: { type: Array, default: () => [] },
   imageUrl: { type: String, default: '' },
   title: { type: String, default: '' },
   location: { type: String, default: '' },

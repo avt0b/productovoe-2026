@@ -1,70 +1,51 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import RouteCard from './RouteCard.vue'
 import RouteMapModal from './RouteMapModal.vue'
+import * as routesApi from '../api.js'
 
-const routes = [
-  {
-    title: 'Оборона высоты 214',
-    location: 'Мценский район, шоссе Орёл — Тула',
-    imageUrl: 'https://loremflickr.com/400/300/forest,trail?lock=301',
-    distanceKm: 3.2,
-    durationMin: 70,
-    ageTag: 'Для семьи, 8+',
-    questPoints: 4,
-    arPoints: 1,
-    path: [
-      [53.283, 36.56],
-      [53.287, 36.568],
-      [53.291, 36.58],
-    ],
-  },
-  {
-    title: 'Десант над Крупышино',
-    location: 'с. Крупышино, Кромской район',
-    imageUrl: 'https://loremflickr.com/400/300/countryside,path?lock=302',
-    distanceKm: 2.1,
-    durationMin: 45,
-    ageTag: 'Для семьи, 6+',
-    questPoints: 3,
-    arPoints: 1,
-    path: [
-      [52.712, 34.975],
-      [52.708, 34.982],
-      [52.705, 34.99],
-    ],
-  },
-  {
-    title: 'Эскадрилья «Нормандия — Неман»',
-    location: 'Орловская область, аэродром подскока',
-    imageUrl: 'https://loremflickr.com/400/300/airfield,field?lock=303',
-    distanceKm: 4.6,
-    durationMin: 95,
-    ageTag: 'Для семьи, 10+',
-    questPoints: 5,
-    arPoints: 2,
-    path: [
-      [52.95, 36.05],
-      [52.958, 36.07],
-      [52.965, 36.09],
-    ],
-  },
-  {
-    title: 'Рубеж 4-й танковой бригады Катукова',
-    location: 'р. Зуша, Мценский рубеж',
-    imageUrl: 'https://loremflickr.com/400/300/river,forest?lock=304',
-    distanceKm: 3.8,
-    durationMin: 80,
-    ageTag: 'Для семьи, 8+',
-    questPoints: 4,
-    arPoints: 0,
-    path: [
-      [53.27, 36.54],
-      [53.28, 36.57],
-      [53.29, 36.6],
-    ],
-  },
+const routes = ref([])
+const loadStatus = ref('idle') // idle | loading | loaded | error
+
+// route_service не хранит фото обложки для демо-маршрутов (cover_url пуст),
+// картинки остаются тематическими заглушками — как и раньше.
+const FALLBACK_IMAGES = [
+  'https://loremflickr.com/400/300/forest,trail?lock=301',
+  'https://loremflickr.com/400/300/countryside,path?lock=302',
+  'https://loremflickr.com/400/300/airfield,field?lock=303',
+  'https://loremflickr.com/400/300/river,forest?lock=304',
 ]
+
+async function load() {
+  loadStatus.value = 'loading'
+  try {
+    const list = await routesApi.listRoutes()
+    const details = await Promise.all(list.map((r) => routesApi.getRouteDetail(r.id)))
+    routes.value = details.map((route, i) => {
+      const waypoints = [...route.waypoints].sort((a, b) => a.order_index - b.order_index)
+      return {
+        id: route.id,
+        title: route.title,
+        location: route.city,
+        imageUrl: route.cover_url || FALLBACK_IMAGES[i % FALLBACK_IMAGES.length],
+        distanceKm: route.distance_km,
+        // route_service не хранит расчётное время — прикидываем по
+        // семейному темпу ~18 мин/км, честно помечено «~» на карточке.
+        durationMin: Math.round(route.distance_km * 18),
+        ageTag: route.mode === 'family' ? 'Для семьи' : 'Общий маршрут',
+        questPoints: waypoints.length,
+        arPoints: waypoints.filter((w) => w.ar_hint).length,
+        path: waypoints.map((w) => [w.lat, w.lon]),
+        waypoints,
+      }
+    })
+    loadStatus.value = 'loaded'
+  } catch {
+    loadStatus.value = 'error'
+  }
+}
+
+onMounted(load)
 
 const mapOpen = ref(false)
 const selectedRoute = ref(null)
@@ -79,10 +60,20 @@ function openRoute(route) {
   <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between">
       <h2 class="font-headline-lg text-headline-lg text-on-surface font-bold">Доступные маршруты</h2>
-      <span class="font-label-md text-label-md text-on-surface-variant">{{ routes.length }} маршрута рядом</span>
+      <span class="font-label-md text-label-md text-on-surface-variant">
+        {{ routes.length }} {{ routes.length === 1 ? 'маршрут' : 'маршрута' }} — данные из route_service
+      </span>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-      <RouteCard v-for="route in routes" :key="route.title" v-bind="route" @start="openRoute(route)" />
+
+    <p
+      v-if="loadStatus === 'loaded' && !routes.length"
+      class="bg-surface-container-lowest rounded-lg p-6 text-on-surface-variant font-body-md text-body-md"
+    >
+      Опубликованных маршрутов пока нет.
+    </p>
+
+    <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+      <RouteCard v-for="route in routes" :key="route.id" v-bind="route" @start="openRoute(route)" />
     </div>
 
     <RouteMapModal v-model="mapOpen" :route="selectedRoute" />
