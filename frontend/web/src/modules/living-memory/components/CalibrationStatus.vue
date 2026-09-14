@@ -1,6 +1,4 @@
 <script setup>
-import MobileOnlyBadge from '@shared/components/MobileOnlyBadge.vue'
-
 defineProps({
   label: { type: String, default: 'Синтез мимики LivePortrait v2.4' },
   note: { type: String, default: 'Калибровано по фронтовым снимкам 1940 г.' },
@@ -24,8 +22,9 @@ defineProps({
         {{ status }}
       </span>
     </div>
-    <div class="flex items-center gap-2 pl-[3.25rem] -mt-1">
-      <MobileOnlyBadge label="Генерация нового «живого фото» — в приложении" size="sm" />
-    </div>
+    <p class="font-body-sm text-body-sm text-on-surface-variant pl-[3.25rem] -mt-1">
+      Заявку на новое «живое фото» можно отправить прямо здесь (ниже) — очередь ставит
+      <code class="font-mono">media_service</code>, сам рендер выполняет ещё не подключённый воркер
+    </p>
   </div>
 </template>
