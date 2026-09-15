@@ -1,22 +1,21 @@
 <script setup>
 import { ref } from 'vue'
 
-const emit = defineEmits(['success'])
-
 const providers = [
   { id: 'vk', label: 'ВКонтакте', bg: 'bg-[#0077FF]', fg: 'text-white', short: 'VK' },
   { id: 'yandex', label: 'Яндекс ID', bg: 'bg-[#FC3F1D]', fg: 'text-white', short: 'Я' },
   { id: 'gosuslugi', label: 'Госуслуги', bg: 'bg-[#0F62AE]', fg: 'text-white', short: 'ГУ' },
 ]
 
-const pending = ref(null)
+const notice = ref('')
+let hideTimer
 
-function loginWith(id) {
-  pending.value = id
-  setTimeout(() => {
-    pending.value = null
-    emit('success')
-  }, 900)
+function announceComingSoon(provider) {
+  notice.value = `Вход через ${provider.label} скоро появится — пока доступен вход по e-mail`
+  clearTimeout(hideTimer)
+  hideTimer = setTimeout(() => {
+    notice.value = ''
+  }, 3500)
 }
 </script>
 
@@ -33,15 +32,28 @@ function loginWith(id) {
         v-for="provider in providers"
         :key="provider.id"
         type="button"
-        class="h-12 rounded-full flex items-center justify-center gap-1.5 font-label-sm text-label-sm font-bold shadow-sm transition-transform hover:scale-[1.03] disabled:opacity-60"
+        class="h-12 rounded-full flex items-center justify-center gap-1.5 font-label-sm text-label-sm font-bold shadow-sm transition-transform hover:scale-[1.03]"
         :class="[provider.bg, provider.fg]"
-        :disabled="pending !== null"
-        :title="provider.label"
-        @click="loginWith(provider.id)"
+        :title="`${provider.label} — скоро`"
+        @click="announceComingSoon(provider)"
       >
-        <span v-if="pending === provider.id" class="material-symbols-outlined text-[18px] animate-spin">sync</span>
-        <span v-else>{{ provider.short }}</span>
+        <span>{{ provider.short }}</span>
       </button>
     </div>
+
+    <Transition
+      enter-active-class="transition-all duration-200"
+      leave-active-class="transition-all duration-200"
+      enter-from-class="opacity-0 -translate-y-1"
+      leave-to-class="opacity-0 -translate-y-1"
+    >
+      <p
+        v-if="notice"
+        class="flex items-center gap-1.5 justify-center text-center font-label-sm text-label-sm text-on-surface-variant bg-surface-container-low rounded-full px-3 py-2"
+      >
+        <span class="material-symbols-outlined text-[16px] text-secondary">schedule</span>
+        {{ notice }}
+      </p>
+    </Transition>
   </div>
 </template>

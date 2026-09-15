@@ -47,7 +47,7 @@ function onSuccess() {
       <LoginForm v-if="mode === 'login'" @success="onSuccess" />
       <RegisterForm v-else @success="onSuccess" />
 
-      <SocialLogin @success="onSuccess" />
+      <SocialLogin />
 
       <p class="text-center font-body-sm text-body-sm text-on-surface-variant">
         {{ mode === 'login' ? 'Нет аккаунта?' : 'Уже есть аккаунт?' }}
