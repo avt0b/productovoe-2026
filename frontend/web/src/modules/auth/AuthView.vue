@@ -8,7 +8,7 @@ import SocialLogin from './components/SocialLogin.vue'
 
 const mode = ref('login')
 const router = useRouter()
-const bgLoaded = ref(true)
+const bgVideoFailed = ref(false)
 
 function onSuccess() {
   setTimeout(() => router.push('/profile'), 600)
@@ -17,12 +17,15 @@ function onSuccess() {
 
 <template>
   <div class="min-h-screen w-full flex items-center justify-center p-6 relative overflow-hidden bg-secondary">
-    <img
-      v-if="bgLoaded"
-      src="https://loremflickr.com/1600/1000/forest,memorial?lock=401"
-      alt=""
+    <video
+      v-if="!bgVideoFailed"
       class="absolute inset-0 w-full h-full object-cover"
-      @error="bgLoaded = false"
+      src="/video/victory-bg.mp4"
+      autoplay
+      muted
+      loop
+      playsinline
+      @error="bgVideoFailed = true"
     />
     <div class="absolute inset-0 bg-secondary/80" />
     <div class="absolute -left-24 -top-24 w-96 h-96 rounded-full bg-secondary-fixed/10 blur-3xl pointer-events-none" />
