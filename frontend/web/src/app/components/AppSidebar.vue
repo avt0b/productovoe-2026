@@ -73,6 +73,7 @@ const navItems = [
           v-for="item in navItems"
           :key="item.path"
           :to="item.href"
+          :data-tour="`nav-${item.href}`"
           class="flex items-center gap-3.5 px-3.5 py-3 rounded-DEFAULT font-label-lg text-label-lg transition-all"
           :class="
             item.href === $route.path
