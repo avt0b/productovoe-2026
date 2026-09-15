@@ -51,3 +51,41 @@ class UserNotFound(AppError):
 class WrongPassword(AppError):
     status_code = status.HTTP_400_BAD_REQUEST
     detail = "Текущий пароль неверен"
+
+
+# --- внешний вход: VK ID, MAX, Госуслуги ---
+
+
+class ExternalProviderNotConfigured(AppError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    detail = "Этот способ входа не настроен"
+
+
+class ExternalProviderError(AppError):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    detail = "Провайдер входа ответил ошибкой"
+
+
+class ExternalLoginNotFound(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    detail = "Попытка входа не найдена — начните вход заново"
+
+
+class ExternalLoginExpired(AppError):
+    status_code = status.HTTP_410_GONE
+    detail = "Время на вход вышло — начните заново"
+
+
+class ExternalLoginFailed(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    detail = "Вход не подтверждён"
+
+
+class InvalidReturnUrl(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    detail = "Вернуть после входа можно только в приложение"
+
+
+class InvalidExternalResultCode(AppError):
+    status_code = status.HTTP_403_FORBIDDEN
+    detail = "Код подтверждения входа не подходит"
