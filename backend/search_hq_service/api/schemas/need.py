@@ -41,11 +41,25 @@ class DonationCreate(BaseModel):
 
 
 class DonationOut(BaseModel):
+    """Взнос — ответ самому жертвователю, поэтому с его donor_id."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     need_id: str
     donor_id: str | None
+    amount: int
+    comment: str
+    created_at: datetime
+
+
+class DonationPublicOut(BaseModel):
+    """Взнос в публичной ленте сбора: без donor_id — кто сколько дал, наружу не показываем."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    need_id: str
     amount: int
     comment: str
     created_at: datetime
