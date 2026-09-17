@@ -31,3 +31,6 @@ backend/*/keys/*.pem
 .env.*
 *.env
 .env.local
+
+# Claude Code local tooling state
+.claude/

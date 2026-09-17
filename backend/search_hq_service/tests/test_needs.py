@@ -51,6 +51,27 @@ def test_donation_flow_and_autoclose(client, leader_header):
     ).status_code == 409
 
 
+def test_public_donation_feed_hides_donor(client, leader_header):
+    squad = make_squad(client, leader_header)
+    need = client.post(
+        f"/squads/{squad['id']}/needs",
+        headers=leader_header,
+        json={"kind": "funds", "title": "ГСМ на выезд", "target_amount": 1000},
+    ).json()
+
+    own = client.post(
+        f"/needs/{need['id']}/donations",
+        headers=auth_header(user_id="donor-1"),
+        json={"amount": 300, "comment": "на бензин"},
+    )
+    # Сам жертвователь свой взнос видит полностью.
+    assert own.json()["donor_id"] == "donor-1"
+
+    feed = client.get(f"/needs/{need['id']}/donations").json()
+    assert [(d["amount"], d["comment"]) for d in feed] == [(300, "на бензин")]
+    assert "donor_id" not in feed[0]
+
+
 def test_donation_rejected_for_non_funds_need(client, leader_header):
     squad = make_squad(client, leader_header)
     need = client.post(

@@ -1,0 +1,3 @@
+# Скрипты Gradle Wrapper: .bat ломается с LF на Windows, gradlew — с CRLF на Linux и macOS.
+*.bat   text eol=crlf
+gradlew text eol=lf

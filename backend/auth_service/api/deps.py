@@ -10,6 +10,7 @@ from core.models import Role, User
 from core.security import decode_access_token
 from repositories.user_repository import UserRepository
 from services.auth_service import AuthService
+from services.external_auth_service import ExternalAuthService
 from services.user_service import UserAdminService
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -25,8 +26,13 @@ def get_user_admin_service(db: DbSession) -> UserAdminService:
     return UserAdminService(db)
 
 
+def get_external_auth_service(db: DbSession) -> ExternalAuthService:
+    return ExternalAuthService(db)
+
+
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 UserAdminServiceDep = Annotated[UserAdminService, Depends(get_user_admin_service)]
+ExternalAuthServiceDep = Annotated[ExternalAuthService, Depends(get_external_auth_service)]
 
 
 def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: DbSession) -> User:

@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env.local
+# Адреса сервисов для APK — IP конкретного компьютера в сети, в репозиторий не кладём.
+.env.*.local
+*.tsbuildinfo

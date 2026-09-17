@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from api.deps import CurrentPrincipal, NeedServiceDep
-from api.schemas.need import DonationCreate, DonationOut, NeedOut, NeedUpdate
+from api.schemas.need import DonationCreate, DonationOut, DonationPublicOut, NeedOut, NeedUpdate
 from core.models import NeedKind, NeedStatus
 
 router = APIRouter(prefix="/needs", tags=["needs (потребности и сборы)"])
@@ -53,6 +53,7 @@ def donate(
     return DonationOut.model_validate(donation)
 
 
-@router.get("/{need_id}/donations", response_model=list[DonationOut])
-def list_donations(need_id: str, service: NeedServiceDep) -> list[DonationOut]:
-    return [DonationOut.model_validate(d) for d in service.donations_for(need_id)]
+@router.get("/{need_id}/donations", response_model=list[DonationPublicOut])
+def list_donations(need_id: str, service: NeedServiceDep) -> list[DonationPublicOut]:
+    # Лента публичная: суммы и комментарии видны всем, а кто именно дал — нет.
+    return [DonationPublicOut.model_validate(d) for d in service.donations_for(need_id)]

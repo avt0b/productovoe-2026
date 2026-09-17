@@ -14,5 +14,26 @@ class Settings(BaseSettings):
     # Внутренний служебный ключ: по нему admin_service ходит в /internal/*.
     internal_api_key: str = "dev-internal-key-change-me"
 
+    # Клиентское приложение ходит в сервис напрямую: dev-сервер Vite и APK
+    # (Capacitor на Android отдаёт приложение с https://localhost).
+    cors_origins: list[str] = [
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "https://localhost",
+        "capacitor://localhost",
+    ]
+
+    # --- экскурсии и бамп ---
+    # Как далеко от точки экскурсии можно открыть сбор и трясти телефон, в метрах.
+    excursion_site_radius_m: float = 150.0
+    # Сколько погрешности GPS засчитывать человеку сверх радиуса, не больше, в метрах.
+    bump_accuracy_slack_m: float = 50.0
+    # Сколько идёт сбор группы после «Начать сбор», в минутах.
+    gathering_duration_minutes: int = 30
+    # На сколько секунд могут разойтись встряски краеведа и участника.
+    bump_window_seconds: float = 1.5
+    # Сколько секунд запрос встряски ждёт встряску другой стороны.
+    bump_wait_seconds: float = 2.0
+
 
 settings = Settings()

@@ -1,0 +1,5 @@
+@import './theme.css';
+
+body {
+  @apply bg-surface font-body-md text-body-md text-on-surface antialiased;
+}
