@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
@@ -7,6 +8,8 @@ from core.exceptions import Conflict, NotFound, PermissionDenied
 from core.models import ArchiveEntry, EntryStatus
 from core.security import Principal
 from repositories.entry_repository import EntryRepository
+
+logger = logging.getLogger(__name__)
 
 # Кто может верифицировать записи (краевед / наставник / модератор).
 VERIFIER_ROLES = {"local_historian", "mentor", "moderator"}
@@ -71,8 +74,22 @@ class EntryService:
             raise PermissionDenied("Редактировать запись может автор или верификатор")
         if is_author and not _can_verify(principal) and entry.status is not EntryStatus.pending:
             raise Conflict("Проверенную запись автор менять не может")
+        was_reviewed = entry.status is not EntryStatus.pending
         for field, value in data.items():
             setattr(entry, field, value)
+        if _can_verify(principal) and was_reviewed:
+            # Правку уже проверенной записи переносим в те же поля, что и
+            # verify/reject — иначе reviewed_at/verified_by продолжали бы
+            # указывать на исходную проверку, а не на того, кто последним
+            # менял уже опубликованное содержание.
+            entry.verified_by = principal.user_id
+            entry.reviewed_at = datetime.now(UTC)
+            logger.info(
+                "archive entry %s edited after review by %s (status=%s)",
+                entry_id,
+                principal.user_id,
+                entry.status.value,
+            )
         self.db.commit()
         self.db.refresh(entry)
         return entry
@@ -90,6 +107,16 @@ class EntryService:
         is_author = entry.submitted_by == principal.user_id
         if not (_can_verify(principal) or (is_author and entry.status is EntryStatus.pending)):
             raise PermissionDenied("Удалить запись может верификатор или автор (пока на проверке)")
+        if entry.status is not EntryStatus.pending:
+            # Удаление уже проверенной (в т.ч. публичной) записи необратимо и
+            # не оставляет строки в БД — единственный оставшийся след здесь.
+            logger.warning(
+                "archive entry %s (status=%s, submitted_by=%s) deleted by %s",
+                entry_id,
+                entry.status.value,
+                entry.submitted_by,
+                principal.user_id,
+            )
         self.repo.delete(entry)
         self.db.commit()
 

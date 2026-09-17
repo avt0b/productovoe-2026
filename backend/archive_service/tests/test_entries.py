@@ -76,6 +76,35 @@ def test_reject_with_note(client):
     assert r.json()["review_note"] == "нет источника"
 
 
+def test_review_note_hidden_from_public_visible_to_author_and_verifier(client):
+    author = auth_header(user_id="author-1")
+    e = create_entry(client, author).json()
+    client.post(
+        f"/entries/{e['id']}/verify",
+        headers=auth_header(role="local_historian"),
+        json={"note": "сверено с Книгой Памяти, но источник спорный"},
+    )
+
+    public_feed = client.get("/entries").json()
+    assert "review_note" not in public_feed[0]
+
+    public_single = client.get(f"/entries/{e['id']}").json()
+    assert "review_note" not in public_single
+
+    stranger_single = client.get(
+        f"/entries/{e['id']}", headers=auth_header(user_id="stranger")
+    ).json()
+    assert "review_note" not in stranger_single
+
+    author_single = client.get(f"/entries/{e['id']}", headers=author).json()
+    assert author_single["review_note"] == "сверено с Книгой Памяти, но источник спорный"
+
+    verifier_single = client.get(
+        f"/entries/{e['id']}", headers=auth_header(role="moderator")
+    ).json()
+    assert verifier_single["review_note"] == "сверено с Книгой Памяти, но источник спорный"
+
+
 def test_author_cannot_edit_after_verify(client):
     author = auth_header(user_id="author-1")
     e = create_entry(client, author).json()
@@ -114,3 +143,34 @@ def test_delete_pending_by_author_then_gone(client):
 
 def test_get_missing_404(client):
     assert client.get(f"/entries/{uuid.uuid4()}").status_code == 404
+
+
+def test_verifier_edit_after_review_restamps_reviewed_at(client):
+    author = auth_header(user_id="author-1")
+    e = create_entry(client, author).json()
+    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian", user_id="hist-1"),
+                json={"note": "сверено"})
+
+    edited = client.patch(
+        f"/entries/{e['id']}",
+        headers=auth_header(role="moderator", user_id="mod-1"),
+        json={"title": "уточнённый заголовок"},
+    ).json()
+    assert edited["title"] == "уточнённый заголовок"
+    assert edited["status"] == "verified"
+    assert edited["verified_by"] == "mod-1"
+    # note от исходной верификации не трогаем — правка не переиспользует "verify"
+    assert edited["review_note"] == "сверено"
+
+
+def test_deleting_reviewed_entry_is_logged(client, caplog):
+    e = create_entry(client, auth_header(user_id="author-1")).json()
+    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="moderator"), json={})
+
+    with caplog.at_level("WARNING"):
+        r = client.delete(f"/entries/{e['id']}", headers=auth_header(role="moderator", user_id="mod-9"))
+    assert r.status_code == 204
+    assert any(
+        e["id"] in record.getMessage() and "mod-9" in record.getMessage()
+        for record in caplog.records
+    )

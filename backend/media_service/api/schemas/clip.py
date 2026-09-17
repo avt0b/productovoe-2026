@@ -15,8 +15,10 @@ class ClipCreate(BaseModel):
     voice_style: VoiceStyle = VoiceStyle.era_male
     is_public: bool = False
     archive_entry_id: str | None = Field(default=None, max_length=36)
-    # Этическая оговорка ТЗ — обязательное согласие.
-    consent_memorial_use: bool
+    # Этическая оговорка ТЗ — обязательное согласие. Дефолт False (не True),
+    # чтобы непереданное поле и явный отказ вели к одной и той же доменной
+    # ошибке 403 в ClipService.create, а не расходились на 422 vs 403.
+    consent_memorial_use: bool = False
 
 
 class ClipUpdate(BaseModel):

@@ -40,7 +40,7 @@ def test_draft_hidden_from_public_until_published(client, author_header):
 def test_cannot_publish_without_waypoints(client, author_header):
     route = make_route(client, author_header).json()
     r = client.post(f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True})
-    assert r.status_code == 403
+    assert r.status_code == 409
 
     add_wp(client, author_header, route["id"])
     r2 = client.post(f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True})
@@ -62,6 +62,25 @@ def test_waypoint_order_autoincrement_and_reorder(client, author_header):
         json={"ordered_ids": [w3["id"], w1["id"], w2["id"]]},
     ).json()
     assert [w["title"] for w in reordered] == ["C", "A", "B"]
+
+
+def test_reorder_rejects_duplicate_ids(client, author_header):
+    route = make_route(client, author_header).json()
+    w1 = add_wp(client, author_header, route["id"], title="A").json()
+    w2 = add_wp(client, author_header, route["id"], title="B").json()
+    w3 = add_wp(client, author_header, route["id"], title="C").json()
+
+    r = client.post(
+        f"/routes/{route['id']}/waypoints/reorder",
+        headers=author_header,
+        json={"ordered_ids": [w1["id"], w1["id"], w3["id"]]},
+    )
+    assert r.status_code == 404
+
+    # порядок не тронут дубликатом из предыдущего запроса
+    unchanged = client.get(f"/routes/{route['id']}", headers=author_header).json()
+    assert [w["title"] for w in unchanged["waypoints"]] == ["A", "B", "C"]
+    assert [w1["order_index"], w2["order_index"], w3["order_index"]] == [0, 1, 2]
 
 
 def test_stranger_cannot_edit(client, author_header):

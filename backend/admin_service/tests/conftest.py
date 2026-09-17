@@ -15,8 +15,10 @@ os.environ.pop("BOOTSTRAP_ADMIN_PASSWORD", None)
 
 import pytest
 from fastapi.testclient import TestClient
+from helpers import FakeUpstream
 
 import main
+from api.deps import get_upstream
 from core import security
 from core.db import SessionLocal, engine
 from core.models import AdminRole, AdminUser, Base
@@ -46,6 +48,22 @@ def superadmin(client) -> AdminUser:
         db.refresh(admin)
         db.expunge(admin)
         return admin
+
+
+@pytest.fixture()
+def fake_upstream(client):
+    """Подменяет зависимость `get_upstream` фейком на время теста.
+
+    Именно зависимость (`api.deps.get_upstream`), а не `app.state.upstream`
+    напрямую — её реально резолвит FastAPI через `Depends(...)` и в
+    `dashboard_service`, и в `operations.py`. Реальный `Upstream` (созданный
+    в lifespan) остаётся в `app.state.upstream`, но пока действует override,
+    маршруты получают фейк из `FakeUpstream` (см. tests/helpers.py).
+    """
+    fake = FakeUpstream()
+    main.app.dependency_overrides[get_upstream] = lambda: fake
+    yield fake
+    main.app.dependency_overrides.pop(get_upstream, None)
 
 
 def login(client, email: str = SUPERADMIN["email"], password: str = SUPERADMIN["password"]):

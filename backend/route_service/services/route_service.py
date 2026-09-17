@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 from sqlalchemy.orm import Session
 
-from core.exceptions import NotFound, PermissionDenied
+from core.exceptions import Conflict, NotFound, PermissionDenied
 from core.models import Route, Waypoint
 from core.security import Principal
 from repositories.route_repository import RouteRepository
@@ -65,7 +65,7 @@ class RouteService:
     def set_published(self, principal: Principal, route_id: str, published: bool) -> Route:
         route = self._get_editable(principal, route_id)
         if published and not self.repo.waypoints_of(route_id):
-            raise PermissionDenied("Нельзя опубликовать маршрут без точек")
+            raise Conflict("Нельзя опубликовать маршрут без точек")
         route.is_published = published
         self.db.commit()
         self.db.refresh(route)
@@ -114,7 +114,7 @@ class RouteService:
     ) -> Sequence[Waypoint]:
         self._get_editable(principal, route_id)
         by_id = {w.id: w for w in self.repo.waypoints_of(route_id)}
-        if set(by_id) != set(ordered_ids):
+        if len(ordered_ids) != len(by_id) or set(ordered_ids) != set(by_id):
             raise NotFound("Список точек не совпадает с маршрутом")
         for index, wp_id in enumerate(ordered_ids):
             by_id[wp_id].order_index = index

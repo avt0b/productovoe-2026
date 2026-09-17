@@ -3,23 +3,24 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from api.deps import CurrentPrincipal, EntryServiceDep, OptionalPrincipal
-from api.schemas.entry import EntryCreate, EntryOut, EntryUpdate, ReviewRequest
+from api.schemas.entry import EntryCreate, EntryOut, EntryPublicOut, EntryUpdate, ReviewRequest
 from core.models import EntryKind, EntryStatus
+from services.entry_service import VERIFIER_ROLES
 
 router = APIRouter(prefix="/entries", tags=["entries (народный архив)"])
 
 
-@router.get("", response_model=list[EntryOut])
+@router.get("", response_model=list[EntryPublicOut])
 def list_entries(
     service: EntryServiceDep,
     kind: Annotated[EntryKind | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=200)] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
-) -> list[EntryOut]:
-    """Публичная лента — только подтверждённые записи."""
+) -> list[EntryPublicOut]:
+    """Публичная лента — только подтверждённые записи, без служебной заметки модератора."""
     rows = service.search_public(kind=kind, q=q, limit=limit, offset=offset)
-    return [EntryOut.model_validate(e) for e in rows]
+    return [EntryPublicOut.model_validate(e) for e in rows]
 
 
 @router.get("/moderation", response_model=list[EntryOut])
@@ -53,11 +54,19 @@ def create_entry(
     return EntryOut.model_validate(service.create(principal, payload.model_dump()))
 
 
-@router.get("/{entry_id}", response_model=EntryOut)
+@router.get("/{entry_id}")
 def get_entry(
     entry_id: str, principal: OptionalPrincipal, service: EntryServiceDep
-) -> EntryOut:
-    return EntryOut.model_validate(service.get_visible(principal, entry_id))
+) -> EntryOut | EntryPublicOut:
+    entry = service.get_visible(principal, entry_id)
+    privileged = principal is not None and (
+        principal.is_root
+        or principal.role in VERIFIER_ROLES
+        or entry.submitted_by == principal.user_id
+    )
+    if privileged:
+        return EntryOut.model_validate(entry)
+    return EntryPublicOut.model_validate(entry)
 
 
 @router.patch("/{entry_id}", response_model=EntryOut)

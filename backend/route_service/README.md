@@ -52,11 +52,11 @@ AR-подсказками. `poi_id` точек совпадает с id тех �
 | POST | `/routes` | `local_historian` / `mentor` / `moderator` / root |
 | GET | `/routes/{id}` | опубликованный — все; черновик — автор / модератор |
 | PATCH · DELETE | `/routes/{id}` | автор / модератор / root |
-| POST | `/routes/{id}/publish` | автор / модератор (нужна ≥1 точка) |
+| POST | `/routes/{id}/publish` | автор / модератор (нужна ≥1 точка, иначе `409`) |
 | GET | `/routes/{id}/waypoints` | как у маршрута |
 | POST | `/routes/{id}/waypoints` | автор / модератор |
 | PATCH · DELETE | `/waypoints/{id}` | автор / модератор |
-| POST | `/routes/{id}/waypoints/reorder` | автор / модератор |
+| POST | `/routes/{id}/waypoints/reorder` | автор / модератор — список id должен без пропусков и дублей совпадать с точками маршрута, иначе `404` |
 | POST | `/routes/{id}/progress/start` | любой авторизованный (идемпотентно) |
 | POST | `/routes/{id}/progress/complete-waypoint` | любой авторизованный |
 | GET | `/routes/{id}/progress/me` | любой авторизованный |

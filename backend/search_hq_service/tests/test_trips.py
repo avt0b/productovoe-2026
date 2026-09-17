@@ -49,6 +49,21 @@ def test_registration_capacity_and_cancel(client, leader_header):
     assert client.post(f"/trips/{trip['id']}/registrations", headers=c).status_code == 201
 
 
+def test_update_rejects_capacity_below_registered(client, leader_header):
+    squad = make_squad(client, leader_header)
+    trip = make_trip(client, leader_header, squad["id"], capacity=2).json()
+
+    client.post(f"/trips/{trip['id']}/registrations", headers=auth_header(user_id="vol-a"))
+    client.post(f"/trips/{trip['id']}/registrations", headers=auth_header(user_id="vol-b"))
+
+    r = client.patch(f"/trips/{trip['id']}", headers=leader_header, json={"capacity": 1})
+    assert r.status_code == 409
+
+    ok = client.patch(f"/trips/{trip['id']}", headers=leader_header, json={"capacity": 2})
+    assert ok.status_code == 200
+    assert ok.json()["capacity"] == 2
+
+
 def test_registrations_list_manager_only(client, leader_header):
     squad = make_squad(client, leader_header)
     trip = make_trip(client, leader_header, squad["id"]).json()

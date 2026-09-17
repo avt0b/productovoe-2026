@@ -25,6 +25,16 @@ def test_create_requires_consent(client):
     assert "голубое небо" in r.json()["narration_text"]
 
 
+def test_create_without_consent_field_also_403_not_422(client):
+    # Пропущенное поле — тот же отказ, что и явный False, а не 422 от pydantic.
+    body = {
+        "soldier_name": "Иванов И.И.",
+        "source_photo_url": "https://archive.example/ivanov.jpg",
+    }
+    r = client.post("/clips", headers=auth_header(), json=body)
+    assert r.status_code == 403
+
+
 def test_create_requires_auth(client):
     assert make_clip(client, {}).status_code in (401, 403)
 

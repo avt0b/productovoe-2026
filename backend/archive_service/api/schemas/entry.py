@@ -62,3 +62,25 @@ class EntryOut(BaseModel):
     reviewed_at: datetime | None
     review_note: str
     created_at: datetime
+
+
+class EntryPublicOut(BaseModel):
+    """Как EntryOut, но без служебной заметки модератора (review_note) —
+    она не предназначена для посторонних глаз."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    kind: EntryKind
+    title: str
+    body: str
+    lat: float | None
+    lon: float | None
+    event_date: date | None
+    date_text: str
+    media_url: str | None
+    submitted_by: str
+    status: EntryStatus
+    verified_by: str | None
+    reviewed_at: datetime | None
+    created_at: datetime

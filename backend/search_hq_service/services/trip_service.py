@@ -38,6 +38,8 @@ class TripService:
     def update(self, principal: Principal, trip_id: str, data: dict) -> VolunteerTrip:
         trip = self.get(trip_id)
         self._ensure_manager(principal, self._leader_of(trip))
+        if "capacity" in data and data["capacity"] < self.repo.count_active_registrations(trip_id):
+            raise Conflict("Мест не может быть меньше, чем уже записалось")
         for field, value in data.items():
             setattr(trip, field, value)
         self.db.commit()
