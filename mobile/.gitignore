@@ -1,0 +1,12 @@
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.cxx/
+captures/
+
+# Сторонние модели для проверки (Шрек и т.п.): лицензия не наша, в репозиторий не кладём.
+# Исходник лежит в tools/raw, в assets — результат tools/normalize_companion.py.
+tools/raw/
+ar/src/main/assets/companion/shrek.glb
