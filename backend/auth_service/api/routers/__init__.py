@@ -1,8 +1,9 @@
 from fastapi import APIRouter
 
-from api.routers import admin, auth, internal
+from api.routers import admin, auth, external, internal
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
+api_router.include_router(external.router)
 api_router.include_router(admin.router)
 api_router.include_router(internal.router)
