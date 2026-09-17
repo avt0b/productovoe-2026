@@ -5,7 +5,7 @@ defineProps({
   liveStatus: { type: String, default: 'Орловский плацдарм в эфире' },
   sidebarOpen: { type: Boolean, default: true },
 })
-defineEmits(['toggle-sidebar'])
+defineEmits(['toggle-sidebar', 'show-guide'])
 </script>
 
 <template>
@@ -39,6 +39,13 @@ defineEmits(['toggle-sidebar'])
         <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
         <span class="font-label-sm text-label-sm font-bold">{{ liveStatus }}</span>
       </div>
+      <button
+        class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors shrink-0"
+        title="Показать гайд по функционалу"
+        @click="$emit('show-guide')"
+      >
+        <span class="material-symbols-outlined text-[22px]">help</span>
+      </button>
       <button
         class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors shrink-0"
       >

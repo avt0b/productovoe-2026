@@ -20,4 +20,46 @@ export default defineConfig({
       '@shared': fileURLToPath(new URL('./src/shared', import.meta.url)),
     },
   },
+  server: {
+    // Backend-сервисы не настраивают CORS (см. backend/README.md — их код
+    // трогать нельзя), поэтому проксируем запросы через dev-сервер: браузер
+    // видит только localhost:5173, кросс-origin запроса просто не возникает.
+    proxy: {
+      '/api/auth': {
+        target: 'http://127.0.0.1:8001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+      '/api/users': {
+        target: 'http://127.0.0.1:8002',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/users/, ''),
+      },
+      '/api/map': {
+        target: 'http://127.0.0.1:8003',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/map/, ''),
+      },
+      '/api/search-hq': {
+        target: 'http://127.0.0.1:8004',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/search-hq/, ''),
+      },
+      '/api/archive': {
+        target: 'http://127.0.0.1:8005',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/archive/, ''),
+      },
+      '/api/routes': {
+        target: 'http://127.0.0.1:8006',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/routes/, ''),
+      },
+      '/api/media': {
+        target: 'http://127.0.0.1:8007',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/media/, ''),
+      },
+    },
+  },
 })

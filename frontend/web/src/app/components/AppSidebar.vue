@@ -1,8 +1,22 @@
 <script setup>
+import { useRouter } from 'vue-router'
+import { useAuthSession } from '@modules/auth'
+
 defineProps({
   open: { type: Boolean, default: true },
 })
-defineEmits(['navigate', 'close'])
+const emit = defineEmits(['navigate', 'close'])
+
+const router = useRouter()
+const { session, logout } = useAuthSession()
+
+async function switchAccount() {
+  if (session.status === 'authenticated') {
+    await logout()
+  }
+  emit('navigate')
+  router.push('/auth')
+}
 
 const navItems = [
   { path: 'victory-routes', icon: 'route', label: 'Маршруты', href: '/routes' },
@@ -59,6 +73,7 @@ const navItems = [
           v-for="item in navItems"
           :key="item.path"
           :to="item.href"
+          :data-tour="`nav-${item.href}`"
           class="flex items-center gap-3.5 px-3.5 py-3 rounded-DEFAULT font-label-lg text-label-lg transition-all"
           :class="
             item.href === $route.path
@@ -86,14 +101,14 @@ const navItems = [
           Ранг III
         </span>
       </div>
-      <RouterLink
-        to="/auth"
+      <button
+        type="button"
         class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors"
-        @click="$emit('navigate')"
+        @click="switchAccount"
       >
         <span class="material-symbols-outlined text-[18px]">logout</span>
-        <span>Сменить аккаунт</span>
-      </RouterLink>
+        <span>{{ session.status === 'authenticated' ? 'Выйти' : 'Сменить аккаунт' }}</span>
+      </button>
     </div>
   </aside>
 </template>
