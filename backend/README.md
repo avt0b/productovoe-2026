@@ -31,8 +31,13 @@
 У каждого сервиса есть закрытый префикс `/internal/*` — по нему ходит только
 `admin_service`. Аутентификация там не пользовательская: общий секрет в
 заголовке `X-Internal-Key` (`INTERNAL_API_KEY`, одинаковый во всех `.env`) плюс
-`X-Actor-Id` с id администратора, чтобы он осел в `created_by` / `verified_by`
-и в журнале аудита.
+`X-Actor-Id` с id администратора — в журнал аудита `admin_service` он попадает
+всегда. В данные сервиса-владельца актор реально оседает не везде: например,
+`archive_service` пишет его в `verified_by` при verify/reject через internal,
+а вот `user_service` (`Profile`) и `map_service` (`PointOfInterest`,
+`LastStandPoint`) принимают `X-Actor-Id`, но не хранят его ни в одном поле —
+единственная запись о том, кто именно выполнил такую мутацию, остаётся в
+аудит-логе `admin_service`, а не в самих данных.
 
 ```
 Vue-админка ──JWT админки──► admin_service ──X-Internal-Key──► /internal/* сервисов

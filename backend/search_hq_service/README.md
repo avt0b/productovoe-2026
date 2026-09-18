@@ -44,7 +44,7 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 | POST | `/needs/{id}/donations` | любой авторизованный (сбор `funds`, статус `open`) |
 | GET | `/needs/{id}/donations` | публично |
 | GET | `/trips` `?upcoming_only` | публично |
-| POST | `/squads/{id}/trips` · PATCH `/trips/{id}` | командир / `moderator` / root |
+| POST | `/squads/{id}/trips` · PATCH `/trips/{id}` | командир / `moderator` / root — `capacity` в PATCH нельзя занизить меньше уже зарегистрированных (`409`) |
 | POST | `/trips/{id}/registrations` | любой авторизованный (учёт мест) |
 | DELETE | `/trips/{id}/registrations/me` | сам волонтёр |
 | GET | `/trips/{id}/registrations` | командир / `moderator` / root |
