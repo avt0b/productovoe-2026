@@ -1,4 +1,4 @@
-import { ApiError, apiGet, withDemoFallback, type Sourced } from '@/core/api'
+import { ApiError, apiGet, apiRequest, withDemoFallback, type Sourced } from '@/core/api'
 
 import { DEMO_ROUTES } from './demoOrel'
 
@@ -61,4 +61,35 @@ export function getRoute(id: string): Promise<Sourced<RouteDetail>> {
       return route
     },
   )
+}
+
+/** Прогресс семьи по маршруту — какие точки уже пройдены. */
+export interface RouteProgress {
+  route_id: string
+  user_id: string
+  completed_waypoint_ids: string[]
+  current_index: number
+  started_at: string
+  completed_at: string | null
+}
+
+/**
+ * Мой прогресс по маршруту. `null` — маршрут ещё не начат. Нужен аккаунт:
+ * прогресс хранит `route_service`, у демо-сессии его нет.
+ */
+export async function getMyProgress(routeId: string): Promise<RouteProgress | null> {
+  try {
+    return await apiRequest<RouteProgress>('GET', 'routes', `/routes/${encodeURIComponent(routeId)}/progress/me`, { auth: true })
+  } catch (reason) {
+    if (reason instanceof ApiError && reason.status === 404) return null
+    throw reason
+  }
+}
+
+/** Отметить точку пройденной. Маршрут начинается сам, если ещё не был начат. */
+export function completeWaypoint(routeId: string, waypointId: string): Promise<RouteProgress> {
+  return apiRequest('POST', 'routes', `/routes/${encodeURIComponent(routeId)}/progress/complete-waypoint`, {
+    body: { waypoint_id: waypointId },
+    auth: true,
+  })
 }

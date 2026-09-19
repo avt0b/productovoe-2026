@@ -12,6 +12,9 @@ const props = defineProps<{
   hint: string
 }>()
 
+/** `done` — задание выполнено: точку можно засчитать в прогресс маршрута. */
+const emit = defineEmits<{ done: [] }>()
+
 type Verdict = 'correct' | 'wrong' | null
 
 const answer = ref('')
@@ -30,7 +33,15 @@ function check(): void {
   verdict.value = props.acceptedAnswers.some((fragment) => normalized.includes(fragment.toLowerCase()))
     ? 'correct'
     : 'wrong'
-  if (verdict.value === 'correct') answer.value = ''
+  if (verdict.value === 'correct') {
+    answer.value = ''
+    emit('done')
+  }
+}
+
+function markDone(): void {
+  verdict.value = 'correct'
+  emit('done')
 }
 </script>
 
@@ -53,7 +64,7 @@ function check(): void {
       v-if="!acceptedAnswers.length && verdict !== 'correct'"
       type="button"
       class="mt-space-xs flex h-11 items-center justify-center gap-1.5 self-start rounded-full bg-tertiary-container px-space-md font-label-md text-label-md text-on-tertiary-container transition-transform active:scale-95"
-      @click="verdict = 'correct'"
+      @click="markDone"
     >
       <MsIcon name="task_alt" :size="18" />
       Задание выполнено
