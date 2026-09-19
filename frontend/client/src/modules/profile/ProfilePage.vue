@@ -1,60 +1,81 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { useAsync } from '@/core/async'
 import { useSessionStore } from '@/core/session'
+import AccountRequired from '@/ui/AccountRequired.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
-import AncestorsSection from './components/AncestorsSection.vue'
+import AccountSection from './components/AccountSection.vue'
 import BadgesSection from './components/BadgesSection.vue'
-import ContactsSection from './components/ContactsSection.vue'
 import ExpeditionStatusCard from './components/ExpeditionStatusCard.vue'
+import HeroesSection from './components/HeroesSection.vue'
+import ProfileForm from './components/ProfileForm.vue'
 import ResearcherHeroCard from './components/ResearcherHeroCard.vue'
 import ResearcherTokenModal from './components/ResearcherTokenModal.vue'
 import SettingsSection from './components/SettingsSection.vue'
 import SupportSection from './components/SupportSection.vue'
-import { fetchProfile } from './data'
+import { fetchProfile, nextTrip, type HeroCounter, type Profile, type ProfileOverview } from './data'
 
 const session = useSessionStore()
-const { data, loading, error, retry } = useAsync(fetchProfile)
+
+/** Демо-режим без аккаунта: профиля в `user_service` нет, показываем гостя и семейный режим. */
+const overview = useAsync<ProfileOverview | null>(() => (session.hasAccount ? fetchProfile() : Promise.resolve(null)))
+const { data, loading, error, retry } = overview
 
 const tokenOpen = ref(false)
+
+/** Имя и город приходят из профиля — сессия их узнаёт, чтобы шапка и аватар показывали то же. */
+function applyProfile(profile: Profile): void {
+  if (data.value) data.value = { ...data.value, profile }
+  session.updateUser({
+    ...(profile.display_name ? { name: profile.display_name } : {}),
+    city: profile.city,
+  })
+}
+
+watch(
+  () => data.value?.profile,
+  (profile) => {
+    if (profile) applyProfile(profile)
+  },
+)
+
+const counters = computed<HeroCounter[]>(() => [
+  { value: data.value?.trips?.length ?? null, label: 'выездов с отрядом' },
+  { value: data.value?.entries?.length ?? null, label: 'записей в архиве' },
+  { value: data.value?.excursions ?? null, label: 'экскурсий', accent: true },
+])
 </script>
 
 <template>
   <div class="flex w-full flex-col gap-space-md px-margin pb-6">
-    <div class="flex items-center justify-between rounded-full bg-surface-container-low px-space-md py-space-sm shadow-sm">
-      <div class="flex items-center gap-space-xs">
-        <span class="h-2.5 w-2.5 animate-pulse rounded-full bg-secondary" />
-        <span class="font-label-sm text-label-sm uppercase tracking-wide text-secondary">Полевой штаб активен</span>
-      </div>
-      <span v-if="session.user" class="font-label-sm text-label-sm font-bold tracking-wider text-outline">
-        ID: #{{ session.user.id }}
-      </span>
-    </div>
-
     <StateBlock v-if="loading || error" :loading="loading" :error="error" @retry="retry" />
 
-    <template v-else-if="data">
+    <template v-else>
       <ResearcherHeroCard
         :user="session.user"
-        :experience="data.experience"
-        :counters="data.counters"
+        :verified="data?.profile.is_verified ?? false"
+        :since="data?.profile.created_at ?? null"
+        :counters="counters"
         @open-token="tokenOpen = true"
       />
-      <ExpeditionStatusCard v-bind="data.expedition" />
-      <AncestorsSection :ancestors="data.ancestors" />
-      <BadgesSection :badges="data.badges" :total="data.badgesTotal" />
-      <ContactsSection :contacts="data.contacts" />
-      <SettingsSection :settings="data.settings" />
-      <SupportSection :curator="data.curator" />
 
-      <div class="flex flex-col items-center gap-0.5 py-2 text-center">
-        <span class="font-label-sm text-label-sm text-outline">{{ data.version }}</span>
-        <span class="font-body-sm text-label-sm font-normal text-outline">
-          Сохраняя подвиг защитников Отечества для будущих поколений
-        </span>
-      </div>
+      <template v-if="data">
+        <ExpeditionStatusCard :trip="nextTrip(data.trips)" />
+        <ProfileForm :profile="data.profile" :fallback-name="session.user?.name ?? ''" @saved="applyProfile" />
+        <HeroesSection :entries="data.entries" />
+        <BadgesSection :trips="data.trips" :entries="data.entries" :excursions="data.excursions" />
+      </template>
+      <AccountRequired v-else-if="session.isAuthenticated" text="Профиль, герои семьи и значки хранятся в аккаунте" />
+
+      <SettingsSection :profile="data?.profile ?? null" :squads="data?.squads ?? []" @saved="applyProfile" />
+      <AccountSection v-if="session.user" :user="session.user" />
+      <SupportSection />
+
+      <p class="py-2 text-center font-body-sm text-label-sm font-normal text-outline">
+        Сохраняя подвиг защитников Отечества для будущих поколений
+      </p>
     </template>
 
     <ResearcherTokenModal v-if="tokenOpen && session.user" :user="session.user" @close="tokenOpen = false" />
