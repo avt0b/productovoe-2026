@@ -14,6 +14,10 @@ uv run uvicorn main:app --reload --port 8004
 
 Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 
+Демо-штаб Орловщины — три отряда, сборы «Поднять бойца» и «Экипировать
+отряд», выезды с чек-листами: `uv run python -m scripts.seed_orel`. Скрипт
+идемпотентный, все строки помечены «ДЕМО», даты выездов считаются от дня запуска.
+
 ## Архитектура
 
 Стандартный трёхслойный скелет (`api` / `services` / `repositories` + `core`).
@@ -44,6 +48,7 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 | POST | `/needs/{id}/donations` | любой авторизованный (сбор `funds`, статус `open`) |
 | GET | `/needs/{id}/donations` | публично |
 | GET | `/trips` `?upcoming_only` | публично |
+| GET | `/trips/mine` `?upcoming_only` | авторизованный — выезды, на которые он записан |
 | POST | `/squads/{id}/trips` · PATCH `/trips/{id}` | командир / `moderator` / root — `capacity` в PATCH нельзя занизить меньше уже зарегистрированных (`409`) |
 | POST | `/trips/{id}/registrations` | любой авторизованный (учёт мест) |
 | DELETE | `/trips/{id}/registrations/me` | сам волонтёр |

@@ -19,6 +19,17 @@ def list_trips(
     return [TripOut.model_validate(t) for t in rows]
 
 
+# Раньше `/{trip_id}`: иначе «mine» разобрался бы как id выезда.
+@router.get("/mine", response_model=list[TripOut])
+def my_trips(
+    principal: CurrentPrincipal,
+    service: TripServiceDep,
+    upcoming_only: Annotated[bool, Query()] = True,
+) -> list[TripOut]:
+    """Выезды, на которые записан сам запрашивающий."""
+    return [TripOut.model_validate(t) for t in service.mine(principal, upcoming_only=upcoming_only)]
+
+
 @router.get("/{trip_id}", response_model=TripOut)
 def get_trip(trip_id: str, service: TripServiceDep) -> TripOut:
     return TripOut.model_validate(service.get(trip_id))
