@@ -13,3 +13,9 @@ export function listMySquads(token, leaderId) {
   // Squad.leader_id, которое возвращается в SquadOut.
   return http.get(`${BASE}?limit=200`, { token }).then((squads) => squads.filter((s) => s.leader_id === leaderId))
 }
+
+// Список отрядов для выбора «предпочитаемого гида» в заявке школы на
+// экскурсию — ручка публичная, токен не нужен (see squads.py list_squads).
+export function listSquadsForGuideChoice() {
+  return http.get(`${BASE}?limit=200`)
+}

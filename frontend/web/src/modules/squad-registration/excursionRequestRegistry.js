@@ -1,9 +1,9 @@
 import { reactive, readonly } from 'vue'
 
-// В search_hq_service нет ни одной ручки под регистрацию школ/клубов (см.
-// BACKEND_INTEGRATION.md, Push 9) — только localStorage на фронте, без
-// притворства, что заявка ушла на сервер.
-const STORAGE_KEY = 'marshruty.squad-registration.schools'
+// В search_hq_service нет сущности ExcursionRequest вообще (модуль 5 ТЗ,
+// см. README сервиса и BACKEND_INTEGRATION.md Push 9) — только localStorage
+// на фронте, без притворства, что заявка ушла на сервер.
+const STORAGE_KEY = 'marshruty.squad-registration.excursion-requests'
 
 function load() {
   try {
@@ -24,9 +24,10 @@ function persist(items) {
 
 const state = reactive({ items: load() })
 
-function addSchool(payload) {
+function addRequest(payload) {
   const entry = {
     id: crypto.randomUUID(),
+    status: 'pending', // pending | accepted | declined — как только появится реальный бэкенд
     created_at: new Date().toISOString(),
     ...payload,
   }
@@ -35,9 +36,9 @@ function addSchool(payload) {
   return entry
 }
 
-export function useSchoolRegistry() {
+export function useExcursionRequestRegistry() {
   return {
-    schools: readonly(state).items,
-    addSchool,
+    requests: readonly(state).items,
+    addRequest,
   }
 }

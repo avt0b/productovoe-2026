@@ -22,7 +22,7 @@ const navItems = [
   { path: 'victory-routes', icon: 'route', label: 'Маршруты', href: '/routes' },
   { path: 'last-battle-registry', icon: 'location_searching', label: 'Последний бой', href: '/last-battle' },
   { path: 'expedition-hq', icon: 'campaign', label: 'Штаб', href: '/expedition-hq' },
-  { path: 'squad-registration', icon: 'add_task', label: 'Регистрация отряда/школы', href: '/squad-registration' },
+  { path: 'squad-registration', icon: 'add_task', label: 'Отряды и заявки школ', href: '/squad-registration' },
   { path: 'fundraising', icon: 'volunteer_activism', label: 'Сборы', href: '/fundraising' },
   { path: 'living-memory-archive', icon: 'auto_stories', label: 'Живая память', href: '/living-memory' },
   { path: 'researcher-profile', icon: 'manage_accounts', label: 'Профиль исследователя', href: '/profile' },

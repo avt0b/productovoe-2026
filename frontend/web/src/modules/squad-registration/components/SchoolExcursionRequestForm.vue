@@ -1,8 +1,9 @@
 <script setup>
-import { reactive, ref } from 'vue'
-import { useSchoolRegistry } from '../schoolRegistry.js'
+import { onMounted, reactive, ref } from 'vue'
+import { useExcursionRequestRegistry } from '../excursionRequestRegistry.js'
+import * as api from '../api.js'
 
-const { schools, addSchool } = useSchoolRegistry()
+const { requests, addRequest } = useExcursionRequestRegistry()
 
 const KIND_OPTIONS = [
   { id: 'school', label: 'Школа' },
@@ -10,15 +11,33 @@ const KIND_OPTIONS = [
   { id: 'other', label: 'Другое' },
 ]
 
+const STATUS_META = {
+  pending: { label: 'Заявка отправлена', class: 'bg-surface-container-high text-on-surface-variant', icon: 'schedule' },
+  accepted: { label: 'Принята отрядом', class: 'bg-secondary-fixed text-on-secondary-fixed', icon: 'check_circle' },
+  declined: { label: 'Отклонена', class: 'bg-error-container text-on-error-container', icon: 'cancel' },
+}
+
+const squads = ref([])
+
+onMounted(async () => {
+  try {
+    squads.value = await api.listSquadsForGuideChoice()
+  } catch {
+    squads.value = []
+  }
+})
+
 const form = reactive({
-  name: '',
-  kind: 'school',
+  orgName: '',
+  orgKind: 'school',
   city: '',
   contactPerson: '',
   phone: '',
   email: '',
-  expectedGroupSize: '',
-  comment: '',
+  groupSize: '',
+  preferredDate: '',
+  squadId: '',
+  topic: '',
   consent: false,
 })
 const status = ref('idle') // idle | done
@@ -26,7 +45,7 @@ const error = ref('')
 
 function submit() {
   error.value = ''
-  if (!form.name.trim()) {
+  if (!form.orgName.trim()) {
     error.value = 'Укажите название школы или клуба'
     return
   }
@@ -38,23 +57,29 @@ function submit() {
     error.value = 'Подтвердите согласие на обработку контактных данных'
     return
   }
-  addSchool({
-    name: form.name.trim(),
-    kind: form.kind,
+  const squad = squads.value.find((s) => s.id === form.squadId)
+  addRequest({
+    org_name: form.orgName.trim(),
+    org_kind: form.orgKind,
     city: form.city.trim(),
     contact_person: form.contactPerson.trim(),
     phone: form.phone.trim(),
     email: form.email.trim(),
-    expected_group_size: form.expectedGroupSize ? Number(form.expectedGroupSize) : null,
-    comment: form.comment.trim(),
+    group_size: form.groupSize ? Number(form.groupSize) : null,
+    preferred_date: form.preferredDate || null,
+    squad_id: form.squadId || null,
+    squad_name: squad?.name ?? null,
+    topic: form.topic.trim(),
   })
-  form.name = ''
+  form.orgName = ''
   form.city = ''
   form.contactPerson = ''
   form.phone = ''
   form.email = ''
-  form.expectedGroupSize = ''
-  form.comment = ''
+  form.groupSize = ''
+  form.preferredDate = ''
+  form.squadId = ''
+  form.topic = ''
   form.consent = false
   status.value = 'done'
   setTimeout(() => (status.value = 'idle'), 1500)
@@ -67,25 +92,26 @@ function submit() {
       <span class="material-symbols-outlined text-primary text-[22px]">school</span>
       <div class="flex flex-col">
         <h2 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2 flex-wrap">
-          Регистрация школы или клуба
+          Заявка школы или клуба на экскурсию
           <span
             class="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-bold normal-case"
           >
-            демо — в search_hq_service нет такой сущности
+            демо — ExcursionRequest нет в search_hq_service
           </span>
         </h2>
         <span class="font-body-sm text-body-sm text-on-surface-variant">
-          Заявка сохраняется только в этом браузере (localStorage), пока бэкенд не реализует
-          ручку — контракт для неё описан в BACKEND_INTEGRATION.md
+          Модуль 5 ТЗ («коллективные заявки школ/клубов на экскурсии»). Заявка сохраняется только
+          в этом браузере, пока бэкенд не реализует ручку — контракт описан в
+          BACKEND_INTEGRATION.md
         </span>
       </div>
     </div>
 
     <form class="grid grid-cols-1 md:grid-cols-2 gap-3" @submit.prevent="submit">
       <input
-        v-model="form.name"
+        v-model="form.orgName"
         type="text"
-        placeholder="Название, например школа № 12, г. Орёл"
+        placeholder="Школа или клуб, например школа № 12, г. Орёл"
         class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors md:col-span-2"
       />
       <div class="flex flex-wrap gap-2 md:col-span-2">
@@ -95,11 +121,11 @@ function submit() {
           type="button"
           class="px-3 py-1.5 rounded-full font-label-sm text-label-sm font-bold transition-all"
           :class="
-            form.kind === opt.id
+            form.orgKind === opt.id
               ? 'bg-secondary text-on-secondary'
               : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
           "
-          @click="form.kind = opt.id"
+          @click="form.orgKind = opt.id"
         >
           {{ opt.label }}
         </button>
@@ -111,7 +137,7 @@ function submit() {
         class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
       />
       <input
-        v-model="form.expectedGroupSize"
+        v-model="form.groupSize"
         type="number"
         min="1"
         placeholder="Размер группы, чел."
@@ -133,12 +159,24 @@ function submit() {
         v-model="form.email"
         type="email"
         placeholder="E-mail (необязательно)"
-        class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors md:col-span-2"
+        class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
       />
+      <input
+        v-model="form.preferredDate"
+        type="date"
+        class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
+      />
+      <select
+        v-model="form.squadId"
+        class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors md:col-span-2"
+      >
+        <option value="">Гид не важен — пусть штаб подберёт отряд</option>
+        <option v-for="s in squads" :key="s.id" :value="s.id">{{ s.name }} · {{ s.region || 'регион не указан' }}</option>
+      </select>
       <textarea
-        v-model="form.comment"
+        v-model="form.topic"
         rows="2"
-        placeholder="Пожелания: классы, тема экскурсии, желаемые даты"
+        placeholder="Тема экскурсии, возраст группы, пожелания"
         class="w-full px-4 py-3 rounded-DEFAULT bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors resize-none md:col-span-2"
       />
 
@@ -157,27 +195,32 @@ function submit() {
         :class="status === 'done' ? 'bg-secondary text-on-secondary' : 'bg-primary text-on-primary'"
       >
         <span class="material-symbols-outlined text-[18px]">{{ status === 'done' ? 'check_circle' : 'send' }}</span>
-        <span>{{ status === 'done' ? 'Заявка сохранена локально' : 'Зарегистрировать' }}</span>
+        <span>{{ status === 'done' ? 'Заявка сохранена локально' : 'Отправить заявку' }}</span>
       </button>
     </form>
 
-    <div v-if="schools.length" class="flex flex-col gap-2 pt-3 border-t border-surface-container-high">
+    <div v-if="requests.length" class="flex flex-col gap-2 pt-3 border-t border-surface-container-high">
       <span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">
         Сохранено в этом браузере
       </span>
       <div
-        v-for="s in schools"
-        :key="s.id"
+        v-for="r in requests"
+        :key="r.id"
         class="bg-surface-container-low p-3.5 rounded-DEFAULT flex items-center justify-between gap-3"
       >
         <div class="flex flex-col min-w-0">
-          <span class="font-label-md text-label-md text-on-surface font-bold truncate">{{ s.name }}</span>
+          <span class="font-label-md text-label-md text-on-surface font-bold truncate">{{ r.org_name }}</span>
           <span class="font-body-sm text-body-sm text-on-surface-variant truncate">
-            {{ s.contact_person }} · {{ s.phone }}
+            {{ r.contact_person }} · {{ r.phone }}
+            <template v-if="r.squad_name"> · гид: {{ r.squad_name }}</template>
           </span>
         </div>
-        <span class="px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-bold shrink-0">
-          {{ KIND_OPTIONS.find((k) => k.id === s.kind)?.label ?? s.kind }}
+        <span
+          class="px-2.5 py-1 rounded-full font-label-sm text-label-sm font-bold flex items-center gap-1 shrink-0"
+          :class="STATUS_META[r.status].class"
+        >
+          <span class="material-symbols-outlined text-[14px]">{{ STATUS_META[r.status].icon }}</span>
+          {{ STATUS_META[r.status].label }}
         </span>
       </div>
     </div>
