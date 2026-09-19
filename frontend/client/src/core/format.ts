@@ -27,6 +27,26 @@ export function plural(count: number, forms: readonly [string, string, string]):
   return forms[2]
 }
 
+const DATE = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+const DATE_TIME = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+
+/**
+ * «14 сентября 2026». Дата без времени из сервиса (`2026-09-14`) — это день,
+ * а не полночь по UTC: иначе к западу от Гринвича она уехала бы на день назад.
+ */
+export function formatDate(value: string | null | undefined): string {
+  if (!value) return DASH
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value)
+  return Number.isNaN(date.getTime()) ? DASH : DATE.format(date)
+}
+
+/** «14 сентября, 09:00». */
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return DASH
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? DASH : DATE_TIME.format(date)
+}
+
 export function errorText(error: unknown): string {
   if (error instanceof Error && error.message) return error.message
   return 'Непредвиденная ошибка'

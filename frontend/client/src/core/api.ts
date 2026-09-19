@@ -1,24 +1,14 @@
+import { serviceBaseUrl, type ServiceName } from './server'
+
 /**
  * Запросы к публичным сервисам.
  *
- * Общего шлюза пока нет — у каждого сервиса свой адрес. Адреса задаются в
- * `.env.local` (`VITE_MAP_API_URL`, `VITE_AUTH_API_URL` и т. д.), без них
- * берутся локальные порты из `backend/README.md`. Для APK на телефоне нужен
- * адрес компьютера в локальной сети: `127.0.0.1` на телефоне — сам телефон.
+ * Адрес каждого сервиса — `core/server.ts`: из сборки (`.env.local`) или
+ * выбранный на экране «Сервер». Для APK на телефоне нужен адрес компьютера в
+ * локальной сети: `127.0.0.1` на телефоне — сам телефон.
  */
 
-export type ServiceName = 'map' | 'routes' | 'auth' | 'hq'
-
-function baseUrl(value: string | undefined, fallback: string): string {
-  return (value || fallback).replace(/\/+$/, '')
-}
-
-const BASE_URLS: Record<ServiceName, string> = {
-  map: baseUrl(import.meta.env.VITE_MAP_API_URL, 'http://127.0.0.1:8003'),
-  routes: baseUrl(import.meta.env.VITE_ROUTE_API_URL, 'http://127.0.0.1:8006'),
-  auth: baseUrl(import.meta.env.VITE_AUTH_API_URL, 'http://127.0.0.1:8001'),
-  hq: baseUrl(import.meta.env.VITE_HQ_API_URL, 'http://127.0.0.1:8004'),
-}
+export type { ServiceName } from './server'
 
 /** Дольше спиннер на телефоне никто не ждёт — лучше показать демо и честно сказать об этом. */
 const TIMEOUT_MS = 6000
@@ -26,9 +16,11 @@ const TIMEOUT_MS = 6000
 /**
  * Сколько помнить, что сервис не ответил. Иначе каждый следующий экран снова
  * ждал бы таймаут, прежде чем показать демо-данные.
+ *
+ * Ключ — адрес сервиса, а не имя: сменили сервер — старые отказы не мешают новому.
  */
 const DOWN_MEMORY_MS = 30_000
-const downUntil: Partial<Record<ServiceName, number>> = {}
+const downUntil = new Map<string, number>()
 
 /** Сервис не ответил вовсе: нет сети, сервер не запущен, истёк таймаут. */
 export class ServiceUnavailableError extends Error {
@@ -102,9 +94,10 @@ export async function apiRequest<T>(
 }
 
 async function send(method: HttpMethod, service: ServiceName, path: string, options: RequestOptions): Promise<Response> {
-  if ((downUntil[service] ?? 0) > Date.now()) throw new ServiceUnavailableError(service)
+  const base = serviceBaseUrl(service)
+  if ((downUntil.get(base) ?? 0) > Date.now()) throw new ServiceUnavailableError(service)
 
-  const url = new URL(`${BASE_URLS[service]}${path}`)
+  const url = new URL(`${base}${path}`)
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== null && value !== undefined) url.searchParams.set(key, String(value))
   }
@@ -128,7 +121,7 @@ async function send(method: HttpMethod, service: ServiceName, path: string, opti
   } catch (reason) {
     // Сюда же попадает отказ CORS — в консоли видно, куда именно не достучались.
     console.warn(`[api] ${service}: нет ответа от ${url.origin}`, reason)
-    downUntil[service] = Date.now() + DOWN_MEMORY_MS
+    downUntil.set(base, Date.now() + DOWN_MEMORY_MS)
     throw new ServiceUnavailableError(service)
   } finally {
     clearTimeout(timer)
