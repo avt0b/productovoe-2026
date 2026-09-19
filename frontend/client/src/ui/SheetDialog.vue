@@ -35,6 +35,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <!-- В body: у каркаса экрана есть размытие фона, внутри него fixed отсчитывался бы от каркаса, а не от окна. -->
+  <Teleport to="body">
   <div
     class="fixed inset-0 z-[60] flex items-end justify-center bg-inverse-surface/60 backdrop-blur-sm sm:items-center sm:p-margin"
     role="dialog"
@@ -65,4 +67,5 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </div>
+  </Teleport>
 </template>
