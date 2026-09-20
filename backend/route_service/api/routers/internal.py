@@ -33,7 +33,9 @@ def stats(db: DbSession) -> dict:
 
     started = db.scalar(select(func.count(RouteProgress.id))) or 0
     completed = (
-        db.scalar(select(func.count(RouteProgress.id)).where(RouteProgress.completed_at.is_not(None)))
+        db.scalar(
+            select(func.count(RouteProgress.id)).where(RouteProgress.completed_at.is_not(None))
+        )
         or 0
     )
 

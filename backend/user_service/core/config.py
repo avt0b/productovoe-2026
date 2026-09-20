@@ -24,5 +24,12 @@ class Settings(BaseSettings):
         "capacitor://localhost",
     ]
 
+    # --- файлы (аватары) в MinIO, S3-совместимое хранилище ---
+    minio_endpoint: str = "http://127.0.0.1:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "users"
+    minio_public_base_url: str | None = None
+
 
 settings = Settings()

@@ -21,9 +21,7 @@ class ProgressService:
             raise NotFound("Маршрут не найден")
         progress = self.repo.get(route_id, principal.user_id)
         if progress is None:
-            progress = self.repo.add(
-                RouteProgress(route_id=route_id, user_id=principal.user_id)
-            )
+            progress = self.repo.add(RouteProgress(route_id=route_id, user_id=principal.user_id))
             self.db.commit()
             self.db.refresh(progress)
         return progress

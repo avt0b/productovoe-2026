@@ -13,7 +13,9 @@ def published_route_with_waypoints(client, author_header, n=3):
             json={"title": f"Точка {i}", "lat": 52.9 + i / 100, "lon": 36.0},
         ).json()
         wp_ids.append(w["id"])
-    client.post(f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True})
+    client.post(
+        f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True}
+    )
     return route["id"], wp_ids
 
 
@@ -64,6 +66,9 @@ def test_complete_unknown_waypoint_404(client, author_header):
 
 def test_progress_me_before_start_404(client, author_header):
     route_id, _ = published_route_with_waypoints(client, author_header)
-    assert client.get(
-        f"/routes/{route_id}/progress/me", headers=auth_header(user_id="mama-1")
-    ).status_code == 404
+    assert (
+        client.get(
+            f"/routes/{route_id}/progress/me", headers=auth_header(user_id="mama-1")
+        ).status_code
+        == 404
+    )

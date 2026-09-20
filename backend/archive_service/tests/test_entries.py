@@ -37,8 +37,11 @@ def test_public_feed_shows_only_verified(client):
     e = create_entry(client, author).json()
     assert client.get("/entries").json() == []
 
-    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian"),
-                json={"note": "сверено с Книгой Памяти Т. 5"})
+    client.post(
+        f"/entries/{e['id']}/verify",
+        headers=auth_header(role="local_historian"),
+        json={"note": "сверено с Книгой Памяти Т. 5"},
+    )
     feed = client.get("/entries").json()
     assert [x["id"] for x in feed] == [e["id"]]
     assert feed[0]["status"] == "verified"
@@ -52,25 +55,41 @@ def test_pending_entry_visible_to_author_and_verifier_only(client):
     # автор видит
     assert client.get(f"/entries/{e['id']}", headers=author).status_code == 200
     # верификатор видит
-    assert client.get(f"/entries/{e['id']}", headers=auth_header(role="moderator")).status_code == 200
+    assert (
+        client.get(f"/entries/{e['id']}", headers=auth_header(role="moderator")).status_code == 200
+    )
     # посторонний — 404
-    assert client.get(f"/entries/{e['id']}", headers=auth_header(user_id="stranger")).status_code == 404
+    assert (
+        client.get(f"/entries/{e['id']}", headers=auth_header(user_id="stranger")).status_code
+        == 404
+    )
     # аноним — 404
     assert client.get(f"/entries/{e['id']}").status_code == 404
 
 
 def test_verify_permissions(client):
     e = create_entry(client, auth_header(user_id="author-1")).json()
-    assert client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="family"),
-                       json={}).status_code == 403
-    assert client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="mentor"),
-                       json={}).status_code == 200
+    assert (
+        client.post(
+            f"/entries/{e['id']}/verify", headers=auth_header(role="family"), json={}
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            f"/entries/{e['id']}/verify", headers=auth_header(role="mentor"), json={}
+        ).status_code
+        == 200
+    )
 
 
 def test_reject_with_note(client):
     e = create_entry(client, auth_header(user_id="author-1")).json()
-    r = client.post(f"/entries/{e['id']}/reject", headers=auth_header(role="moderator"),
-                    json={"note": "нет источника"})
+    r = client.post(
+        f"/entries/{e['id']}/reject",
+        headers=auth_header(role="moderator"),
+        json={"note": "нет источника"},
+    )
     assert r.status_code == 200
     assert r.json()["status"] == "rejected"
     assert r.json()["review_note"] == "нет источника"
@@ -109,12 +128,18 @@ def test_author_cannot_edit_after_verify(client):
     author = auth_header(user_id="author-1")
     e = create_entry(client, author).json()
 
-    assert client.patch(f"/entries/{e['id']}", headers=author,
-                        json={"title": "поправка"}).status_code == 200
+    assert (
+        client.patch(f"/entries/{e['id']}", headers=author, json={"title": "поправка"}).status_code
+        == 200
+    )
 
     client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="moderator"), json={})
-    assert client.patch(f"/entries/{e['id']}", headers=author,
-                        json={"title": "ещё правка"}).status_code == 409
+    assert (
+        client.patch(
+            f"/entries/{e['id']}", headers=author, json={"title": "ещё правка"}
+        ).status_code
+        == 409
+    )
 
 
 def test_moderation_queue_lists_pending(client):
@@ -148,8 +173,11 @@ def test_get_missing_404(client):
 def test_verifier_edit_after_review_restamps_reviewed_at(client):
     author = auth_header(user_id="author-1")
     e = create_entry(client, author).json()
-    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian", user_id="hist-1"),
-                json={"note": "сверено"})
+    client.post(
+        f"/entries/{e['id']}/verify",
+        headers=auth_header(role="local_historian", user_id="hist-1"),
+        json={"note": "сверено"},
+    )
 
     edited = client.patch(
         f"/entries/{e['id']}",
@@ -168,7 +196,9 @@ def test_deleting_reviewed_entry_is_logged(client, caplog):
     client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="moderator"), json={})
 
     with caplog.at_level("WARNING"):
-        r = client.delete(f"/entries/{e['id']}", headers=auth_header(role="moderator", user_id="mod-9"))
+        r = client.delete(
+            f"/entries/{e['id']}", headers=auth_header(role="moderator", user_id="mod-9")
+        )
     assert r.status_code == 204
     assert any(
         e["id"] in record.getMessage() and "mod-9" in record.getMessage()

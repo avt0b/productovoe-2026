@@ -105,7 +105,9 @@ class ExcursionRepository:
             )
             .group_by(ExcursionParticipant.excursion_id)
         )
-        return {excursion_id: (registered, checked_in) for excursion_id, registered, checked_in in rows}
+        return {
+            excursion_id: (registered, checked_in) for excursion_id, registered, checked_in in rows
+        }
 
     def participations(
         self, user_id: str, excursion_ids: Iterable[str]

@@ -15,6 +15,9 @@ class ClipCreate(BaseModel):
     voice_style: VoiceStyle = VoiceStyle.era_male
     is_public: bool = False
     archive_entry_id: str | None = Field(default=None, max_length=36)
+    # Заполняется, когда заявка создана из карточки точки на карте
+    # («создать живое фото для неизвестного бойца из этого захоронения»).
+    poi_id: str | None = Field(default=None, max_length=36)
     # Этическая оговорка ТЗ — обязательное согласие. Дефолт False (не True),
     # чтобы непереданное поле и явный отказ вели к одной и той же доменной
     # ошибке 403 в ClipService.create, а не расходились на 422 vs 403.
@@ -47,6 +50,7 @@ class ClipOut(BaseModel):
     error: str
     rendered_at: datetime | None
     archive_entry_id: str | None
+    poi_id: str | None
     created_at: datetime
 
 

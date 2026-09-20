@@ -14,7 +14,10 @@ x-backend-common: &backend-common
 
 services:
   postgres:
-    image: postgres:17-alpine
+    # postgis/postgis — тот же postgres:17-alpine, но с предустановленным PostGIS
+    # (расширение доустанавливается сам map_service, см. core/db._ensure_postgis,
+    # но файлы самого расширения образ должен нести уже готовыми).
+    image: postgis/postgis:17-3.6-alpine
     container_name: marshruty_postgres
     restart: unless-stopped
     environment:
@@ -99,6 +102,10 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ISSUER: ${JWT_ISSUER}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL}
 
   map_service:
     <<: *backend-common
@@ -118,6 +125,8 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ISSUER: ${JWT_ISSUER}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      # Уведомляет подписчиков «Последнего боя» при появлении новой точки.
+      USER_SERVICE_URL: http://user_service:8002
 
   search_hq_service:
     <<: *backend-common
@@ -137,6 +146,10 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ISSUER: ${JWT_ISSUER}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      # Без обоих — донаты как раньше, сразу в БД без реального платежа (см. README сервиса).
+      YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID}
+      YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY}
+      YOOKASSA_RETURN_URL: ${YOOKASSA_RETURN_URL}
 
   archive_service:
     <<: *backend-common
@@ -156,6 +169,10 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ISSUER: ${JWT_ISSUER}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL}
 
   route_service:
     <<: *backend-common
@@ -175,6 +192,12 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ISSUER: ${JWT_ISSUER}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      # Для подсказки «рядом есть неподтверждённая заметка» на точках маршрута.
+      ARCHIVE_SERVICE_URL: http://archive_service:8005
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL}
 
   media_service:
     <<: *backend-common
@@ -197,6 +220,7 @@ services:
       MINIO_ENDPOINT: ${MINIO_ENDPOINT}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL}
 
   admin_service:
     <<: *backend-common

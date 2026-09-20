@@ -21,8 +21,12 @@ def test_update_me(client):
     r = client.put(
         "/profiles/me",
         headers=h,
-        json={"display_name": "Отряд Высота", "city": "Орёл", "subscribed_to_search": True,
-              "alert_radius_km": 30},
+        json={
+            "display_name": "Отряд Высота",
+            "city": "Орёл",
+            "subscribed_to_search": True,
+            "alert_radius_km": 30,
+        },
     )
     assert r.status_code == 200
     body = r.json()
@@ -57,9 +61,14 @@ def test_verify_profile_permissions(client):
     client.get("/profiles/me", headers=auth_header(user_id=target))
 
     # family не может
-    assert client.patch(
-        f"/profiles/{target}/verify", headers=auth_header(role="family"), json={"is_verified": True}
-    ).status_code == 403
+    assert (
+        client.patch(
+            f"/profiles/{target}/verify",
+            headers=auth_header(role="family"),
+            json={"is_verified": True},
+        ).status_code
+        == 403
+    )
 
     # moderator может
     r = client.patch(

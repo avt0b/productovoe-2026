@@ -83,9 +83,7 @@ class RouteService:
         order_index = data.pop("order_index", None)
         if order_index is None:
             order_index = self.repo.next_order_index(route_id)
-        wp = self.repo.add_waypoint(
-            Waypoint(route_id=route_id, order_index=order_index, **data)
-        )
+        wp = self.repo.add_waypoint(Waypoint(route_id=route_id, order_index=order_index, **data))
         self.db.commit()
         self.db.refresh(wp)
         return wp

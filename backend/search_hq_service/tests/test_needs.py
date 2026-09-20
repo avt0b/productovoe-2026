@@ -11,9 +11,12 @@ def test_create_need_requires_squad_manager(client, leader_header):
     squad = make_squad(client, leader_header)
     payload = {"kind": "funds", "title": "Экипировать отряд", "target_amount": 50000}
 
-    assert client.post(
-        f"/squads/{squad['id']}/needs", headers=auth_header(role="searcher"), json=payload
-    ).status_code == 403
+    assert (
+        client.post(
+            f"/squads/{squad['id']}/needs", headers=auth_header(role="searcher"), json=payload
+        ).status_code
+        == 403
+    )
 
     r = client.post(f"/squads/{squad['id']}/needs", headers=leader_header, json=payload)
     assert r.status_code == 201
@@ -38,17 +41,18 @@ def test_donation_flow_and_autoclose(client, leader_header):
     assert client.get(f"/needs/{need['id']}").json()["collected_amount"] == 5000
 
     # добиваем до цели — сбор автозакрывается
-    client.post(
-        f"/needs/{need['id']}/donations", headers=auth_header(), json={"amount": 10000}
-    )
+    client.post(f"/needs/{need['id']}/donations", headers=auth_header(), json={"amount": 10000})
     closed = client.get(f"/needs/{need['id']}").json()
     assert closed["collected_amount"] == 15000
     assert closed["status"] == "closed"
 
     # в закрытый сбор донат не проходит
-    assert client.post(
-        f"/needs/{need['id']}/donations", headers=auth_header(), json={"amount": 100}
-    ).status_code == 409
+    assert (
+        client.post(
+            f"/needs/{need['id']}/donations", headers=auth_header(), json={"amount": 100}
+        ).status_code
+        == 409
+    )
 
 
 def test_public_donation_feed_hides_donor(client, leader_header):
@@ -79,9 +83,12 @@ def test_donation_rejected_for_non_funds_need(client, leader_header):
         headers=leader_header,
         json={"kind": "volunteers", "title": "5 землекопов", "target_amount": 5},
     ).json()
-    assert client.post(
-        f"/needs/{need['id']}/donations", headers=auth_header(), json={"amount": 100}
-    ).status_code == 409
+    assert (
+        client.post(
+            f"/needs/{need['id']}/donations", headers=auth_header(), json={"amount": 100}
+        ).status_code
+        == 409
+    )
 
 
 def test_needs_feed_defaults_to_open(client, leader_header):

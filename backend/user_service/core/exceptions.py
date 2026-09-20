@@ -18,6 +18,16 @@ class ProfileNotFound(AppError):
     detail = "Профиль не найден"
 
 
+class NotFound(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    detail = "Объект не найден"
+
+
 class PermissionDenied(AppError):
     status_code = status.HTTP_403_FORBIDDEN
     detail = "Недостаточно прав"
+
+
+class ServiceUnavailable(AppError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    detail = "Хранилище файлов недоступно"

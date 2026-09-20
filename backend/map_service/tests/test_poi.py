@@ -73,11 +73,21 @@ def test_only_author_or_moderator_edits(client):
     poi = make_poi(client, owner).json()
 
     stranger = auth_header(role="local_historian")
-    assert client.patch(f"/poi/{poi['id']}", headers=stranger, json={"title": "hack"}).status_code == 403
+    assert (
+        client.patch(f"/poi/{poi['id']}", headers=stranger, json={"title": "hack"}).status_code
+        == 403
+    )
 
-    assert client.patch(f"/poi/{poi['id']}", headers=owner, json={"title": "fixed"}).status_code == 200
+    assert (
+        client.patch(f"/poi/{poi['id']}", headers=owner, json={"title": "fixed"}).status_code == 200
+    )
     mod = auth_header(role="moderator")
-    assert client.patch(f"/poi/{poi['id']}", headers=mod, json={"description": "проверено"}).status_code == 200
+    assert (
+        client.patch(
+            f"/poi/{poi['id']}", headers=mod, json={"description": "проверено"}
+        ).status_code
+        == 200
+    )
 
 
 def test_delete_by_root(client):

@@ -41,9 +41,7 @@ def register_for_trip(
 
 
 @router.delete("/{trip_id}/registrations/me", status_code=status.HTTP_204_NO_CONTENT)
-def cancel_registration(
-    trip_id: str, principal: CurrentPrincipal, service: TripServiceDep
-) -> None:
+def cancel_registration(trip_id: str, principal: CurrentPrincipal, service: TripServiceDep) -> None:
     service.cancel(principal, trip_id)
 
 

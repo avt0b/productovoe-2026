@@ -2,11 +2,13 @@ from collections.abc import Sequence
 
 from sqlalchemy.orm import Session
 
+from core.db import postgis_available
 from core.exceptions import NotFound, PermissionDenied
 from core.geo import bbox_around, haversine_km
 from core.models import LastStandPoint, LastStandStatus
 from core.security import Principal
 from repositories.last_stand_repository import LastStandRepository
+from services.notify_client import notify_nearby_subscribers
 
 # Кто может заводить точки «Последнего боя».
 _CONTRIBUTOR_ROLES = {"searcher", "local_historian", "mentor", "moderator"}
@@ -31,6 +33,10 @@ class LastStandService:
     def nearby(
         self, *, lat: float, lon: float, radius_km: float, limit: int = 100
     ) -> list[tuple[LastStandPoint, float]]:
+        if postgis_available():
+            return self.repo.nearby_postgis(lat=lat, lon=lon, radius_km=radius_km, limit=limit)
+
+        # Фолбэк для sqlite (тесты) и любой БД без PostGIS — см. core/geo.py.
         candidates = self.repo.search(bbox=bbox_around(lat, lon, radius_km), limit=1000)
         out = [(p, haversine_km(lat, lon, p.lat, p.lon)) for p in candidates]
         out = [pair for pair in out if pair[1] <= radius_km]
@@ -45,6 +51,18 @@ class LastStandService:
         point = self.repo.add(LastStandPoint(created_by=principal.user_id, **data))
         self.db.commit()
         self.db.refresh(point)
+
+        title = (
+            f"Обнаружено место гибели: {point.soldier_name}"
+            if point.soldier_name
+            else "В вашем районе обнаружено место гибели бойца"
+        )
+        notify_nearby_subscribers(
+            lat=point.lat,
+            lon=point.lon,
+            title=title,
+            body="Требуется помощь в идентификации.",
+        )
         return point
 
     def update(self, principal: Principal, point_id: str, data: dict) -> LastStandPoint:

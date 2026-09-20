@@ -50,9 +50,7 @@ class ClipService:
                 "Технология доступна только для мемориального использования — нужно согласие"
             )
         clip = self.repo.add(
-            MemorialClip(
-                submitted_by=principal.user_id, status=ClipStatus.queued, **data
-            )
+            MemorialClip(submitted_by=principal.user_id, status=ClipStatus.queued, **data)
         )
         self.db.commit()
         self.db.refresh(clip)
@@ -90,9 +88,7 @@ class ClipService:
         if clip.status is not ClipStatus.ready:
             raise Conflict("Отправить можно только готовый клип")
         share = self.repo.add_share(
-            ClipShare(
-                clip_id=clip_id, shared_by=principal.user_id, recipient=recipient, note=note
-            )
+            ClipShare(clip_id=clip_id, shared_by=principal.user_id, recipient=recipient, note=note)
         )
         self.db.commit()
         self.db.refresh(share)

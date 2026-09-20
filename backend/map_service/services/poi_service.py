@@ -2,6 +2,7 @@ from collections.abc import Sequence
 
 from sqlalchemy.orm import Session
 
+from core.db import postgis_available
 from core.exceptions import NotFound, PermissionDenied
 from core.geo import bbox_around, haversine_km
 from core.models import POIKind, PointOfInterest
@@ -24,13 +25,22 @@ class POIService:
         return self.repo.search(**filters)
 
     def nearby(
-        self, *, lat: float, lon: float, radius_km: float, kind: POIKind | None = None, limit: int = 100
+        self,
+        *,
+        lat: float,
+        lon: float,
+        radius_km: float,
+        kind: POIKind | None = None,
+        limit: int = 100,
     ) -> list[tuple[PointOfInterest, float]]:
+        if postgis_available():
+            return self.repo.nearby_postgis(
+                lat=lat, lon=lon, radius_km=radius_km, kind=kind, limit=limit
+            )
+
+        # Фолбэк для sqlite (тесты) и любой БД без PostGIS — см. core/geo.py.
         candidates = self.repo.search(kind=kind, bbox=bbox_around(lat, lon, radius_km), limit=1000)
-        out = [
-            (poi, haversine_km(lat, lon, poi.lat, poi.lon))
-            for poi in candidates
-        ]
+        out = [(poi, haversine_km(lat, lon, poi.lat, poi.lon)) for poi in candidates]
         out = [pair for pair in out if pair[1] <= radius_km]
         out.sort(key=lambda pair: pair[1])
         return out[:limit]

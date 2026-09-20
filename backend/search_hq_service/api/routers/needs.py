@@ -48,7 +48,11 @@ def donate(
     service: NeedServiceDep,
 ) -> DonationOut:
     donation = service.donate(
-        principal, need_id, amount=payload.amount, comment=payload.comment
+        principal,
+        need_id,
+        amount=payload.amount,
+        comment=payload.comment,
+        return_url=payload.return_url,
     )
     return DonationOut.model_validate(donation)
 

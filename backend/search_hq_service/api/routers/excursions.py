@@ -2,7 +2,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 
-from api.deps import BumpServiceDep, CurrentPrincipal, ExcursionServiceDep, OptionalPrincipal
+from api.deps import (
+    BumpServiceDep,
+    CurrentPrincipal,
+    ExcursionServiceDep,
+    OptionalPrincipal,
+    RatingServiceDep,
+)
 from api.schemas.excursion import (
     BumpIn,
     BumpOut,
@@ -14,6 +20,7 @@ from api.schemas.excursion import (
     MyExcursionsOut,
     ParticipantOut,
 )
+from api.schemas.rating import GuideRatingCreate, GuideRatingOut
 
 router = APIRouter(prefix="/excursions", tags=["excursions (экскурсии краеведов и бамп)"])
 
@@ -145,3 +152,24 @@ def bump(
         shaken_ms_ago=payload.shaken_ms_ago,
     )
     return BumpOut.from_result(result)
+
+
+# --- рейтинг гида ---
+
+
+@router.post(
+    "/{excursion_id}/rating", response_model=GuideRatingOut, status_code=status.HTTP_201_CREATED
+)
+def rate_excursion(
+    excursion_id: str,
+    payload: GuideRatingCreate,
+    principal: CurrentPrincipal,
+    service: RatingServiceDep,
+) -> GuideRatingOut:
+    rating = service.rate(principal, excursion_id, rating=payload.rating, comment=payload.comment)
+    return GuideRatingOut.model_validate(rating)
+
+
+@router.get("/{excursion_id}/rating", response_model=list[GuideRatingOut])
+def excursion_ratings(excursion_id: str, service: RatingServiceDep) -> list[GuideRatingOut]:
+    return [GuideRatingOut.model_validate(r) for r in service.for_excursion(excursion_id)]

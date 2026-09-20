@@ -33,9 +33,7 @@ class EntryService:
         if entry.status is EntryStatus.verified:
             return entry
         # неопубликованное видят автор и верификаторы
-        if principal and (
-            _can_verify(principal) or entry.submitted_by == principal.user_id
-        ):
+        if principal and (_can_verify(principal) or entry.submitted_by == principal.user_id):
             return entry
         raise NotFound
 
@@ -53,13 +51,17 @@ class EntryService:
     def list_mine(self, principal: Principal, **filters) -> Sequence[ArchiveEntry]:
         return self.repo.search(submitted_by=principal.user_id, **filters)
 
+    def search_nearby_pending(
+        self, *, bbox: tuple[float, float, float, float], limit: int = 100
+    ) -> Sequence[ArchiveEntry]:
+        """Публичная витрина без прав верификатора — намеренно куцая (см. EntryNearbyOut)."""
+        return self.repo.search(status=EntryStatus.pending, bbox=bbox, limit=limit)
+
     # --- запись ---
 
     def create(self, principal: Principal, data: dict) -> ArchiveEntry:
         entry = self.repo.add(
-            ArchiveEntry(
-                submitted_by=principal.user_id, status=EntryStatus.pending, **data
-            )
+            ArchiveEntry(submitted_by=principal.user_id, status=EntryStatus.pending, **data)
         )
         self.db.commit()
         self.db.refresh(entry)

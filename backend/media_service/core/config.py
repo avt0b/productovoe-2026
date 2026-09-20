@@ -26,5 +26,12 @@ class Settings(BaseSettings):
         "capacitor://localhost",
     ]
 
+    # --- файлы (исходное фото бойца) в MinIO ---
+    minio_endpoint: str = "http://127.0.0.1:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "media"
+    minio_public_base_url: str | None = None
+
 
 settings = Settings()

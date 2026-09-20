@@ -28,7 +28,5 @@ class RouteProgress(UUIDPrimaryKeyMixin, Base):
     completed_waypoint_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     current_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

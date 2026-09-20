@@ -69,9 +69,12 @@ def test_registrations_list_manager_only(client, leader_header):
     trip = make_trip(client, leader_header, squad["id"]).json()
     client.post(f"/trips/{trip['id']}/registrations", headers=auth_header(user_id="vol-a"))
 
-    assert client.get(
-        f"/trips/{trip['id']}/registrations", headers=auth_header(user_id="vol-a")
-    ).status_code == 403
+    assert (
+        client.get(
+            f"/trips/{trip['id']}/registrations", headers=auth_header(user_id="vol-a")
+        ).status_code
+        == 403
+    )
     r = client.get(f"/trips/{trip['id']}/registrations", headers=leader_header)
     assert r.status_code == 200
     assert len(r.json()) == 1

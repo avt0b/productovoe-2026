@@ -16,6 +16,8 @@ class ProfileOut(BaseModel):
     is_verified: bool
     subscribed_to_search: bool
     alert_radius_km: int
+    home_lat: float | None
+    home_lon: float | None
     created_at: datetime
 
 
@@ -29,6 +31,8 @@ class ProfileUpdate(BaseModel):
     squad_id: str | None = Field(default=None, max_length=36)
     subscribed_to_search: bool | None = None
     alert_radius_km: int | None = Field(default=None, ge=1, le=200)
+    home_lat: float | None = Field(default=None, ge=-90, le=90)
+    home_lon: float | None = Field(default=None, ge=-180, le=180)
 
     def to_update_dict(self) -> dict:
         return self.model_dump(exclude_unset=True, exclude_none=True)

@@ -45,12 +45,22 @@ uv run python -m scripts.seed_orel
 Стандартный трёхслойный скелет (`api` / `services` / `repositories` + `core`),
 см. [../README.md](../README.md).
 
-## Гео без PostGIS
+## Гео: PostGIS с фолбэком на Python
 
-Координаты хранятся как `lat`/`lon` (float). Поиск «рядом» — bbox-предфильтр
-в SQL (`core/geo.bbox_around`) + точный `haversine` в Python
-(`core/geo.haversine_km`). Прод-апгрейд — PostGIS: `geography(Point)`,
-GiST-индекс, `ST_DWithin`.
+Координаты хранятся как `lat`/`lon` (float) — это источник истины и то, что
+отдаётся наружу. На Postgres `init_db()` (`core/db._ensure_postgis`) сам,
+идемпотентно, доустанавливает: `CREATE EXTENSION postgis`, сгенерированную
+колонку `geog geography(Point,4326)` (STORED, пересчитывается из lat/lon без
+отдельной записи) и GiST-индекс на ней. `POIService.nearby` /
+`LastStandService.nearby` проверяют диалект БД (`core.db.engine.dialect.name`)
+и идут в `*_repository.nearby_postgis` — `ST_DWithin` + сортировка по `<->`
+(KNN, использует индекс), реальный индексированный радиус-поиск.
+
+На sqlite (весь тестовый набор — PostGIS с ним несовместим) и на любой другой
+БД без PostGIS автоматически остаётся прежний фолбэк: bbox-предфильтр в SQL
+(`core/geo.bbox_around`) + точный `haversine` в Python
+(`core/geo.haversine_km`). Ответ API идентичен в обоих режимах — clients об
+этом не знают.
 
 ## Эндпоинты
 
@@ -87,9 +97,15 @@ GiST-индекс, `ST_DWithin`.
 действий нет (в отличие от `created_by`, который остаётся полем автора,
 создавшего запись через обычный JWT). Известное ограничение, не баг.
 
+## Уведомления волонтёров
+
+При `POST /last-stand` сервис синхронно (best-effort, не роняя создание точки
+при сбое) дёргает `user_service` (`services/notify_client.py`) — тот находит
+подписчиков «Последнего боя» в их собственном `alert_radius_km` от домашних
+координат и кладёт им уведомление в ленту. Подробности — README `user_service`.
+
 ## Дальше
 
 - Импорт синтетики жюри (`mock_graves.csv`, `mock_battles.json`).
-- Событие «новая точка Последнего боя» → очередь для `notification_service`
-  (пуш волонтёрам в радиусе).
-- PostGIS + слои маршрутов из `route_service`.
+- Слои маршрутов из `route_service` поверх карты «ВОВ» (визуальная интеграция,
+  не бэкенд — API для этого уже есть с обеих сторон).

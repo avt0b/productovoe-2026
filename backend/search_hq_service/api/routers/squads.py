@@ -39,9 +39,7 @@ def get_squad(squad_id: str, service: SquadServiceDep) -> SquadOut:
 def update_squad(
     squad_id: str, payload: SquadUpdate, principal: CurrentPrincipal, service: SquadServiceDep
 ) -> SquadOut:
-    return SquadOut.model_validate(
-        service.update(principal, squad_id, payload.to_update_dict())
-    )
+    return SquadOut.model_validate(service.update(principal, squad_id, payload.to_update_dict()))
 
 
 @router.delete("/{squad_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -50,6 +48,7 @@ def delete_squad(squad_id: str, principal: CurrentPrincipal, service: SquadServi
 
 
 # --- вложенные потребности отряда ---
+
 
 @router.get("/{squad_id}/needs", response_model=list[NeedOut])
 def list_squad_needs(
@@ -70,6 +69,7 @@ def create_squad_need(
 
 
 # --- вложенные выезды отряда ---
+
 
 @router.get("/{squad_id}/trips", response_model=list[TripOut])
 def list_squad_trips(squad_id: str, service: TripServiceDep) -> list[TripOut]:

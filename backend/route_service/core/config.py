@@ -23,5 +23,18 @@ class Settings(BaseSettings):
         "capacitor://localhost",
     ]
 
+    # --- подсказка «рядом есть неподтверждённая заметка» (архив ↔ маршруты) ---
+    archive_service_url: str = "http://127.0.0.1:8005"
+    # Как далеко от точки маршрута заметка ещё считается «рядом».
+    archive_nearby_radius_km: float = 2.0
+    upstream_timeout_seconds: float = 3.0
+
+    # --- файлы (обложки маршрутов, аудио точек) в MinIO ---
+    minio_endpoint: str = "http://127.0.0.1:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "routes"
+    minio_public_base_url: str | None = None
+
 
 settings = Settings()

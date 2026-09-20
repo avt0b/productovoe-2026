@@ -51,14 +51,17 @@ class TripRepository:
         return reg
 
     def count_active_registrations(self, trip_id: str) -> int:
-        return self.db.scalar(
-            select(func.count())
-            .select_from(TripRegistration)
-            .where(
-                TripRegistration.trip_id == trip_id,
-                TripRegistration.status == RegistrationStatus.registered,
+        return (
+            self.db.scalar(
+                select(func.count())
+                .select_from(TripRegistration)
+                .where(
+                    TripRegistration.trip_id == trip_id,
+                    TripRegistration.status == RegistrationStatus.registered,
+                )
             )
-        ) or 0
+            or 0
+        )
 
     def registrations_for(self, trip_id: str) -> Sequence[TripRegistration]:
         return self.db.scalars(

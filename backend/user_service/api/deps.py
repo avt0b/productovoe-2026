@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.db import get_db
 from core.security import Principal, decode_access_token, principal_from_payload
+from services.notification_service import NotificationService
 from services.profile_service import ProfileService
 
 _bearer = HTTPBearer(auto_error=True)
@@ -43,4 +44,9 @@ def get_profile_service(db: DbSession) -> ProfileService:
     return ProfileService(db)
 
 
+def get_notification_service(db: DbSession) -> NotificationService:
+    return NotificationService(db)
+
+
 ProfileServiceDep = Annotated[ProfileService, Depends(get_profile_service)]
+NotificationServiceDep = Annotated[NotificationService, Depends(get_notification_service)]

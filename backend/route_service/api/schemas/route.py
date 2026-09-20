@@ -113,3 +113,13 @@ class ProgressOut(BaseModel):
 
 class CompleteWaypointRequest(BaseModel):
     waypoint_id: str
+
+
+class ArchivePromptOut(BaseModel):
+    """«Рядом с этой точкой есть неподтверждённая заметка — помоги проверить»."""
+
+    waypoint_id: str
+    entry_id: str
+    kind: str
+    title: str
+    distance_km: float

@@ -141,9 +141,7 @@ def test_list_profiles_filters_by_is_verified(client):
         params={"is_verified": True},
     )
 
-    r = client.get(
-        "/internal/profiles", headers=INTERNAL_HEADERS, params={"is_verified": True}
-    )
+    r = client.get("/internal/profiles", headers=INTERNAL_HEADERS, params={"is_verified": True})
     body = r.json()
     assert body["total"] == 1
     assert body["items"][0]["id"] == verified
@@ -168,11 +166,14 @@ def test_verify_bypasses_role_restriction(client):
     target = make_profile(client, role="family")
 
     # обычный JWT family не может верифицировать (см. test_profiles.py)
-    assert client.patch(
-        f"/profiles/{target}/verify",
-        headers=auth_header(role="family"),
-        json={"is_verified": True},
-    ).status_code == 403
+    assert (
+        client.patch(
+            f"/profiles/{target}/verify",
+            headers=auth_header(role="family"),
+            json={"is_verified": True},
+        ).status_code
+        == 403
+    )
 
     # а внутренний ключ — может, независимо от роли актора
     r = client.patch(
@@ -184,12 +185,11 @@ def test_verify_bypasses_role_restriction(client):
     assert r.json()["is_verified"] is True
 
     # изменение видно и через /internal/profiles/{id}, и через публичный /profiles/{id}
-    assert client.get(
-        f"/internal/profiles/{target}", headers=INTERNAL_HEADERS
-    ).json()["is_verified"] is True
-    assert client.get(
-        f"/profiles/{target}", headers=auth_header()
-    ).json()["is_verified"] is True
+    assert (
+        client.get(f"/internal/profiles/{target}", headers=INTERNAL_HEADERS).json()["is_verified"]
+        is True
+    )
+    assert client.get(f"/profiles/{target}", headers=auth_header()).json()["is_verified"] is True
 
 
 def test_verify_works_with_custom_actor_header(client):

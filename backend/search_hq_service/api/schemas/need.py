@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.models import NeedKind, NeedStatus
+from core.models import DonationStatus, NeedKind, NeedStatus
 
 
 class NeedCreate(BaseModel):
@@ -38,10 +38,12 @@ class NeedOut(BaseModel):
 class DonationCreate(BaseModel):
     amount: int = Field(ge=1, le=10_000_000)
     comment: str = Field(default="", max_length=500)
+    # Куда вернуть человека после оплаты на стороне ЮKassa. Без шлюза игнорируется.
+    return_url: str | None = Field(default=None, max_length=500)
 
 
 class DonationOut(BaseModel):
-    """Взнос — ответ самому жертвователю, поэтому с его donor_id."""
+    """Взнос — ответ самому жертвователю, поэтому с его donor_id и ссылкой на оплату."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -50,6 +52,9 @@ class DonationOut(BaseModel):
     donor_id: str | None
     amount: int
     comment: str
+    status: DonationStatus
+    # Есть только пока донат pending и идёт через ЮKassa — туда редиректить человека платить.
+    confirmation_url: str | None
     created_at: datetime
 
 

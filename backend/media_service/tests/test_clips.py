@@ -56,7 +56,9 @@ def test_private_clip_hidden_from_strangers(client):
     render_ready(client, c["id"])
 
     assert client.get(f"/clips/{c['id']}", headers=author).status_code == 200
-    assert client.get(f"/clips/{c['id']}", headers=auth_header(user_id="stranger")).status_code == 404
+    assert (
+        client.get(f"/clips/{c['id']}", headers=auth_header(user_id="stranger")).status_code == 404
+    )
     assert client.get(f"/clips/{c['id']}").status_code == 404
     # модератор видит
     assert client.get(f"/clips/{c['id']}", headers=auth_header(role="moderator")).status_code == 200
@@ -81,17 +83,25 @@ def test_worker_claim_and_lifecycle(client):
 def test_worker_endpoints_reject_normal_user(client):
     c = make_clip(client, auth_header()).json()
     assert client.post("/render/claim", headers=auth_header(role="family")).status_code == 403
-    assert client.post(
-        f"/render/{c['id']}/ready", headers=auth_header(role="family"), json={"video_url": "x"}
-    ).status_code == 403
+    assert (
+        client.post(
+            f"/render/{c['id']}/ready", headers=auth_header(role="family"), json={"video_url": "x"}
+        ).status_code
+        == 403
+    )
     # модератор может без worker-токена
-    assert client.post("/render/claim", headers=auth_header(role="moderator")).status_code in (200, 204)
+    assert client.post("/render/claim", headers=auth_header(role="moderator")).status_code in (
+        200,
+        204,
+    )
 
 
 def test_failed_then_retry(client):
     author = auth_header(user_id="a1")
     c = make_clip(client, author).json()
-    client.post(f"/render/{c['id']}/failed", headers=WORKER_HEADER, json={"error": "no face detected"})
+    client.post(
+        f"/render/{c['id']}/failed", headers=WORKER_HEADER, json={"error": "no face detected"}
+    )
     assert client.get(f"/clips/{c['id']}", headers=author).json()["status"] == "failed"
 
     retried = client.post(f"/clips/{c['id']}/retry", headers=author).json()
@@ -110,9 +120,12 @@ def test_cannot_edit_while_processing(client):
 def test_share_only_when_ready(client):
     author = auth_header(user_id="a1")
     c = make_clip(client, author).json()
-    assert client.post(
-        f"/clips/{c['id']}/shares", headers=author, json={"recipient": "внучка, vk.com/x"}
-    ).status_code == 409
+    assert (
+        client.post(
+            f"/clips/{c['id']}/shares", headers=author, json={"recipient": "внучка, vk.com/x"}
+        ).status_code
+        == 409
+    )
 
     render_ready(client, c["id"])
     s = client.post(

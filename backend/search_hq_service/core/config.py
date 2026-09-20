@@ -35,5 +35,14 @@ class Settings(BaseSettings):
     # Сколько секунд запрос встряски ждёт встряску другой стороны.
     bump_wait_seconds: float = 2.0
 
+    # --- платежи (ЮKassa) ---
+    # Без shop_id/secret_key донат учитывается сразу в БД — как раньше, без шлюза.
+    # Задав оба (в проде — боевые ключи, в тесте — ключи из личного кабинета в режиме
+    # тестового магазина), донат уходит через ЮKassa: pending → вебхук/подтверждение → succeeded.
+    yookassa_shop_id: str | None = None
+    yookassa_secret_key: str | None = None
+    yookassa_api_base: str = "https://api.yookassa.ru/v3"
+    yookassa_return_url: str = "https://marshruty.ru/payments/return"
+
 
 settings = Settings()

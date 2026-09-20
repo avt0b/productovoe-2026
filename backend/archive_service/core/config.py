@@ -23,5 +23,14 @@ class Settings(BaseSettings):
         "capacitor://localhost",
     ]
 
+    # --- файлы (фото к записям архива) в MinIO, S3-совместимое хранилище ---
+    minio_endpoint: str = "http://127.0.0.1:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "archive"
+    # Публично доступный извне адрес того же MinIO (браузер должен уметь его открыть).
+    # Локально порт MinIO проброшен на хост — endpoint и так подходит.
+    minio_public_base_url: str | None = None
+
 
 settings = Settings()

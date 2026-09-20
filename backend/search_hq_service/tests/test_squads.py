@@ -22,14 +22,22 @@ def test_only_leader_or_staff_edits(client, leader_header):
     squad = create_squad(client, leader_header).json()
 
     other = auth_header(role="searcher")
-    assert client.patch(f"/squads/{squad['id']}", headers=other, json={"name": "x"}).status_code == 403
+    assert (
+        client.patch(f"/squads/{squad['id']}", headers=other, json={"name": "x"}).status_code == 403
+    )
 
-    assert client.patch(
-        f"/squads/{squad['id']}", headers=leader_header, json={"name": "Высота-2"}
-    ).status_code == 200
-    assert client.patch(
-        f"/squads/{squad['id']}", headers=auth_header(is_root=True), json={"region": "Орёл"}
-    ).status_code == 200
+    assert (
+        client.patch(
+            f"/squads/{squad['id']}", headers=leader_header, json={"name": "Высота-2"}
+        ).status_code
+        == 200
+    )
+    assert (
+        client.patch(
+            f"/squads/{squad['id']}", headers=auth_header(is_root=True), json={"region": "Орёл"}
+        ).status_code
+        == 200
+    )
 
 
 def test_list_and_filter_by_region(client):

@@ -32,9 +32,7 @@ def list_profiles(
 
 
 @router.get("/{profile_id}", response_model=ProfileOut)
-def get_profile(
-    profile_id: str, _: CurrentPrincipal, service: ProfileServiceDep
-) -> ProfileOut:
+def get_profile(profile_id: str, _: CurrentPrincipal, service: ProfileServiceDep) -> ProfileOut:
     return ProfileOut.model_validate(service.get(profile_id))
 
 
