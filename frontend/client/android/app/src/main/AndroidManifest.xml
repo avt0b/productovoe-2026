@@ -33,6 +33,14 @@
                 <data android:scheme="marshruty" android:host="nfc" />
             </intent-filter>
 
+            <!-- Та же ссылка обычной ссылкой: из QR-кода, сообщения или `adb shell am start`. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="marshruty" android:host="nfc" />
+            </intent-filter>
+
         </activity>
 
         <provider
