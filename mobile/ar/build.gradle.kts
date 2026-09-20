@@ -3,6 +3,10 @@ plugins {
     // подключать нельзя, он конфликтует за расширение `kotlin`.
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
+    // APK клиента (frontend/client) подключает модуль готовым AAR из локального
+    // репозитория: там Capacitor на AGP 8, а AGP двух версий в одной сборке
+    // Gradle не пускает.
+    `maven-publish`
 }
 
 android {
@@ -11,6 +15,11 @@ android {
 
     defaultConfig {
         minSdk = 26
+        // Собираемся против 37 (другой платформы в SDK нет), но API 37 не зовём.
+        // APK клиента на Capacitor собирается против 36 — без этого AGP его не пустит.
+        aarMetadata {
+            minCompileSdk = 36
+        }
     }
 
     buildFeatures {
@@ -20,6 +29,29 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    publishing {
+        singleVariant("release")
+    }
+}
+
+// gradlew :ar:publishReleasePublicationToLocalRepository → ar/build/repo.
+// Оттуда его берёт APK клиента: frontend/client, `npm run android:ar`.
+publishing {
+    publications {
+        register<MavenPublication>("release") {
+            groupId = "ru.marshruty"
+            artifactId = "ar"
+            version = "0.1.0"
+            afterEvaluate { from(components["release"]) }
+        }
+    }
+    repositories {
+        maven {
+            name = "local"
+            url = uri(layout.buildDirectory.dir("repo"))
+        }
     }
 }
 
