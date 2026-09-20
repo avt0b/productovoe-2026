@@ -264,6 +264,39 @@ services:
       ROUTE_SERVICE_URL: http://route_service:8006
       MEDIA_SERVICE_URL: http://media_service:8007
 
+  frontend_client:
+    build:
+      context: ./frontend/client
+      dockerfile: Dockerfile
+    container_name: marshruty_frontend_client
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - marshruty_network
+
+  frontend_web:
+    build:
+      context: ./frontend/web
+      dockerfile: Dockerfile
+    container_name: marshruty_frontend_web
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    networks:
+      - marshruty_network
+
+  frontend_admin:
+    build:
+      context: ./frontend/admin
+      dockerfile: Dockerfile
+    container_name: marshruty_frontend_admin
+    restart: unless-stopped
+    ports:
+      - "3002:80"
+    networks:
+      - marshruty_network
+
 volumes:
   pg_data:
   minio_data:
