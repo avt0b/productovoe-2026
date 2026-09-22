@@ -17,6 +17,48 @@ def render_ready(client, clip_id, url="https://cdn.example/clip.mp4"):
     client.post(f"/render/{clip_id}/ready", headers=WORKER_HEADER, json={"video_url": url})
 
 
+def test_narration_pulls_feat_text_from_archive_entry(client, monkeypatch):
+    import services.clip_service as clip_service_module
+
+    async def fake_fetch(entry_id):
+        assert entry_id == "entry-1"
+        return {"id": "entry-1", "body": "Подорвал два танка под Орлом ценой своей жизни."}
+
+    monkeypatch.setattr(clip_service_module, "fetch_entry", fake_fetch)
+
+    r = make_clip(client, auth_header(), archive_entry_id="entry-1")
+    assert r.status_code == 201
+    text = r.json()["narration_text"]
+    assert "голубое небо" in text
+    assert "Подорвал два танка" in text
+
+
+def test_narration_falls_back_to_default_when_archive_unavailable(client, monkeypatch):
+    import services.clip_service as clip_service_module
+
+    async def fake_fetch(entry_id):
+        return None
+
+    monkeypatch.setattr(clip_service_module, "fetch_entry", fake_fetch)
+
+    r = make_clip(client, auth_header(), archive_entry_id="missing")
+    assert r.json()["narration_text"] == "Я сделал это, чтобы ты жил и видел голубое небо. Помни меня."
+
+
+def test_explicit_narration_text_is_not_overridden(client, monkeypatch):
+    import services.clip_service as clip_service_module
+
+    async def fake_fetch(entry_id):
+        raise AssertionError("archive_service не должен вызываться, если текст передан явно")
+
+    monkeypatch.setattr(clip_service_module, "fetch_entry", fake_fetch)
+
+    r = make_clip(
+        client, auth_header(), archive_entry_id="entry-1", narration_text="Свой текст"
+    )
+    assert r.json()["narration_text"] == "Свой текст"
+
+
 def test_create_requires_consent(client):
     assert make_clip(client, auth_header(), consent_memorial_use=False).status_code == 403
     r = make_clip(client, auth_header())

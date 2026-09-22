@@ -8,10 +8,10 @@ from core.models import ClipStatus, VoiceStyle
 class ClipCreate(BaseModel):
     soldier_name: str = Field(default="", max_length=255)
     source_photo_url: str = Field(min_length=1, max_length=500)
-    narration_text: str = Field(
-        default="Я сделал это, чтобы ты жил и видел голубое небо. Помни меня.",
-        max_length=2000,
-    )
+    # None — не тронуто клиентом: сервис подставит дефолтный монолог и, если
+    # указан archive_entry_id, допишет к нему краткую версию подвига из
+    # подтверждённой карточки бойца в archive_service.
+    narration_text: str | None = Field(default=None, max_length=2000)
     voice_style: VoiceStyle = VoiceStyle.era_male
     is_public: bool = False
     archive_entry_id: str | None = Field(default=None, max_length=36)

@@ -7,8 +7,12 @@ from core.exceptions import Conflict, NotFound, PermissionDenied
 from core.models import ClipShare, ClipStatus, MemorialClip
 from core.security import Principal
 from repositories.clip_repository import ClipRepository
+from services.archive_client import fetch_entry
 
 STAFF_ROLES = {"moderator"}
+DEFAULT_NARRATION = "Я сделал это, чтобы ты жил и видел голубое небо. Помни меня."
+# Сколько текста подвига из archive_service дописываем к дефолтному монологу.
+MAX_FEAT_EXCERPT = 1500
 
 
 def _is_staff(principal: Principal) -> bool:
@@ -44,17 +48,32 @@ class ClipService:
 
     # --- заявка ---
 
-    def create(self, principal: Principal, data: dict) -> MemorialClip:
+    async def create(self, principal: Principal, data: dict) -> MemorialClip:
         if not data.get("consent_memorial_use"):
             raise PermissionDenied(
                 "Технология доступна только для мемориального использования — нужно согласие"
             )
+        if data.get("narration_text") is None:
+            data["narration_text"] = await self._compose_narration(data.get("archive_entry_id"))
         clip = self.repo.add(
             MemorialClip(submitted_by=principal.user_id, status=ClipStatus.queued, **data)
         )
         self.db.commit()
         self.db.refresh(clip)
         return clip
+
+    @staticmethod
+    async def _compose_narration(archive_entry_id: str | None) -> str:
+        """Дефолтный монолог + (если есть подтверждённая карточка бойца в
+        archive_service) краткая версия подвига из неё — п.7 ТЗ: «боец может
+        рассказать краткую версию своего подвига, берётся из базы подвига»."""
+        if not archive_entry_id:
+            return DEFAULT_NARRATION
+        entry = await fetch_entry(archive_entry_id)
+        feat_text = (entry or {}).get("body", "").strip()
+        if not feat_text:
+            return DEFAULT_NARRATION
+        return f"{DEFAULT_NARRATION} {feat_text[:MAX_FEAT_EXCERPT]}"
 
     def update(self, principal: Principal, clip_id: str, data: dict) -> MemorialClip:
         clip = self._owned_or_staff(principal, clip_id)
