@@ -21,7 +21,9 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 
 ## Сущности
 
-- **Squad** — поисковый отряд (командир = `leader_id` из JWT).
+- **Squad** — поисковый отряд (командир = `leader_id` из JWT); опциональные
+  `lat`/`lon` (штаб/база) — чтобы потребности отряда можно было нанести на
+  карту (модуль 3 ТЗ, «карта потребностей отрядов»).
 - **SquadNeed** — потребность: `volunteers` / `funds` / `equipment`,
   `target_amount` + `collected_amount`, статус `open` / `closed`.
 - **Donation** — взнос в денежный сбор; при достижении цели сбор
@@ -35,7 +37,7 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 | Метод | Путь | Доступ |
 | --- | --- | --- |
 | POST | `/squads` | `searcher` / `moderator` / root |
-| GET | `/squads` `?region&q` | публично |
+| GET | `/squads` `?region&q&min_lat&min_lon&max_lat&max_lon` | публично — bbox фильтрует отряды с заданными координатами для отображения на карте |
 | GET/PATCH/DELETE | `/squads/{id}` | чтение — все; изменение — командир / `moderator` / root |
 | GET | `/squads/{id}/needs` `?kind&status` | публично |
 | POST | `/squads/{id}/needs` | командир отряда / `moderator` / root |
@@ -63,7 +65,12 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
    Роль `local_historian` / `mentor` / `moderator`.
 2. **Люди записываются** — `POST /excursions/{id}/registrations`. Запись
    открыта, пока экскурсия в статусе `scheduled`: пришедших без записи бамп не
-   отмечает.
+   отмечает. Тело запроса необязательно (обычная запись одного человека); школа
+   или клуб передаёт `organization_name` и `group_size` — это **коллективная
+   заявка** (модуль 5 ТЗ): один представитель держит одну запись на всю группу,
+   `capacity` считается по сумме `group_size`, а не по числу строк. Бамп на
+   месте всё равно один — от представителя группы, остальных участников
+   поимённо система не ведёт (аккаунт у представителя один).
 3. **Краевед на месте нажимает «Начать сбор»** — `POST
    /excursions/{id}/gathering/start` со своими координатами. Сервис проверяет,
    что он не дальше `EXCURSION_SITE_RADIUS_M` от точки, и открывает сбор на
@@ -114,7 +121,7 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 | GET | `/excursions/{id}` | публично, `viewer` — с токеном |
 | PATCH | `/excursions/{id}` | краевед / `moderator` / root, пока `scheduled` |
 | POST | `/excursions/{id}/cancel` | краевед / `moderator` / root |
-| POST | `/excursions/{id}/registrations` | любой авторизованный, пока `scheduled` (учёт мест) |
+| POST | `/excursions/{id}/registrations` | любой авторизованный, пока `scheduled` — опционально `organization_name`/`group_size` для коллективной заявки (учёт мест по сумме `group_size`) |
 | DELETE | `/excursions/{id}/registrations/me` | сам участник, пока `scheduled` |
 | GET | `/excursions/{id}/participants` | краевед / `moderator` / root |
 | POST | `/excursions/{id}/gathering/start` | краевед на месте сбора |
@@ -135,8 +142,6 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 
 ## Дальше
 
-- Коллективные заявки школ и клубов на экскурсии (модуль 5 ТЗ) и рейтинг
-  гидов по отметкам «пришёл».
 - Сравнение формы движения телефонов при бампе — защита от совпадений в толпе.
 - Отметка волонтёров бампом на «Выходных с поисковиком».
 - Интеграция платежей (ЮKassa / CloudPayments) вместо «виртуальных» донатов.

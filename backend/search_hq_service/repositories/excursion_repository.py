@@ -1,6 +1,6 @@
 from collections.abc import Iterable, Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from core.models import Excursion, ExcursionParticipant, ExcursionStatus, RegistrationStatus
@@ -89,15 +89,21 @@ class ExcursionRepository:
         return self.counts([excursion_id]).get(excursion_id, (0, 0))[1]
 
     def counts(self, excursion_ids: Iterable[str]) -> dict[str, tuple[int, int]]:
-        """Сколько записано и сколько уже пришло — одним запросом на всю страницу списка."""
+        """Сколько человек записано и сколько уже пришло — одним запросом на всю
+        страницу списка. Считаем по `group_size`: коллективная заявка школы/клуба
+        занимает столько мест, сколько человек в группе, а не одну «строку»."""
         ids = list(excursion_ids)
         if not ids:
             return {}
+        checked_in_size = case(
+            (ExcursionParticipant.checked_in_at.is_not(None), ExcursionParticipant.group_size),
+            else_=0,
+        )
         rows = self.db.execute(
             select(
                 ExcursionParticipant.excursion_id,
-                func.count(ExcursionParticipant.id),
-                func.count(ExcursionParticipant.checked_in_at),
+                func.coalesce(func.sum(ExcursionParticipant.group_size), 0),
+                func.coalesce(func.sum(checked_in_size), 0),
             )
             .where(
                 ExcursionParticipant.excursion_id.in_(ids),

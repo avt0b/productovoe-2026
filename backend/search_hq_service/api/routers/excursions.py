@@ -19,6 +19,7 @@ from api.schemas.excursion import (
     GatheringStartIn,
     MyExcursionsOut,
     ParticipantOut,
+    RegistrationCreate,
 )
 from api.schemas.rating import GuideRatingCreate, GuideRatingOut
 
@@ -87,9 +88,20 @@ def cancel_excursion(
     status_code=status.HTTP_201_CREATED,
 )
 def register_for_excursion(
-    excursion_id: str, principal: CurrentPrincipal, service: ExcursionServiceDep
+    excursion_id: str,
+    principal: CurrentPrincipal,
+    service: ExcursionServiceDep,
+    payload: RegistrationCreate | None = None,
 ) -> ParticipantOut:
-    return ParticipantOut.model_validate(service.register(principal, excursion_id))
+    data = payload or RegistrationCreate()
+    return ParticipantOut.model_validate(
+        service.register(
+            principal,
+            excursion_id,
+            organization_name=data.organization_name,
+            group_size=data.group_size,
+        )
+    )
 
 
 @router.delete("/{excursion_id}/registrations/me", status_code=status.HTTP_204_NO_CONTENT)

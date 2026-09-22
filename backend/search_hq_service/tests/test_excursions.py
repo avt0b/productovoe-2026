@@ -117,6 +117,52 @@ def test_registration_capacity_and_viewer(client, guide_header):
     assert [e["id"] for e in mine["joined"]] == [excursion["id"]]
 
 
+def test_collective_registration_counts_group_size_against_capacity(client, guide_header):
+    excursion = make_excursion(client, guide_header, capacity=10).json()
+    school = auth_header(user_id="school-1")
+
+    r = client.post(
+        f"/excursions/{excursion['id']}/registrations",
+        headers=school,
+        json={"organization_name": "Школа №5", "group_size": 8},
+    )
+    assert r.status_code == 201
+    participant = r.json()
+    assert participant["organization_name"] == "Школа №5"
+    assert participant["group_size"] == 8
+
+    detail = client.get(f"/excursions/{excursion['id']}").json()
+    assert detail["registered_count"] == 8
+
+    # ещё 3 места не влезут — из 10 занято 8.
+    assert (
+        client.post(
+            f"/excursions/{excursion['id']}/registrations",
+            headers=auth_header(user_id="b"),
+            json={"group_size": 3},
+        ).status_code
+        == 409
+    )
+    # а 2 — влезут ровно впритык.
+    assert (
+        client.post(
+            f"/excursions/{excursion['id']}/registrations",
+            headers=auth_header(user_id="c"),
+            json={"group_size": 2},
+        ).status_code
+        == 201
+    )
+
+    # школа может поправить размер группы своей же повторной записью.
+    r2 = client.post(
+        f"/excursions/{excursion['id']}/registrations",
+        headers=school,
+        json={"organization_name": "Школа №5", "group_size": 6},
+    )
+    assert r2.status_code == 201
+    assert client.get(f"/excursions/{excursion['id']}").json()["registered_count"] == 8
+
+
 def test_registration_closes_when_gathering_starts(client, guide_header, visitor_header):
     excursion_id = gathering_excursion(client, guide_header, visitor_header)
 
