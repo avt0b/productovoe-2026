@@ -52,10 +52,12 @@ class LastStandService:
         self.db.commit()
         self.db.refresh(point)
 
+        # "{distance_km}" — плейсхолдер, user_service подставит реальную
+        # дистанцию до конкретного подписчика (см. NotificationService.broadcast_nearby).
         title = (
-            f"Обнаружено место гибели: {point.soldier_name}"
+            f"Обнаружено место гибели: {point.soldier_name} — в {{distance_km}} км от вас"
             if point.soldier_name
-            else "В вашем районе обнаружено место гибели бойца"
+            else "В {distance_km} км от вас обнаружено место гибели бойца"
         )
         notify_nearby_subscribers(
             lat=point.lat,

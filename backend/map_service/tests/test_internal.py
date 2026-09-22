@@ -258,7 +258,7 @@ def test_poi_list_ok_and_filters(client):
 
 def test_poi_delete_bypasses_ownership(client):
     creator = str(uuid.uuid4())
-    poi = make_poi(client, auth_header(user_id=creator, role="family")).json()
+    poi = make_poi(client, auth_header(user_id=creator, role="local_historian")).json()
 
     # публично удалить может только автор или модератор
     assert client.delete(f"/poi/{poi['id']}", headers=auth_header(role="family")).status_code == 403

@@ -39,7 +39,7 @@ def test_create_and_get(client):
 
 
 def test_list_filters_by_kind_and_bbox(client):
-    h = auth_header()
+    h = auth_header(role="local_historian")
     make_poi(client, h, kind="grave", title="Братская могила", lat=OREL["lat"], lon=OREL["lon"])
     make_poi(client, h, kind="monument", title="Обелиск", lat=55.75, lon=37.62)  # Москва
 
@@ -55,7 +55,7 @@ def test_list_filters_by_kind_and_bbox(client):
 
 
 def test_nearby_returns_distance_sorted(client):
-    h = auth_header()
+    h = auth_header(role="local_historian")
     make_poi(client, h, title="A", lat=52.97, lon=36.07)
     make_poi(client, h, title="B", lat=53.30, lon=36.50)
 
@@ -91,13 +91,18 @@ def test_only_author_or_moderator_edits(client):
 
 
 def test_delete_by_root(client):
-    poi = make_poi(client, auth_header()).json()
+    poi = make_poi(client, auth_header(role="local_historian")).json()
     assert client.delete(f"/poi/{poi['id']}", headers=auth_header(is_root=True)).status_code == 204
     assert client.get(f"/poi/{poi['id']}").status_code == 404
 
 
 def test_bad_coordinates_rejected(client):
-    assert make_poi(client, auth_header(), lat=200).status_code == 422
+    assert make_poi(client, auth_header(role="local_historian"), lat=200).status_code == 422
+
+
+def test_create_requires_contributor_role(client):
+    r = make_poi(client, auth_header(role="family"))
+    assert r.status_code == 403
 
 
 def test_get_missing_404(client):

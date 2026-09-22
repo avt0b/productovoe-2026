@@ -9,6 +9,10 @@ from core.models import POIKind, PointOfInterest
 from core.security import Principal
 from repositories.poi_repository import POIRepository
 
+# Кто может дополнять слой «ВОВ» (захоронения/бои/памятники) — как и для
+# «Последнего боя», рядовые посетители (family) слой не наполняют.
+_CONTRIBUTOR_ROLES = {"searcher", "local_historian", "mentor", "moderator"}
+
 
 class POIService:
     def __init__(self, db: Session) -> None:
@@ -46,6 +50,8 @@ class POIService:
         return out[:limit]
 
     def create(self, principal: Principal, data: dict) -> PointOfInterest:
+        if not (principal.is_root or principal.role in _CONTRIBUTOR_ROLES):
+            raise PermissionDenied("Дополнять слой «ВОВ» могут поисковики, краеведы и наставники")
         poi = self.repo.add(PointOfInterest(created_by=principal.user_id, **data))
         self.db.commit()
         self.db.refresh(poi)

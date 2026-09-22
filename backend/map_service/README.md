@@ -69,7 +69,7 @@ uv run python -m scripts.seed_orel
 | --- | --- | --- | --- |
 | GET | `/poi` | публично | фильтры: `kind`, `q`, bbox (`min_lat…max_lon`) |
 | GET | `/poi/nearby` | публично | `lat`, `lon`, `radius_km`, `kind` → сортировка по расстоянию |
-| POST | `/poi` | любой авторизованный | |
+| POST | `/poi` | `searcher` / `local_historian` / `mentor` / `moderator` / root | |
 | GET | `/poi/{id}` | публично | |
 | PATCH | `/poi/{id}` | автор или `moderator`/root | |
 | DELETE | `/poi/{id}` | автор или `moderator`/root | |

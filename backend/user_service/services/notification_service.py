@@ -75,12 +75,15 @@ class NotificationService:
             distance_km = haversine_km(lat, lon, profile.home_lat, profile.home_lon)
             if distance_km > profile.alert_radius_km:
                 continue
+            # title/body могут нести плейсхолдер "{distance_km}" — подставляем
+            # реальное расстояние до конкретного подписчика (кейс: «в 5 км от вас»).
+            distance_label = str(max(1, round(distance_km)))
             self.repo.add(
                 Notification(
                     user_id=profile.id,
                     kind=kind,
-                    title=title,
-                    body=body,
+                    title=title.replace("{distance_km}", distance_label),
+                    body=body.replace("{distance_km}", distance_label),
                     payload={**(payload or {}), "distance_km": round(distance_km, 2)},
                 )
             )

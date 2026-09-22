@@ -53,6 +53,22 @@ def test_broadcast_notifies_only_nearby_subscribers(client):
     assert far_mine == []
 
 
+def test_broadcast_substitutes_distance_placeholder(client):
+    near_header = subscribe(client, "near-2", home=NEAR_HOME)
+
+    r = broadcast(
+        client,
+        title="В {distance_km} км от вас обнаружено место гибели бойца",
+        body="Требуется помощь в идентификации.",
+    )
+    assert r.json()["notified"] == 1
+
+    mine = client.get("/notifications", headers=near_header).json()
+    title = mine[0]["title"]
+    assert "{distance_km}" not in title
+    assert "км от вас обнаружено место гибели бойца" in title
+
+
 def test_broadcast_ignores_unsubscribed_and_homeless_profiles(client):
     # Подписан, но без домашних координат — радиус не от чего считать.
     header = auth_header(user_id="no-home")
