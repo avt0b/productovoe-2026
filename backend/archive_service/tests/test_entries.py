@@ -83,6 +83,15 @@ def test_verify_permissions(client):
     )
 
 
+def test_searcher_can_verify(client):
+    e = create_entry(client, auth_header(user_id="author-1")).json()
+    r = client.post(
+        f"/entries/{e['id']}/verify", headers=auth_header(role="searcher"), json={}
+    )
+    assert r.status_code == 200
+    assert r.json()["verified_by"]
+
+
 def test_reject_with_note(client):
     e = create_entry(client, auth_header(user_id="author-1")).json()
     r = client.post(

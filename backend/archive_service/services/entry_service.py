@@ -11,8 +11,8 @@ from repositories.entry_repository import EntryRepository
 
 logger = logging.getLogger(__name__)
 
-# Кто может верифицировать записи (краевед / наставник / модератор).
-VERIFIER_ROLES = {"local_historian", "mentor", "moderator"}
+# Кто может верифицировать записи (поисковик / краевед / наставник / модератор).
+VERIFIER_ROLES = {"searcher", "local_historian", "mentor", "moderator"}
 
 
 def _can_verify(principal: Principal) -> bool:
@@ -45,7 +45,7 @@ class EntryService:
         self, principal: Principal, *, status: EntryStatus | None = None, **filters
     ) -> Sequence[ArchiveEntry]:
         if not _can_verify(principal):
-            raise PermissionDenied("Очередь модерации доступна краеведам и модераторам")
+            raise PermissionDenied("Очередь модерации доступна поисковикам, краеведам и модераторам")
         return self.repo.search(status=status, **filters)
 
     def list_mine(self, principal: Principal, **filters) -> Sequence[ArchiveEntry]:
@@ -128,7 +128,7 @@ class EntryService:
         self, principal: Principal, entry_id: str, status: EntryStatus, note: str
     ) -> ArchiveEntry:
         if not _can_verify(principal):
-            raise PermissionDenied("Проверять записи могут краеведы, наставники и модераторы")
+            raise PermissionDenied("Проверять записи могут поисковики, краеведы, наставники и модераторы")
         entry = self.repo.get(entry_id)
         if entry is None:
             raise NotFound

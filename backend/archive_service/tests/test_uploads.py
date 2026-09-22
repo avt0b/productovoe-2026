@@ -76,6 +76,18 @@ def test_upload_stores_object_and_returns_url(client, fake_storage):
     assert next(iter(fake_storage.objects.values())) == b"jpeg-bytes"
 
 
+def test_upload_accepts_audio(client, fake_storage):
+    r = client.post(
+        "/uploads",
+        headers=auth_header(user_id="u1"),
+        files={"file": ("memory.mp3", b"id3-bytes", "audio/mpeg")},
+    )
+    assert r.status_code == 200
+    url = r.json()["url"]
+    assert url.endswith(".mp3")
+    assert "u1/" in url
+
+
 def test_upload_returns_503_when_storage_down(client, fake_storage):
     from botocore.exceptions import EndpointConnectionError
 
