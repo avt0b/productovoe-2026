@@ -14,9 +14,6 @@ x-backend-common: &backend-common
 
 services:
   postgres:
-    # postgis/postgis — тот же postgres:17-alpine, но с предустановленным PostGIS
-    # (расширение доустанавливается сам map_service, см. core/db._ensure_postgis,
-    # но файлы самого расширения образ должен нести уже готовыми).
     image: postgis/postgis:17-3.6-alpine
     container_name: marshruty_postgres
     restart: unless-stopped
@@ -24,8 +21,6 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_USER}
-    ports:
-      - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d
@@ -42,8 +37,6 @@ services:
     container_name: marshruty_nats
     restart: unless-stopped
     command: ["-js"]
-    ports:
-      - "4222:4222"
     networks:
       - marshruty_network
 
@@ -55,11 +48,35 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     volumes:
       - minio_data:/data
+    networks:
+      - marshruty_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: marshruty_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend_client
+      - frontend_web
+      - frontend_admin
+      - auth_service
+      - user_service
+      - map_service
+      - search_hq_service
+      - archive_service
+      - route_service
+      - media_service
+      - admin_service
+      - minio
     networks:
       - marshruty_network
 
@@ -72,8 +89,6 @@ services:
       args:
         SERVICE_MODULE: main:app
         SERVICE_PORT: 8001
-    ports:
-      - "127.0.0.1:8001:8001"
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/auth
@@ -93,8 +108,6 @@ services:
       args:
         SERVICE_MODULE: main:app
         SERVICE_PORT: 8002
-    ports:
-      - "127.0.0.1:8002:8002"
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/users
@@ -116,8 +129,6 @@ services:
       args:
         SERVICE_MODULE: main:app
         SERVICE_PORT: 8003
-    ports:
-      - "127.0.0.1:8003:8003"
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/map
@@ -125,7 +136,6 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ISSUER: ${JWT_ISSUER}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
-      # Уведомляет подписчиков «Последнего боя» при появлении новой точки.
       USER_SERVICE_URL: http://user_service:8002
 
   search_hq_service:
@@ -137,8 +147,6 @@ services:
       args:
         SERVICE_MODULE: main:app
         SERVICE_PORT: 8004
-    ports:
-      - "127.0.0.1:8004:8004"
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/search_hq
@@ -146,7 +154,6 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ISSUER: ${JWT_ISSUER}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
-      # Без обоих — донаты как раньше, сразу в БД без реального платежа (см. README сервиса).
       YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID}
       YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY}
       YOOKASSA_RETURN_URL: ${YOOKASSA_RETURN_URL}
@@ -160,8 +167,6 @@ services:
       args:
         SERVICE_MODULE: main:app
         SERVICE_PORT: 8005
-    ports:
-      - "127.0.0.1:8005:8005"
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/archive
@@ -183,8 +188,6 @@ services:
       args:
         SERVICE_MODULE: main:app
         SERVICE_PORT: 8006
-    ports:
-      - "127.0.0.1:8006:8006"
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/routes
@@ -192,7 +195,6 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ISSUER: ${JWT_ISSUER}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
-      # Для подсказки «рядом есть неподтверждённая заметка» на точках маршрута.
       ARCHIVE_SERVICE_URL: http://archive_service:8005
       MINIO_ENDPOINT: ${MINIO_ENDPOINT}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
@@ -208,8 +210,6 @@ services:
       args:
         SERVICE_MODULE: main:app
         SERVICE_PORT: 8007
-    ports:
-      - "127.0.0.1:8007:8007"
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/media
@@ -231,8 +231,6 @@ services:
       args:
         SERVICE_MODULE: main:app
         SERVICE_PORT: 8010
-    ports:
-      - "127.0.0.1:8010:8010"
     environment:
       APP_ENV: ${APP_ENV}
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/admin
@@ -270,8 +268,6 @@ services:
       dockerfile: Dockerfile
     container_name: marshruty_frontend_client
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:3000:80"
     networks:
       - marshruty_network
 
@@ -281,8 +277,6 @@ services:
       dockerfile: Dockerfile
     container_name: marshruty_frontend_web
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:3001:80"
     networks:
       - marshruty_network
 
@@ -292,8 +286,6 @@ services:
       dockerfile: Dockerfile
     container_name: marshruty_frontend_admin
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:3002:80"
     networks:
       - marshruty_network
 
