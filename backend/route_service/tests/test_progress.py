@@ -72,3 +72,56 @@ def test_progress_me_before_start_404(client, author_header):
         ).status_code
         == 404
     )
+
+
+def test_riddle_answer_is_graded_but_does_not_block_progress(client, author_header):
+    route = client.post(
+        "/routes", headers=author_header, json={"title": "Тропа", "city": "Орёл"}
+    ).json()
+    wp = client.post(
+        f"/routes/{route['id']}/waypoints",
+        headers=author_header,
+        json={
+            "title": "Пушка",
+            "lat": 52.9,
+            "lon": 36.0,
+            "kid_task": "Найди калибр пушки на иллюстрации",
+            "expected_answer": "76 мм",
+        },
+    ).json()
+    # эталонный ответ наружу не отдаётся, только признак, что задание проверяемое.
+    assert "expected_answer" not in wp
+    assert wp["has_answer"] is True
+    client.post(f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True})
+
+    fam = auth_header(user_id="mama-1")
+
+    wrong = client.post(
+        f"/routes/{route['id']}/progress/complete-waypoint",
+        headers=fam,
+        json={"waypoint_id": wp["id"], "answer": "45 мм"},
+    ).json()
+    assert wrong["answers"] == {wp["id"]: False}
+    # неверный ответ всё равно засчитывает точку как пройденную.
+    assert wrong["completed_waypoint_ids"] == [wp["id"]]
+
+    correct = client.post(
+        f"/routes/{route['id']}/progress/complete-waypoint",
+        headers=fam,
+        json={"waypoint_id": wp["id"], "answer": " 76 ММ "},
+    ).json()
+    assert correct["answers"] == {wp["id"]: True}
+
+
+def test_waypoint_without_expected_answer_has_no_answer_flag(client, author_header):
+    route_id, wp_ids = published_route_with_waypoints(client, author_header, n=1)
+    wps = client.get(f"/routes/{route_id}/waypoints").json()
+    assert wps[0]["has_answer"] is False
+
+    fam = auth_header(user_id="mama-1")
+    p = client.post(
+        f"/routes/{route_id}/progress/complete-waypoint",
+        headers=fam,
+        json={"waypoint_id": wp_ids[0]},
+    ).json()
+    assert p["answers"] == {}

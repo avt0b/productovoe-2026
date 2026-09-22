@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     archive_nearby_radius_km: float = 2.0
     upstream_timeout_seconds: float = 3.0
 
+    # --- автогенерация маршрута из слоя «ВОВ» map_service (модуль 2 ТЗ) ---
+    map_service_url: str = "http://127.0.0.1:8003"
+
+    # --- подсказка «оживить фото» у точки маршрута (маршруты ↔ «Живое фото») ---
+    media_service_url: str = "http://127.0.0.1:8007"
+
     # --- файлы (обложки маршрутов, аудио точек) в MinIO ---
     minio_endpoint: str = "http://127.0.0.1:9000"
     minio_access_key: str = "minioadmin"

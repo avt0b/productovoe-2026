@@ -33,21 +33,28 @@ class ProgressService:
         return progress
 
     def complete_waypoint(
-        self, principal: Principal, route_id: str, waypoint_id: str
+        self, principal: Principal, route_id: str, waypoint_id: str, answer: str | None = None
     ) -> RouteProgress:
         progress = self.start(principal, route_id)
         waypoints = self.routes.waypoints_of(route_id)
-        ids = [w.id for w in waypoints]
-        if waypoint_id not in ids:
+        by_id = {w.id: w for w in waypoints}
+        if waypoint_id not in by_id:
             raise NotFound("Точка не принадлежит маршруту")
 
         done = set(progress.completed_waypoint_ids)
         done.add(waypoint_id)
+        ids = list(by_id)
         # Порядок по маршруту.
         progress.completed_waypoint_ids = [wid for wid in ids if wid in done]
         progress.current_index = min(len(progress.completed_waypoint_ids), len(ids))
         if len(done) >= len(ids) and ids:
             progress.completed_at = datetime.now(UTC)
+
+        waypoint = by_id[waypoint_id]
+        if waypoint.expected_answer and answer is not None:
+            is_correct = answer.strip().casefold() == waypoint.expected_answer.strip().casefold()
+            progress.answers = {**progress.answers, waypoint_id: is_correct}
+
         self.db.commit()
         self.db.refresh(progress)
         return progress

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query, status
 from api.deps import (
     ArchivePromptServiceDep,
     CurrentPrincipal,
+    MediaPromptServiceDep,
     OptionalPrincipal,
     ProgressServiceDep,
     RouteServiceDep,
@@ -12,8 +13,10 @@ from api.deps import (
 from api.schemas.route import (
     ArchivePromptOut,
     CompleteWaypointRequest,
+    MediaPromptOut,
     ProgressOut,
     PublishRequest,
+    RouteAutoGenerateRequest,
     RouteCreate,
     RouteDetailOut,
     RouteOut,
@@ -50,6 +53,17 @@ def create_route(
     return RouteOut.model_validate(service.create(principal, payload.model_dump()))
 
 
+@router.post("/auto-generate", response_model=RouteDetailOut, status_code=status.HTTP_201_CREATED)
+async def auto_generate_route(
+    payload: RouteAutoGenerateRequest, principal: CurrentPrincipal, service: RouteServiceDep
+) -> RouteDetailOut:
+    """Автосборка черновика маршрута из точек слоя «ВОВ» рядом с координатой —
+    «автоматически строить квест-маршруты» (модуль 2 ТЗ). Результат не
+    публикуется сам: контент (задания/аудио/AR) автор добавляет вручную."""
+    route = await service.auto_generate(principal, payload.model_dump())
+    return RouteDetailOut.model_validate(route)
+
+
 @router.get("/{route_id}", response_model=RouteDetailOut)
 def get_route(
     route_id: str, principal: OptionalPrincipal, service: RouteServiceDep
@@ -66,6 +80,16 @@ async def archive_prompts(
     чтобы не тормозить обычный просмотр маршрута походом в archive_service."""
     prompts = await service.prompts_for_route(principal, route_id)
     return [ArchivePromptOut(**vars(p)) for p in prompts]
+
+
+@router.get("/{route_id}/media-prompts", response_model=list[MediaPromptOut])
+async def media_prompts(
+    route_id: str, principal: OptionalPrincipal, service: MediaPromptServiceDep
+) -> list[MediaPromptOut]:
+    """Точки маршрута без «живого фото» — подсказка «оживить фото бойца из
+    этого захоронения» (п.7 ТЗ, интеграция «Живого фото» с маршрутами)."""
+    prompts = await service.prompts_for_route(principal, route_id)
+    return [MediaPromptOut(**vars(p)) for p in prompts]
 
 
 @router.patch("/{route_id}", response_model=RouteOut)
@@ -139,5 +163,5 @@ def complete_waypoint(
     service: ProgressServiceDep,
 ) -> ProgressOut:
     return ProgressOut.model_validate(
-        service.complete_waypoint(principal, route_id, payload.waypoint_id)
+        service.complete_waypoint(principal, route_id, payload.waypoint_id, payload.answer)
     )
