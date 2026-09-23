@@ -51,6 +51,11 @@ function onPointCreated(point) {
   selectedId.value = point.id
 }
 
+function onPointUpdated(point) {
+  const i = points.value.findIndex((p) => p.id === point.id)
+  if (i !== -1) points.value[i] = point
+}
+
 onMounted(load)
 </script>
 
@@ -83,7 +88,12 @@ onMounted(load)
           В map_service пока нет точек с таким статусом.
           <span v-if="canAddPoint">Добавьте первую кнопкой выше.</span>
         </p>
-        <ArchivalDossier v-else :point="selectedPoint" @open-upload="uploadModalOpen = true" />
+        <ArchivalDossier
+          v-else
+          :point="selectedPoint"
+          @open-upload="uploadModalOpen = true"
+          @point-updated="onPointUpdated"
+        />
       </div>
     </section>
 
