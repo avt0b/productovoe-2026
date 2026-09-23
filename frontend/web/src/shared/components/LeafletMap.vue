@@ -28,6 +28,7 @@ const mapEl = ref(null)
 let map = null
 let markerLayer = null
 let pathLayer = null
+let resizeObserver = null
 
 function render() {
   if (!map) return
@@ -88,11 +89,22 @@ onMounted(() => {
   }).addTo(map)
   markerLayer = L.layerGroup().addTo(map)
   render()
+
+  // Leaflet меряет размер контейнера один раз, при создании карты. Если в
+  // этот момент контейнер ещё не занял итоговую ширину/высоту (переход
+  // паддинга у сайдбара, донаборка шрифтов на первом заходе, карта в
+  // модалке/раскрывающейся вкладке) — тайлы считаются по старым размерам и
+  // выглядят «съехавшими», пока кто-то вручную не дёрнет invalidateSize().
+  // ResizeObserver дёргает его сам при любом реальном изменении размера.
+  resizeObserver = new ResizeObserver(() => map?.invalidateSize())
+  resizeObserver.observe(mapEl.value)
 })
 
 watch(() => [props.markers, props.path], render, { deep: true })
 
 onUnmounted(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
   map?.remove()
   map = null
 })
