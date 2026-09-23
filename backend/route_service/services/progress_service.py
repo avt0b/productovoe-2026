@@ -7,6 +7,9 @@ from core.models import RouteProgress
 from core.security import Principal
 from repositories.progress_repository import ProgressRepository
 from repositories.route_repository import RouteRepository
+from services.achievement_client import award_achievement
+
+ACHIEVEMENT_FIRST_ROUTE = "first_route_completed"
 
 
 class ProgressService:
@@ -47,7 +50,8 @@ class ProgressService:
         # Порядок по маршруту.
         progress.completed_waypoint_ids = [wid for wid in ids if wid in done]
         progress.current_index = min(len(progress.completed_waypoint_ids), len(ids))
-        if len(done) >= len(ids) and ids:
+        just_finished = len(done) >= len(ids) and ids and progress.completed_at is None
+        if just_finished:
             progress.completed_at = datetime.now(UTC)
 
         waypoint = by_id[waypoint_id]
@@ -57,4 +61,8 @@ class ProgressService:
 
         self.db.commit()
         self.db.refresh(progress)
+
+        if just_finished:
+            award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_FIRST_ROUTE)
+
         return progress

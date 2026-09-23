@@ -66,6 +66,12 @@ AR-подсказками. `poi_id` точек совпадает с id тех �
 | GET | `/routes/{id}/archive-prompts` | как у маршрута — неподтверждённые заметки `archive_service` рядом с точками, «помоги проверить» (модуль 6 ТЗ) |
 | GET | `/routes/{id}/media-prompts` | как у маршрута — точки без «живого фото» в `media_service`, «оживить фото бойца» (модуль 7 ТЗ) |
 
+Завершение маршрута (`completed_at` выставляется на последней `complete-waypoint`)
+шлёт `user_service` `POST /internal/achievements/award` с кодом
+`first_route_completed` (`services/achievement_client.py`) — см.
+[user_service/README.md](../user_service/README.md#достижения). Недоступность
+user_service не мешает пройти маршрут — ачивка просто не выдастся.
+
 ### Автогенерация маршрута
 
 `POST /routes/auto-generate` (модуль 2 ТЗ, «автоматически строить квест-маршруты»):
