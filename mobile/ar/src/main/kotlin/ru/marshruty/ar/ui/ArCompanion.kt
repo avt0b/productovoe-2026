@@ -25,6 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ru.marshruty.ar.CompanionSpec
@@ -108,6 +110,9 @@ internal fun DialoguePanel(
     onReplay: () -> Unit,
     onAim: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Рассказ идёт: кнопка предлагает паузу, а не продолжение. */
+    isPlaying: Boolean = true,
+    onTogglePlay: () -> Unit = {},
     /** Трюк по кнопке. null — у персонажа нет такого клипа. */
     onTrick: (() -> Unit)? = null,
 ) {
@@ -155,6 +160,25 @@ internal fun DialoguePanel(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Только глиф: четыре подписи в ряд не помещаются на узком экране.
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(ArColors.SurfaceContainerHighest.copy(alpha = 0.2f))
+                    .clickable(onClick = onTogglePlay)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .semantics {
+                        contentDescription = if (isPlaying) "Поставить рассказ на паузу" else "Продолжить рассказ"
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = if (isPlaying) "⏸" else "▶",
+                    style = ArType.LabelAction,
+                    color = ArColors.TertiaryFixed,
+                )
+            }
+
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))

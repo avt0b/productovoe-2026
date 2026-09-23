@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import GuideRatingList from './GuideRatingList.vue'
 import { useAuthSession } from '@modules/auth'
-import * as fundraisingApi from '../api.js'
+import * as excursionsApi from '../api.js'
 
 const { session } = useAuthSession()
 
@@ -11,7 +11,7 @@ const loadStatus = ref('loading') // loading | loaded | error
 
 async function load() {
   try {
-    excursions.value = await fundraisingApi.listUpcomingExcursions()
+    excursions.value = await excursionsApi.listUpcomingExcursions()
     loadStatus.value = 'loaded'
   } catch {
     loadStatus.value = 'error'
@@ -29,7 +29,12 @@ const guides = computed(() => {
   return [...seen.values()]
 })
 
-const form = reactive({ excursionId: '', org: '', groupSize: '' })
+const MODES = [
+  { id: 'individual', label: 'Я один(на)', icon: 'person' },
+  { id: 'group', label: 'Группа — школа, клуб', icon: 'groups_3' },
+]
+
+const form = reactive({ excursionId: '', mode: 'individual', org: '', groupSize: '' })
 const status = ref('idle') // idle | sending | done
 const error = ref('')
 
@@ -46,22 +51,22 @@ function formatDate(iso) {
 async function submit() {
   error.value = ''
   if (session.status !== 'authenticated') {
-    error.value = 'Войдите, чтобы отправить заявку от имени школы или клуба'
+    error.value = 'Войдите, чтобы записаться на экскурсию'
     return
   }
   if (!form.excursionId) {
     error.value = 'Выберите экскурсию из списка'
     return
   }
-  if (!form.org.trim()) {
+  if (form.mode === 'group' && !form.org.trim()) {
     error.value = 'Укажите название школы или клуба'
     return
   }
   status.value = 'sending'
   try {
-    await fundraisingApi.registerForExcursion(session.accessToken, form.excursionId, {
-      organizationName: form.org.trim(),
-      groupSize: form.groupSize ? Number(form.groupSize) : 1,
+    await excursionsApi.registerForExcursion(session.accessToken, form.excursionId, {
+      organizationName: form.mode === 'group' ? form.org.trim() : '',
+      groupSize: form.mode === 'group' ? (form.groupSize ? Number(form.groupSize) : 1) : 1,
     })
     status.value = 'done'
     form.org = ''
@@ -81,9 +86,10 @@ async function submit() {
     <div class="flex items-center gap-2.5">
       <span class="material-symbols-outlined text-primary text-[22px]">groups_3</span>
       <div class="flex flex-col">
-        <h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Заявки школ и клубов на экскурсии</h2>
+        <h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Запись на экскурсию</h2>
         <span class="font-body-sm text-body-sm text-on-surface-variant">
-          Групповая запись на уже запланированную экскурсию гида-поисковика или краеведа
+          Индивидуально или группой — школа/клуб записывается на уже запланированную экскурсию гида-поисковика
+          или краеведа
         </span>
       </div>
     </div>
@@ -100,6 +106,24 @@ async function submit() {
 
     <div v-else-if="loadStatus === 'loaded'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <form class="flex flex-col gap-3" @submit.prevent="submit">
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="opt in MODES"
+            :key="opt.id"
+            type="button"
+            class="px-3.5 py-1.5 rounded-full font-label-sm text-label-sm font-bold transition-all flex items-center gap-1.5"
+            :class="
+              form.mode === opt.id
+                ? 'bg-secondary text-on-secondary'
+                : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+            "
+            @click="form.mode = opt.id"
+          >
+            <span class="material-symbols-outlined text-[16px]">{{ opt.icon }}</span>
+            {{ opt.label }}
+          </button>
+        </div>
+
         <div>
           <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">
             Экскурсия
@@ -118,29 +142,32 @@ async function submit() {
             {{ selectedExcursion.capacity }}
           </p>
         </div>
-        <div>
-          <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">
-            Школа или клуб
-          </label>
-          <input
-            v-model="form.org"
-            type="text"
-            placeholder="Например, школа № 12, г. Орёл"
-            class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
-          />
-        </div>
-        <div>
-          <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">
-            Размер группы
-          </label>
-          <input
-            v-model="form.groupSize"
-            type="number"
-            min="1"
-            placeholder="15"
-            class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
-          />
-        </div>
+
+        <template v-if="form.mode === 'group'">
+          <div>
+            <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">
+              Школа или клуб
+            </label>
+            <input
+              v-model="form.org"
+              type="text"
+              placeholder="Например, школа № 12, г. Орёл"
+              class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
+            />
+          </div>
+          <div>
+            <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">
+              Размер группы
+            </label>
+            <input
+              v-model="form.groupSize"
+              type="number"
+              min="1"
+              placeholder="15"
+              class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
+            />
+          </div>
+        </template>
 
         <p v-if="error" class="font-label-sm text-label-sm text-error font-bold">{{ error }}</p>
 

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
-import * as fundraisingApi from '../api.js'
+import * as excursionsApi from '../api.js'
 
 // guides: [{ id: guideId, label }] — собирается вызывающим компонентом из
 // списка загруженных экскурсий (search_hq_service не отдаёт отдельный
@@ -14,7 +14,7 @@ const summaries = ref({})
 async function loadFor(guide) {
   if (summaries.value[guide.id] !== undefined) return
   try {
-    const summary = await fundraisingApi.getGuideRating(guide.id)
+    const summary = await excursionsApi.getGuideRating(guide.id)
     summaries.value = { ...summaries.value, [guide.id]: summary }
   } catch {
     summaries.value = { ...summaries.value, [guide.id]: null }
