@@ -210,3 +210,26 @@ def test_walk_ends_by_itself_when_the_guide_forgets(client, guide_header, visito
 
     r = client.get(f"/excursions/{excursion_id}/walk", headers=visitor_header)
     assert r.json()["status"] == "finished"
+
+
+def test_finished_walk_counts_in_profile_stats(client, guide_header, visitor_header, monkeypatch):
+    """Экскурсия, дошедшая до памятника, — самая настоящая завершённая: в
+    статистику профиля она идёт краеведу и пришедшим, ровно один раз."""
+    import services.stats_client as stats_client_module
+
+    credited = []
+    monkeypatch.setattr(
+        stats_client_module, "increment_stat", lambda **kw: credited.append((kw["user_id"], kw["metric"]))
+    )
+
+    excursion_id = gathered(client, guide_header, visitor_header)
+    lead(client, guide_header, excursion_id)
+    # Выход группы — ещё не завершение.
+    assert credited == []
+
+    client.post(f"/excursions/{excursion_id}/walk/finish", headers=guide_header)
+    assert sorted(credited) == sorted([(GUIDE, "excursions_completed"), (VISITOR, "excursions_completed")])
+
+    # Повторное «Завершить» не засчитывает второй раз.
+    client.post(f"/excursions/{excursion_id}/walk/finish", headers=guide_header)
+    assert len(credited) == 2

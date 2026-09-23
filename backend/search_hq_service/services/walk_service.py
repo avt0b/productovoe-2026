@@ -79,7 +79,7 @@ class WalkService:
         """
         excursion = self.excursions.get(excursion_id)
         self._ensure_guide(principal, excursion)
-        self._close_if_expired(excursion)
+        self._settle_expiry(excursion)
 
         if excursion.status is ExcursionStatus.scheduled:
             raise Conflict("Сначала соберите группу: откройте сбор и отметьте тех, кто пришёл")
@@ -114,6 +114,7 @@ class WalkService:
             excursion.status = ExcursionStatus.finished
             self._forget_positions(excursion_id)
             self.db.commit()
+            self.excursions._credit_excursion_completion(excursion)
         elif excursion.status is not ExcursionStatus.finished:
             raise Conflict("Группа ещё не выходила")
         return self.state(principal, excursion_id)
@@ -123,8 +124,7 @@ class WalkService:
     def state(self, principal: Principal, excursion_id: str) -> WalkState:
         excursion = self.excursions.get(excursion_id)
         is_guide = self._ensure_in_group(principal, excursion)
-        if self._close_if_expired(excursion):
-            self.db.commit()
+        self._settle_expiry(excursion)
 
         walk = self.db.get(ExcursionWalk, excursion_id)
         members: list[GroupMember] = []
@@ -161,8 +161,7 @@ class WalkService:
     ) -> None:
         excursion = self.excursions.get(excursion_id)
         is_guide = self._ensure_in_group(principal, excursion)
-        if self._close_if_expired(excursion):
-            self.db.commit()
+        self._settle_expiry(excursion)
         if excursion.status is not ExcursionStatus.walking:
             raise Conflict("Группа сейчас не идёт — точку некому показывать")
 
@@ -192,6 +191,16 @@ class WalkService:
             # раскрывать, где ходят чужие люди, тому, кто с ними не был.
             raise PermissionDenied("Сначала отметьтесь у краеведа — встряхните телефоны рядом")
         return False
+
+    def _settle_expiry(self, excursion: Excursion) -> None:
+        """Сбор или прогулка вышли по сроку — закрыть и засчитать в статистику.
+
+        Засчитывается ровно на переходе в `finished`, поэтому дважды не бывает:
+        сбор, перешедший в прогулку, ещё не завершён и в зачёт не идёт.
+        """
+        if self._close_if_expired(excursion):
+            self.db.commit()
+            self.excursions._credit_excursion_completion(excursion)
 
     def _close_if_expired(self, excursion: Excursion) -> bool:
         """Сбор и прогулка, чей срок вышел, закрываются при первом обращении."""
