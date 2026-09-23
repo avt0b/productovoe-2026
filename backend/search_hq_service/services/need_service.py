@@ -8,8 +8,11 @@ from core.models import Donation, DonationStatus, NeedKind, NeedStatus, SquadNee
 from core.security import Principal
 from repositories.need_repository import NeedRepository
 from repositories.squad_repository import SquadRepository
+from services.achievement_client import award_achievement
 from services.payment_gateway import get_gateway
 from services.permissions import is_staff
+
+ACHIEVEMENT_DONOR = "donor"
 
 
 class NeedService:
@@ -84,6 +87,7 @@ class NeedService:
             self._credit(need, amount)
             self.db.commit()
             self.db.refresh(donation)
+            award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_DONOR)
             return donation
 
         # С шлюзом донат висит pending, пока ЮKassa не подтвердит платёж.
@@ -133,6 +137,8 @@ class NeedService:
 
         self.db.commit()
         self.db.refresh(donation)
+        if donation.status is DonationStatus.succeeded and donation.donor_id:
+            award_achievement(user_id=donation.donor_id, code=ACHIEVEMENT_DONOR)
         return donation
 
     def donations_for(self, need_id: str) -> Sequence[Donation]:

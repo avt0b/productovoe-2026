@@ -49,6 +49,21 @@ def test_registration_capacity_and_cancel(client, leader_header):
     assert client.post(f"/trips/{trip['id']}/registrations", headers=c).status_code == 201
 
 
+def test_registration_awards_volunteer_achievement(client, leader_header, monkeypatch):
+    import services.trip_service as trip_service_module
+
+    calls = []
+    monkeypatch.setattr(
+        trip_service_module, "award_achievement", lambda **kw: calls.append(kw)
+    )
+
+    squad = make_squad(client, leader_header)
+    trip = make_trip(client, leader_header, squad["id"]).json()
+
+    client.post(f"/trips/{trip['id']}/registrations", headers=auth_header(user_id="vol-a"))
+    assert calls == [{"user_id": "vol-a", "code": "trip_volunteer"}]
+
+
 def test_update_rejects_capacity_below_registered(client, leader_header):
     squad = make_squad(client, leader_header)
     trip = make_trip(client, leader_header, squad["id"], capacity=2).json()

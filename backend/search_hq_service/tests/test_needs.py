@@ -55,6 +55,29 @@ def test_donation_flow_and_autoclose(client, leader_header):
     )
 
 
+def test_donation_awards_donor_achievement(client, leader_header, monkeypatch):
+    import services.need_service as need_service_module
+
+    calls = []
+    monkeypatch.setattr(
+        need_service_module, "award_achievement", lambda **kw: calls.append(kw)
+    )
+
+    squad = make_squad(client, leader_header)
+    need = client.post(
+        f"/squads/{squad['id']}/needs",
+        headers=leader_header,
+        json={"kind": "funds", "title": "Экипировать отряд", "target_amount": 15000},
+    ).json()
+
+    client.post(
+        f"/needs/{need['id']}/donations",
+        headers=auth_header(user_id="donor-1"),
+        json={"amount": 1000},
+    )
+    assert calls == [{"user_id": "donor-1", "code": "donor"}]
+
+
 def test_public_donation_feed_hides_donor(client, leader_header):
     squad = make_squad(client, leader_header)
     need = client.post(
