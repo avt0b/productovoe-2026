@@ -34,8 +34,8 @@ defineEmits<{ shake: [] }>()
       />
       <span class="absolute inset-8 rounded-full bg-primary/25" :class="{ 'animate-ping': sending }" />
       <span
-        class="relative flex h-32 w-32 items-center justify-center rounded-full shadow-lg"
-        :class="active ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-outline'"
+        class="relative flex h-32 w-32 items-center justify-center rounded-full"
+        :class="active ? 'bg-primary-container text-white shadow-stamp' : 'bg-surface-container-high text-outline shadow-float'"
       >
         <MsIcon :name="sending || busy ? 'progress_activity' : 'vibration'" :size="56" :class="{ 'animate-spin': sending || busy }" />
       </span>
@@ -47,7 +47,7 @@ defineEmits<{ shake: [] }>()
 
     <button
       type="button"
-      class="flex items-center gap-1.5 rounded-full bg-secondary-container px-space-lg py-2.5 font-label-lg text-label-lg text-on-secondary-container active:scale-95 disabled:opacity-60"
+      class="flex items-center gap-1.5 rounded-full bg-secondary px-space-lg py-2.5 font-label-lg text-label-lg text-on-secondary shadow-float transition-transform active:scale-95 disabled:opacity-60"
       :disabled="sending || !active"
       @click="$emit('shake')"
     >

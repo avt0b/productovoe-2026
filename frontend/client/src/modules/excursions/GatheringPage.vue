@@ -7,6 +7,7 @@ import { errorText, plural } from '@/core/format'
 import { geolocationProblem, useGeolocation } from '@/core/geo'
 import { useSessionStore } from '@/core/session'
 import { BumpPad, TogetherOverlay, useBump } from '@/features/bump'
+import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
@@ -212,11 +213,6 @@ async function leadGroup(target: WalkTarget): Promise<void> {
 /** Откуда считать «ближайшие места»: где краевед сейчас, а без GPS — место сбора. */
 const pickFrom = computed(() => position.value ?? (excursion.value ? { lat: excursion.value.lat, lon: excursion.value.lon } : { lat: 52.9686, lon: 36.0694 }))
 
-const NOTICE_TONES: Record<Notice['tone'], string> = {
-  info: 'bg-surface-container-high text-on-surface-variant',
-  error: 'bg-error-container text-on-error-container',
-  success: 'bg-secondary-container text-on-secondary-container',
-}
 </script>
 
 <template>
@@ -239,21 +235,15 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
         </p>
       </div>
 
-      <div
-        v-if="!isGuide && !isRegistered"
-        class="flex items-start gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document"
-      >
-        <MsIcon name="info" :size="20" class="mt-0.5 shrink-0 text-secondary" />
-        <p class="font-body-sm text-body-sm text-on-surface-variant">
-          Вы не записаны на эту экскурсию — отметиться на месте могут только записавшиеся заранее.
-        </p>
-      </div>
+      <InlineNotice v-if="!isGuide && !isRegistered">
+        Вы не записаны на эту экскурсию — отметиться на месте могут только записавшиеся заранее.
+      </InlineNotice>
 
       <template v-else>
         <!-- Сколько уже в группе -->
         <div class="flex items-center justify-between rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
           <div>
-            <p class="font-label-sm text-label-sm uppercase tracking-wide text-outline">В группе</p>
+            <p class="font-archival text-archival uppercase text-on-surface-variant">В группе</p>
             <p class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">
               {{ gathering?.checked_in_count ?? excursion.checked_in_count }}
               <span class="font-body-md text-body-md text-on-surface-variant">
@@ -312,13 +302,11 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
           @shake="sensor.trigger"
         />
 
-        <p v-if="notice" class="rounded-DEFAULT px-3 py-2 text-center font-body-sm text-body-sm" :class="NOTICE_TONES[notice.tone]" role="status">
-          {{ notice.text }}
-        </p>
+        <InlineNotice v-if="notice" :tone="notice.tone">{{ notice.text }}</InlineNotice>
 
         <!-- Краевед: кто пришёл и закрыть сбор -->
         <section v-if="isGuide && gathering" class="flex flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
-          <h3 class="font-label-lg text-label-lg text-on-surface">Отметились на месте</h3>
+          <h3 class="font-archival text-archival uppercase text-on-surface-variant">Отметились на месте</h3>
           <p v-if="!gathering.checked_in.length" class="font-body-sm text-body-sm text-on-surface-variant">Пока никого</p>
           <ul v-else class="flex flex-col gap-1">
             <li
