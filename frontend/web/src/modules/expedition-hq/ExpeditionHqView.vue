@@ -2,7 +2,7 @@
 import HqHero from './components/HqHero.vue'
 import OperationalMetrics from './components/OperationalMetrics.vue'
 import FieldPhotoBanner from './components/FieldPhotoBanner.vue'
-import FundraisingPromo from './components/FundraisingPromo.vue'
+import ExcursionsPromo from './components/ExcursionsPromo.vue'
 import FieldSchoolCard from './components/FieldSchoolCard.vue'
 </script>
 
@@ -14,7 +14,7 @@ import FieldSchoolCard from './components/FieldSchoolCard.vue'
       <div class="xl:col-span-8 flex flex-col gap-8">
         <OperationalMetrics />
         <FieldPhotoBanner />
-        <FundraisingPromo />
+        <ExcursionsPromo />
       </div>
 
       <div class="xl:col-span-4 w-full">

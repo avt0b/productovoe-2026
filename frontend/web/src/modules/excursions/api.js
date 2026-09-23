@@ -1,6 +1,6 @@
 import { http } from '@shared/utils/httpClient.js'
 
-const BASE = '/api/search-hq'
+const BASE = '/api/search'
 
 // Коллективные и индивидуальные заявки на экскурсии (модуль 5 ТЗ) — реальный
 // бэкенд: экскурсия создаётся гидом заранее, участник записывается на неё —
