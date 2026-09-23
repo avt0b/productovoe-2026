@@ -8,7 +8,9 @@
 входа `src/modules/auth/AuthPage.vue`.
 
 Задание каждой стороны лежит рядом: [PROMPT-A.md](PROMPT-A.md) и
-[PROMPT-B.md](PROMPT-B.md).
+[PROMPT-B.md](PROMPT-B.md). Что учесть при мердже, каждая сторона пишет в свой
+файл: [HANDOFF-A.md](HANDOFF-A.md), `HANDOFF-B.md`. Общий файл на двоих здесь
+конфликтовал бы, поэтому их два.
 
 ## Зоны
 
