@@ -22,7 +22,7 @@ async function signInWithEmail(): Promise<void> {
 </script>
 
 <template>
-  <div class="flex items-start gap-space-sm rounded-lg bg-tertiary-fixed/40 p-space-md">
+  <div class="flex items-start gap-space-sm rounded-2xl border border-tertiary-fixed-dim/50 bg-tertiary-fixed/40 p-space-md">
     <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant">
       <MsIcon name="lock" :size="20" />
     </div>

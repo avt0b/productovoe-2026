@@ -7,12 +7,28 @@ import { errorText } from '@/core/format'
 import type { GeoMarker } from '@/core/geo'
 import { useSessionStore } from '@/core/session'
 import GeoMap from '@/ui/geo/GeoMap.vue'
+import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
 import AccountRequired from './components/AccountRequired.vue'
+import GuideRatingBadge from './components/GuideRatingBadge.vue'
+import ParticipantsList from './components/ParticipantsList.vue'
+import RateGuideSheet from './components/RateGuideSheet.vue'
+import RegisterSheet from './components/RegisterSheet.vue'
 import StatusChip from './components/StatusChip.vue'
-import { cancelExcursion, cancelRegistration, fetchExcursion, registerForExcursion } from './data'
+import {
+  cancelExcursion,
+  cancelRegistration,
+  fetchExcursion,
+  fetchGuideRating,
+  fetchParticipants,
+  rateExcursion,
+  registerForExcursion,
+  type GuideRatingSummary,
+  type Participant,
+  type RegistrationDraft,
+} from './data'
 import { formatStart } from './format'
 
 const props = defineProps<{ excursionId: string }>()
@@ -60,8 +76,40 @@ watch(
 
 onBeforeUnmount(() => clearInterval(watchTimer))
 
+// Рейтинг краеведа и состав группы — дополнение к экскурсии: не загрузились, экран всё равно работает.
+watch(
+  excursion,
+  async (item) => {
+    if (!item) return
+    try {
+      guideRating.value = await fetchGuideRating(item.guide_id)
+    } catch {
+      guideRating.value = null
+    }
+    if (!item.viewer?.is_guide) {
+      participants.value = []
+      return
+    }
+    try {
+      participants.value = await fetchParticipants(item.id)
+    } catch {
+      participants.value = []
+    }
+  },
+  { immediate: true },
+)
+
 const busy = ref(false)
 const actionError = ref<string | null>(null)
+/** Какое окно открыто поверх экрана: запись группы или оценка краеведа. */
+const sheet = ref<'register' | 'rate' | null>(null)
+/** Оценку уже отправили — второй раз не предлагаем, хотя сервис и разрешает её менять. */
+const rated = ref(false)
+
+/** Средняя оценка краеведа — публичная: по ней выбирают, к кому идти. */
+const guideRating = ref<GuideRatingSummary | null>(null)
+/** Кто записан. Список отдаётся только ведущему экскурсии. */
+const participants = ref<Participant[]>([])
 /** Необратимые действия — в два нажатия: первое спрашивает, второе делает. */
 const confirming = ref<'unregister' | 'cancel' | null>(null)
 
@@ -97,6 +145,40 @@ async function act(action: () => Promise<unknown>): Promise<void> {
   }
 }
 
+/**
+ * Оценить можно только завершённую экскурсию и только тому, кто на ней
+ * отметился, — так же проверяет сервис. Показывать кнопку остальным значит
+ * обещать то, что закончится ошибкой.
+ */
+const canRate = computed(
+  () =>
+    excursion.value?.status === 'finished' &&
+    role.value === 'participant' &&
+    Boolean(excursion.value?.viewer?.checked_in_at) &&
+    !rated.value,
+)
+
+async function submitRating(rating: number, comment: string): Promise<void> {
+  if (busy.value) return
+  busy.value = true
+  actionError.value = null
+  try {
+    await rateExcursion(props.excursionId, rating, comment)
+    rated.value = true
+    sheet.value = null
+    guideRating.value = await fetchGuideRating(excursion.value!.guide_id)
+  } catch (reason) {
+    actionError.value = errorText(reason)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function register(draft: RegistrationDraft | undefined): Promise<void> {
+  await act(() => registerForExcursion(props.excursionId, draft))
+  if (!actionError.value) sheet.value = null
+}
+
 function openGathering(): void {
   void router.push({ name: 'excursion-gathering', params: { excursionId: props.excursionId } })
 }
@@ -113,7 +195,11 @@ function openWalk(): void {
     <template v-else-if="excursion">
       <div class="flex flex-col gap-space-xs">
         <StatusChip :status="excursion.status" class="self-start" />
-        <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">{{ excursion.title }}</h2>
+        <h2
+          class="ribbon-shimmer font-headline-lg-mobile text-headline-lg-mobile text-on-surface [--shimmer-base:theme(colors.ink.DEFAULT)]"
+        >
+          {{ excursion.title }}
+        </h2>
         <p class="flex items-center gap-1.5 font-body-md text-body-md text-on-surface-variant">
           <MsIcon name="schedule" :size="18" class="shrink-0 text-secondary" />
           {{ formatStart(excursion.starts_at) }}
@@ -124,25 +210,28 @@ function openWalk(): void {
         </p>
       </div>
 
-      <GeoMap :markers="markers" :selected="excursion.id" class="h-44 w-full rounded-lg shadow-sm" />
+      <GeoMap :markers="markers" :selected="excursion.id" class="h-44 w-full rounded-2xl shadow-document" />
+
+      <!-- Рейтинг краеведа из ТЗ: по нему выбирают, к кому идти -->
+      <GuideRatingBadge :summary="guideRating" />
 
       <p v-if="excursion.description" class="font-body-md text-body-md leading-relaxed text-on-surface-variant">
         {{ excursion.description }}
       </p>
 
       <div class="grid grid-cols-2 gap-space-sm">
-        <div class="rounded-lg bg-surface-container-low p-space-sm text-center">
+        <div class="rounded-2xl bg-surface-container-lowest p-space-sm text-center shadow-document">
           <p class="font-headline-md text-headline-md text-on-surface">{{ excursion.registered_count }}</p>
           <p class="font-label-sm text-label-sm text-on-surface-variant">записались из {{ excursion.capacity }}</p>
         </div>
-        <div class="rounded-lg bg-surface-container-low p-space-sm text-center">
+        <div class="rounded-2xl bg-surface-container-lowest p-space-sm text-center shadow-document">
           <p class="font-headline-md text-headline-md text-on-surface">{{ excursion.checked_in_count }}</p>
           <p class="font-label-sm text-label-sm text-on-surface-variant">отметились на месте</p>
         </div>
       </div>
 
       <!-- Что можно сделать -->
-      <section class="flex flex-col gap-space-sm rounded-lg bg-surface-container-lowest p-space-md shadow-sm">
+      <section class="flex flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
         <AccountRequired
           v-if="!session.hasAccount"
           text="Записаться на экскурсию и отметиться на месте можно только с аккаунтом."
@@ -156,7 +245,7 @@ function openWalk(): void {
           <button
             v-if="excursion.status === 'scheduled' || excursion.status === 'gathering'"
             type="button"
-            class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+            class="flex w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99]"
             @click="openGathering"
           >
             <MsIcon name="vibration" :size="20" />
@@ -165,12 +254,14 @@ function openWalk(): void {
           <button
             v-if="excursion.status === 'walking'"
             type="button"
-            class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+            class="flex w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99]"
             @click="openWalk"
           >
             <MsIcon name="map" :size="20" />
             Группа идёт — карта
           </button>
+          <ParticipantsList v-if="participants.length" :participants="participants" />
+
           <template v-if="excursion.status === 'scheduled'">
             <button
               v-if="confirming !== 'cancel'"
@@ -204,7 +295,7 @@ function openWalk(): void {
           <button
             v-if="excursion.status === 'gathering' && !excursion.viewer?.checked_in_at"
             type="button"
-            class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+            class="flex w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99]"
             @click="openGathering"
           >
             <MsIcon name="vibration" :size="20" />
@@ -213,7 +304,7 @@ function openWalk(): void {
           <button
             v-else-if="excursion.status === 'walking' && excursion.viewer?.checked_in_at"
             type="button"
-            class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+            class="flex w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99]"
             @click="openWalk"
           >
             <MsIcon name="map" :size="20" />
@@ -251,9 +342,9 @@ function openWalk(): void {
           <button
             v-if="excursion.status === 'scheduled'"
             type="button"
-            class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99] disabled:opacity-60"
+            class="flex w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-60"
             :disabled="busy || seatsLeft === 0"
-            @click="act(() => registerForExcursion(excursion!.id))"
+            @click="sheet = 'register'"
           >
             <MsIcon :name="busy ? 'progress_activity' : 'how_to_reg'" :size="20" :class="{ 'animate-spin': busy }" />
             {{ seatsLeft > 0 ? `Записаться · осталось мест: ${seatsLeft}` : 'Мест нет' }}
@@ -263,17 +354,35 @@ function openWalk(): void {
           </p>
         </template>
 
-        <p v-if="excursion.status === 'finished'" class="font-body-sm text-body-sm text-on-surface-variant">
-          Экскурсия завершена.
-        </p>
-        <p v-if="excursion.status === 'cancelled'" class="font-body-sm text-body-sm text-on-surface-variant">
+        <button
+          v-if="canRate"
+          type="button"
+          class="flex w-full items-center justify-center gap-space-sm rounded-xl bg-tertiary py-3.5 font-label-lg text-label-lg text-on-tertiary shadow-float transition-all active:scale-[0.99]"
+          @click="sheet = 'rate'"
+        >
+          <MsIcon name="star" :size="20" filled />
+          Оценить экскурсию
+        </button>
+        <InlineNotice v-else-if="rated" tone="success" icon="star">
+          Спасибо за оценку — по ней другие выберут, к кому пойти.
+        </InlineNotice>
+        <InlineNotice v-else-if="excursion.status === 'finished'" icon="task_alt">Экскурсия завершена.</InlineNotice>
+        <InlineNotice v-if="excursion.status === 'cancelled'" icon="event_busy">
           Краевед отменил экскурсию.
-        </p>
+        </InlineNotice>
 
-        <p v-if="actionError" class="rounded-DEFAULT bg-error-container px-3 py-2 font-body-sm text-body-sm text-on-error-container" role="alert">
-          {{ actionError }}
-        </p>
+        <InlineNotice v-if="actionError" tone="error">{{ actionError }}</InlineNotice>
       </section>
+
+      <RegisterSheet
+        v-if="sheet === 'register'"
+        :seats-left="seatsLeft"
+        :busy="busy"
+        @close="sheet = null"
+        @submit="register"
+      />
+
+      <RateGuideSheet v-if="sheet === 'rate'" :busy="busy" @close="sheet = null" @submit="submitRating" />
     </template>
   </div>
 </template>

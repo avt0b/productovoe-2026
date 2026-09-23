@@ -114,7 +114,7 @@ const inputClass =
   <div class="flex w-full flex-col gap-space-md px-margin pb-space-xl pt-space-sm">
     <AccountRequired v-if="!session.hasAccount" text="Создавать экскурсии можно только с аккаунтом краеведа." />
 
-    <div v-else-if="!isGuide" class="flex items-start gap-space-sm rounded-lg bg-surface-container-low p-space-md">
+    <div v-else-if="!isGuide" class="flex items-start gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
       <MsIcon name="info" :size="20" class="mt-0.5 shrink-0 text-secondary" />
       <p class="font-body-sm text-body-sm text-on-surface-variant">
         Создавать экскурсии могут краеведы и наставники. Зарегистрируйтесь с отметкой «Я краевед» или попросите
@@ -155,7 +155,7 @@ const inputClass =
         </button>
         <p v-if="geoProblem" class="font-body-sm text-body-sm text-error" role="alert">{{ geoProblem }}</p>
 
-        <GeoMap v-if="point" :markers="markers" selected="point" class="h-40 w-full rounded-lg shadow-sm" />
+        <GeoMap v-if="point" :markers="markers" selected="point" class="h-40 w-full rounded-2xl shadow-document" />
 
         <label class="flex flex-col gap-1">
           <span class="font-label-sm text-label-sm text-on-surface-variant">Как найти место</span>
@@ -180,7 +180,7 @@ const inputClass =
 
       <button
         type="submit"
-        class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99] disabled:opacity-60"
+        class="flex w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-60"
         :disabled="!canSubmit || saving"
       >
         <MsIcon :name="saving ? 'progress_activity' : 'event_available'" :size="20" :class="{ 'animate-spin': saving }" />

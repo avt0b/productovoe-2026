@@ -64,30 +64,40 @@ const TABS: { value: Tab; title: string }[] = [
 
 <template>
   <div class="flex w-full flex-col gap-space-md px-margin pb-space-lg pt-space-xs">
-    <section class="flex flex-col gap-space-xs rounded-lg bg-secondary-container/60 p-space-md">
-      <h2 class="font-headline-sm text-headline-sm text-on-secondary-container">Экскурсии с краеведами</h2>
+    <section class="flex flex-col gap-space-xs rounded-2xl bg-secondary-container/60 p-space-md shadow-document">
+      <p class="font-archival text-archival uppercase text-on-secondary-container">Экспедиция памяти</p>
+      <h2
+        class="ribbon-shimmer font-headline-sm text-headline-sm text-on-secondary-container [--shimmer-base:theme(colors.on-secondary-container)]"
+      >
+        Экскурсии с краеведами
+      </h2>
       <p class="font-body-sm text-body-sm text-on-surface-variant">
         Запишитесь заранее, а на месте встряхните телефон вместе с краеведом — и вы в группе.
       </p>
       <RouterLink
         v-if="isGuide"
         :to="{ name: 'excursion-new' }"
-        class="mt-space-xs inline-flex items-center gap-1.5 self-start rounded-full bg-primary px-space-md py-2 font-label-md text-label-md text-on-primary shadow-sm active:scale-95"
+        class="mt-space-xs inline-flex items-center gap-1.5 self-start rounded-full bg-primary-container px-space-md py-2 font-label-md text-label-md text-white shadow-stamp transition-colors hover:bg-primary active:scale-95"
       >
         <MsIcon name="add" :size="18" />
         Новая экскурсия
       </RouterLink>
     </section>
 
-    <div class="grid grid-cols-2 rounded-full bg-surface-container-low p-1 text-center" role="tablist">
+    <div class="relative grid grid-cols-2 rounded-full bg-surface-container-low p-1 text-center" role="tablist">
+      <span
+        class="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-surface-container-lowest shadow-float transition-transform duration-300 ease-out"
+        :class="tab === 'mine' ? 'translate-x-full' : 'translate-x-0'"
+        aria-hidden="true"
+      />
       <button
         v-for="item in TABS"
         :key="item.value"
         type="button"
         role="tab"
         :aria-selected="tab === item.value"
-        class="rounded-full py-2 font-label-lg text-label-lg transition-all"
-        :class="tab === item.value ? 'bg-surface-container-lowest text-on-surface shadow-sm' : 'text-on-surface-variant'"
+        class="relative z-10 rounded-full py-2 font-label-lg text-label-lg transition-colors duration-200"
+        :class="tab === item.value ? 'text-on-surface' : 'text-on-surface-variant hover:text-on-surface'"
         @click="tab = item.value"
       >
         {{ item.title }}
@@ -110,7 +120,7 @@ const TABS: { value: Tab; title: string }[] = [
         :markers="markers"
         :user="userPosition"
         :locating="geoStatus === 'locating'"
-        class="h-60 w-full rounded-lg shadow-md"
+        class="h-60 w-full rounded-2xl shadow-document"
         @locate="startLocating"
       />
 

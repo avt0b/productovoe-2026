@@ -27,14 +27,14 @@ const myRole = computed(() => {
 <template>
   <RouterLink
     :to="{ name: 'excursion', params: { excursionId: excursion.id } }"
-    class="flex flex-col gap-space-xs rounded-lg bg-surface-container-lowest p-space-md shadow-sm transition-shadow hover:shadow-md"
+    class="flex flex-col gap-space-xs rounded-2xl bg-surface-container-lowest p-space-md shadow-document transition-shadow hover:shadow-sheet"
     :class="{ 'ring-2 ring-primary': selected }"
   >
     <div class="flex flex-wrap items-center justify-between gap-space-xs">
       <StatusChip :status="excursion.status" />
       <span
         v-if="myRole"
-        class="inline-flex items-center gap-1 rounded-full bg-tertiary-fixed px-2.5 py-1 font-label-sm text-label-sm text-on-tertiary-fixed-variant"
+        class="inline-flex items-center gap-1 rounded-full bg-tertiary-fixed px-2.5 py-1 font-archival text-archival uppercase text-on-tertiary-fixed-variant"
       >
         <MsIcon :name="myRole.icon" :size="14" />
         {{ myRole.text }}

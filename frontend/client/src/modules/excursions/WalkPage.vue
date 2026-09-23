@@ -201,7 +201,7 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
           </div>
           <button
             type="button"
-            class="h-11 rounded-full bg-primary font-label-lg text-label-lg text-on-primary active:scale-[0.98]"
+            class="h-11 rounded-full bg-primary-container font-label-lg text-label-lg text-white shadow-stamp transition-colors hover:bg-primary active:scale-[0.98]"
             @click="back"
           >
             К экскурсии
@@ -238,7 +238,7 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
           <div class="flex gap-space-xs">
             <button
               type="button"
-              class="flex h-11 flex-1 items-center justify-center gap-space-xs rounded-full bg-primary font-label-lg text-label-lg text-on-primary active:scale-[0.98]"
+              class="flex h-11 flex-1 items-center justify-center gap-space-xs rounded-full bg-primary-container font-label-lg text-label-lg text-white shadow-stamp transition-colors hover:bg-primary active:scale-[0.98]"
               @click="openNavigator"
             >
               <MsIcon name="navigation" :size="18" />
