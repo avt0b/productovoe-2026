@@ -10,6 +10,12 @@ export class ApiError extends Error {
 async function request(path, { method = 'GET', body, token, headers } = {}) {
   const res = await fetch(path, {
     method,
+    // Один и тот же URL может звучать и без токена (аноним), и с ним
+    // (авторизован) — а бэкенд не шлёт Vary: Authorization, так что браузер
+    // не знает, что кэш нужно различать по заголовку. no-store — не потому
+    // что данные часто меняются, а чтобы разные принципалы никогда не
+    // получали чужой закэшированный ответ на один и тот же путь.
+    cache: 'no-store',
     headers: {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
