@@ -114,7 +114,14 @@ class ExcursionService:
 
     # --- запись участников ---
 
-    def register(self, principal: Principal, excursion_id: str) -> ExcursionParticipant:
+    def register(
+        self,
+        principal: Principal,
+        excursion_id: str,
+        *,
+        organization_name: str = "",
+        group_size: int = 1,
+    ) -> ExcursionParticipant:
         excursion = self.get(excursion_id)
         if excursion.guide_id == principal.user_id:
             raise Conflict("Краевед не записывается на свою экскурсию")
@@ -123,17 +130,29 @@ class ExcursionService:
             raise Conflict("Запись закрыта: сбор уже начался или экскурсия завершена")
 
         existing = self.repo.get_participant(excursion_id, principal.user_id)
-        if existing and existing.status is RegistrationStatus.registered:
-            return existing
-        if self.repo.count_registered(excursion_id) >= excursion.capacity:
-            raise Conflict("Все места заняты")
+        already_registered = existing is not None and existing.status is RegistrationStatus.registered
+        # Заявка коллективная (модуль 5 ТЗ): один представитель школы/клуба
+        # держит одну строку-регистрацию на всю группу — capacity считаем по
+        # сумме group_size, а не по числу строк.
+        previous_size = existing.group_size if already_registered else 0
+        occupied = self.repo.count_registered(excursion_id)
+        projected = occupied - previous_size + group_size
+        if projected > excursion.capacity:
+            raise Conflict("Мест не хватит на всю группу")
 
         if existing:
             existing.status = RegistrationStatus.registered
+            existing.organization_name = organization_name
+            existing.group_size = group_size
             participant = existing
         else:
             participant = self.repo.add_participant(
-                ExcursionParticipant(excursion_id=excursion_id, user_id=principal.user_id)
+                ExcursionParticipant(
+                    excursion_id=excursion_id,
+                    user_id=principal.user_id,
+                    organization_name=organization_name,
+                    group_size=group_size,
+                )
             )
         self.db.commit()
         self.db.refresh(participant)

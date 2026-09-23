@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text
+from sqlalchemy import Float, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -13,6 +13,11 @@ class Squad(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     region: Mapped[str] = mapped_column(String(120), default="", nullable=False, index=True)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     contact: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    # Штаб/база отряда — чтобы потребности отряда можно было нанести на карту
+    # («карта потребностей отрядов», модуль 3 ТЗ). Необязательны: не у каждого
+    # отряда на момент регистрации известны точные координаты.
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # id командира отряда (пользователь из auth_service).
     leader_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)

@@ -2,6 +2,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     Enum,
     Float,
@@ -69,12 +70,20 @@ class ExcursionParticipant(UUIDPrimaryKeyMixin, Base):
     """Запись человека на экскурсию и отметка, что он пришёл."""
 
     __tablename__ = "excursion_participants"
-    __table_args__ = (UniqueConstraint("excursion_id", "user_id", name="uq_excursion_user"),)
+    __table_args__ = (
+        UniqueConstraint("excursion_id", "user_id", name="uq_excursion_user"),
+        CheckConstraint("group_size >= 1", name="ck_participant_group_size_positive"),
+    )
 
     excursion_id: Mapped[str] = mapped_column(
         ForeignKey("excursions.id", ondelete="CASCADE"), index=True, nullable=False
     )
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    # Коллективная заявка школы/клуба (модуль 5 ТЗ): один аккаунт-представитель
+    # записывает группу целиком — задача сама по себе не заводит отдельный
+    # аккаунт на каждого ученика.
+    organization_name: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    group_size: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     status: Mapped[RegistrationStatus] = mapped_column(
         Enum(RegistrationStatus, name="registration_status", native_enum=False, length=16),
         default=RegistrationStatus.registered,

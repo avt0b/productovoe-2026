@@ -24,5 +24,9 @@ class Settings(BaseSettings):
         "capacitor://localhost",
     ]
 
+    # --- уведомления подписчиков «Последнего боя» (user_service) ---
+    user_service_url: str = "http://127.0.0.1:8002"
+    upstream_timeout_seconds: float = 3.0
+
 
 settings = Settings()

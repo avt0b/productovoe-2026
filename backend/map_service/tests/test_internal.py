@@ -166,11 +166,14 @@ def test_last_stand_status_update_bypasses_moderator_only(client):
     point = make_point(client, auth_header(role="searcher")).json()
 
     # публично статус меняет только модератор
-    assert client.patch(
-        f"/last-stand/{point['id']}/status",
-        headers=auth_header(role="searcher"),
-        json={"status": "archive_confirmed"},
-    ).status_code == 403
+    assert (
+        client.patch(
+            f"/last-stand/{point['id']}/status",
+            headers=auth_header(role="searcher"),
+            json={"status": "archive_confirmed"},
+        ).status_code
+        == 403
+    )
 
     # через внутренний ключ — независимо от роли актора
     r = client.patch(
@@ -182,9 +185,12 @@ def test_last_stand_status_update_bypasses_moderator_only(client):
     assert r.json()["status"] == "archive_confirmed"
 
     # видно и через внутренний, и через публичный GET
-    assert client.get(
-        "/internal/last-stand", headers=INTERNAL_HEADERS, params={"query": "Иванов"}
-    ).json()["items"][0]["status"] == "archive_confirmed"
+    assert (
+        client.get(
+            "/internal/last-stand", headers=INTERNAL_HEADERS, params={"query": "Иванов"}
+        ).json()["items"][0]["status"]
+        == "archive_confirmed"
+    )
     assert client.get(f"/last-stand/{point['id']}").json()["status"] == "archive_confirmed"
 
 
@@ -202,9 +208,12 @@ def test_last_stand_delete_bypasses_ownership(client):
     point = make_point(client, auth_header(user_id=creator, role="searcher")).json()
 
     # публично удалить может только автор или модератор
-    assert client.delete(
-        f"/last-stand/{point['id']}", headers=auth_header(role="searcher")
-    ).status_code == 403
+    assert (
+        client.delete(
+            f"/last-stand/{point['id']}", headers=auth_header(role="searcher")
+        ).status_code
+        == 403
+    )
 
     r = client.delete(
         f"/internal/last-stand/{point['id']}",
@@ -223,8 +232,12 @@ def test_last_stand_delete_missing_404(client):
 
 
 def test_poi_list_ok_and_filters(client):
-    p1 = make_poi(client, auth_header(role="local_historian"), kind="grave", title="Братская могила")
-    p2 = make_poi(client, auth_header(role="local_historian"), kind="monument", title="Памятник танкистам")
+    p1 = make_poi(
+        client, auth_header(role="local_historian"), kind="grave", title="Братская могила"
+    )
+    p2 = make_poi(
+        client, auth_header(role="local_historian"), kind="monument", title="Памятник танкистам"
+    )
     poi1, poi2 = p1.json(), p2.json()
 
     all_poi = client.get("/internal/poi", headers=INTERNAL_HEADERS)
@@ -245,12 +258,10 @@ def test_poi_list_ok_and_filters(client):
 
 def test_poi_delete_bypasses_ownership(client):
     creator = str(uuid.uuid4())
-    poi = make_poi(client, auth_header(user_id=creator, role="family")).json()
+    poi = make_poi(client, auth_header(user_id=creator, role="local_historian")).json()
 
     # публично удалить может только автор или модератор
-    assert client.delete(
-        f"/poi/{poi['id']}", headers=auth_header(role="family")
-    ).status_code == 403
+    assert client.delete(f"/poi/{poi['id']}", headers=auth_header(role="family")).status_code == 403
 
     r = client.delete(
         f"/internal/poi/{poi['id']}", headers={**INTERNAL_HEADERS, "X-Actor-Id": "someone-else"}

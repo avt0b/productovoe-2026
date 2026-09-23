@@ -10,12 +10,27 @@ import ru.marshruty.ar.domain.GeoPoint
  * экран и получает [ArResult]. Всё.
  */
 
-/** Что должен сказать проводник на точке. */
-data class NarrationSpec(
+/**
+ * Что должен сказать проводник на точке.
+ *
+ * `@JvmOverloads` — не украшение: хост у нас на Java (Capacitor-плагин), а
+ * умолчания Kotlin оттуда не видны. Без перегрузки добавление поля ломало бы
+ * сборку хоста на ровном месте.
+ */
+data class NarrationSpec @JvmOverloads constructor(
     /** Локальный файл или URL заранее синтезированной озвучки. */
     val audioUri: String?,
     /** Субтитры обязательны: на улице шумно, и часть детей читает, а не слушает. */
     val subtitles: List<SubtitleLine>,
+    /**
+     * Таймкодов у хоста не было, и он нарезал текст на глаз.
+     *
+     * Такую нарезку модуль подгонит под длительность записи, когда та
+     * известна: иначе короткое предложение читается за секунду, длинное — за
+     * десять, и текст разъезжается с голосом уже на второй строке. Настоящие
+     * таймкоды (`false`, по умолчанию) не трогаются — они точнее любой оценки.
+     */
+    val subtitlesAreEstimated: Boolean = false,
 ) : java.io.Serializable
 
 /** Строка субтитров с таймкодом от начала аудио. */
@@ -52,6 +67,14 @@ fun List<SubtitleLine>.stablePositionAt(positionMillis: Long): Long {
     val line = lastOrNull { it.fromMillis <= positionMillis } ?: return -1L
     return if (positionMillis < line.toMillis) line.fromMillis else line.toMillis
 }
+
+/**
+ * Сколько длится рассказ, мс.
+ *
+ * Нужно там, где озвучки нет: иначе экран никогда не узнает, что рассказ
+ * кончился, и проводник будет «говорить» молча до самого выхода.
+ */
+fun List<SubtitleLine>.durationMillis(): Long = maxOfOrNull { it.toMillis } ?: 0L
 
 /** Состояние проигрывания рассказа. */
 data class NarrationPlayback(
@@ -106,7 +129,7 @@ data class ArTarget(
  *
  * Нужен ARCore. Если его на телефоне нет, экран работает как раньше — на компасе.
  */
-data class MarkerSpec(
+data class MarkerSpec @JvmOverloads constructor(
     /** Картинка внутри `assets`, например `markers/wp-2.png`. */
     val assetPath: String,
     /**
@@ -128,6 +151,20 @@ data class MarkerSpec(
      * Найдётся табличка позже — проводник перейдёт на неё.
      */
     val fallbackInFrontAfterMillis: Long? = null,
+    /**
+     * QR-код в кадре выводит проводника сразу, не дожидаясь картинки.
+     *
+     * Картинка даёт точную позу, но ей нужен свет, ровная поверхность и пара
+     * секунд движения камерой. QR читается почти мгновенно — с экрана, с мятой
+     * бумаги, под углом, — поэтому служит запасным ключом: на защите и в зале
+     * проводник обязан выйти, а не остаться «в поиске».
+     */
+    val companionOnQr: Boolean = true,
+    /**
+     * Какой код считать своим. `null` — любой: пустой экран хуже, чем
+     * проводник, вызванный чужим кодом.
+     */
+    val qrPayload: String? = null,
 ) : java.io.Serializable {
     init {
         require(physicalWidthMeters == null || physicalWidthMeters > 0f) { "Ширина маркера должна быть положительной" }

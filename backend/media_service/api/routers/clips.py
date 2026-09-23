@@ -18,11 +18,13 @@ router = APIRouter(prefix="/clips", tags=["clips (Живое фото)"])
 @router.get("", response_model=list[ClipOut])
 def public_gallery(
     service: ClipServiceDep,
+    poi_id: Annotated[str | None, Query(description="только клипы у этой точки слоя «ВОВ»")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[ClipOut]:
     """Общий мемориал приложения — только публичные готовые клипы."""
-    return [ClipOut.model_validate(c) for c in service.public_gallery(limit=limit, offset=offset)]
+    rows = service.public_gallery(poi_id=poi_id, limit=limit, offset=offset)
+    return [ClipOut.model_validate(c) for c in rows]
 
 
 @router.get("/mine", response_model=list[ClipOut])
@@ -35,16 +37,14 @@ def my_clips(
 
 
 @router.post("", response_model=ClipOut, status_code=status.HTTP_201_CREATED)
-def create_clip(
+async def create_clip(
     payload: ClipCreate, principal: CurrentPrincipal, service: ClipServiceDep
 ) -> ClipOut:
-    return ClipOut.model_validate(service.create(principal, payload.model_dump()))
+    return ClipOut.model_validate(await service.create(principal, payload.model_dump()))
 
 
 @router.get("/{clip_id}", response_model=ClipOut)
-def get_clip(
-    clip_id: str, principal: OptionalPrincipal, service: ClipServiceDep
-) -> ClipOut:
+def get_clip(clip_id: str, principal: OptionalPrincipal, service: ClipServiceDep) -> ClipOut:
     return ClipOut.model_validate(service.get_visible(principal, clip_id))
 
 
@@ -52,9 +52,7 @@ def get_clip(
 def update_clip(
     clip_id: str, payload: ClipUpdate, principal: CurrentPrincipal, service: ClipServiceDep
 ) -> ClipOut:
-    return ClipOut.model_validate(
-        service.update(principal, clip_id, payload.to_update_dict())
-    )
+    return ClipOut.model_validate(service.update(principal, clip_id, payload.to_update_dict()))
 
 
 @router.post("/{clip_id}/retry", response_model=ClipOut)
@@ -69,13 +67,12 @@ def delete_clip(clip_id: str, principal: CurrentPrincipal, service: ClipServiceD
 
 # --- «Отправить родным» ---
 
+
 @router.post("/{clip_id}/shares", response_model=ShareOut, status_code=status.HTTP_201_CREATED)
 def share_clip(
     clip_id: str, payload: ShareCreate, principal: CurrentPrincipal, service: ClipServiceDep
 ) -> ShareOut:
-    share = service.share(
-        principal, clip_id, recipient=payload.recipient, note=payload.note
-    )
+    share = service.share(principal, clip_id, recipient=payload.recipient, note=payload.note)
     return ShareOut.model_validate(share)
 
 

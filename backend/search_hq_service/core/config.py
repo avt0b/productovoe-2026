@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # Внутренний служебный ключ: по нему admin_service ходит в /internal/*.
     internal_api_key: str = "dev-internal-key-change-me"
 
+    # --- достижения за выезд и донат (геймификация) ---
+    user_service_url: str = "http://127.0.0.1:8002"
+    upstream_timeout_seconds: float = 3.0
+
     # Клиентское приложение ходит в сервис напрямую: dev-сервер Vite и APK
     # (Capacitor на Android отдаёт приложение с https://localhost).
     cors_origins: list[str] = [
@@ -34,6 +38,20 @@ class Settings(BaseSettings):
     bump_window_seconds: float = 1.5
     # Сколько секунд запрос встряски ждёт встряску другой стороны.
     bump_wait_seconds: float = 2.0
+
+    # --- модерация чата ---
+    # Доп. запрещённые слова/фразы сверх встроенного мат-фильтра, через запятую.
+    # Пусто по умолчанию — что банить сверх мата, решает оператор площадки, не код.
+    chat_banned_words: str = ""
+
+    # --- платежи (ЮKassa) ---
+    # Без shop_id/secret_key донат учитывается сразу в БД — как раньше, без шлюза.
+    # Задав оба (в проде — боевые ключи, в тесте — ключи из личного кабинета в режиме
+    # тестового магазина), донат уходит через ЮKassa: pending → вебхук/подтверждение → succeeded.
+    yookassa_shop_id: str | None = None
+    yookassa_secret_key: str | None = None
+    yookassa_api_base: str = "https://api.yookassa.ru/v3"
+    yookassa_return_url: str = "https://marshruty.ru/payments/return"
 
 
 settings = Settings()

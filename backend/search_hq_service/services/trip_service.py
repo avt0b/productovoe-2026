@@ -7,7 +7,10 @@ from core.models import RegistrationStatus, TripRegistration, VolunteerTrip
 from core.security import Principal
 from repositories.squad_repository import SquadRepository
 from repositories.trip_repository import TripRepository
+from services.achievement_client import award_achievement
 from services.permissions import is_staff
+
+ACHIEVEMENT_TRIP_VOLUNTEER = "trip_volunteer"
 
 
 class TripService:
@@ -66,6 +69,7 @@ class TripService:
             )
         self.db.commit()
         self.db.refresh(reg)
+        award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_TRIP_VOLUNTEER)
         return reg
 
     def cancel(self, principal: Principal, trip_id: str) -> None:

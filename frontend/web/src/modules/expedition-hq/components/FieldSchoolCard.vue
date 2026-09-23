@@ -57,6 +57,19 @@ async function enroll() {
   }
 }
 
+async function cancelEnroll() {
+  if (enrollState.value !== 'done' || !trip.value) return
+  enrollState.value = 'cancelling'
+  enrollError.value = ''
+  try {
+    await hqApi.cancelRegistration(session.accessToken, trip.value.id)
+    enrollState.value = 'idle'
+  } catch (err) {
+    enrollState.value = 'done'
+    enrollError.value = err.detail ?? 'Не удалось отменить запись'
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -138,7 +151,7 @@ onMounted(load)
               ? 'bg-secondary-fixed text-on-secondary-fixed'
               : 'bg-tertiary-fixed hover:bg-tertiary-fixed-dim text-on-tertiary-fixed'
           "
-          :disabled="enrollState !== 'idle'"
+          :disabled="enrollState === 'pending'"
           @click="enroll"
         >
           <span
@@ -156,6 +169,17 @@ onMounted(load)
                   : 'Записаться волонтером'
             }}
           </span>
+        </button>
+        <button
+          v-if="enrollState === 'done' || enrollState === 'cancelling'"
+          class="w-full py-2.5 px-6 rounded-full font-label-md text-label-md font-bold text-on-secondary hover:bg-on-secondary-fixed/15 transition-colors flex items-center justify-center gap-2"
+          :disabled="enrollState === 'cancelling'"
+          @click="cancelEnroll"
+        >
+          <span class="material-symbols-outlined text-[18px]" :class="{ 'animate-spin': enrollState === 'cancelling' }">
+            {{ enrollState === 'cancelling' ? 'sync' : 'close' }}
+          </span>
+          <span>{{ enrollState === 'cancelling' ? 'Отменяем...' : 'Отменить запись' }}</span>
         </button>
       </div>
     </template>

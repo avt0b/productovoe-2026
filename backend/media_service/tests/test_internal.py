@@ -69,9 +69,7 @@ def test_stats_shape(client):
     make_clip(client, author)  # queued
     c3 = make_clip(client, author).json()
     render_failed(client, c3["id"])
-    client.post(
-        f"/clips/{c1['id']}/shares", headers=author, json={"recipient": "внучка"}
-    )
+    client.post(f"/clips/{c1['id']}/shares", headers=author, json={"recipient": "внучка"})
 
     r = client.get("/internal/stats", headers=INTERNAL_HEADER)
     assert r.status_code == 200
@@ -131,9 +129,10 @@ def test_internal_update_bypasses_ownership_and_processing_lock(client):
     client.post("/render/claim", headers=WORKER_HEADER)  # -> processing
 
     # обычный автор не может править клип в обработке
-    assert client.patch(
-        f"/clips/{c['id']}", headers=author, json={"narration_text": "x"}
-    ).status_code == 409
+    assert (
+        client.patch(f"/clips/{c['id']}", headers=author, json={"narration_text": "x"}).status_code
+        == 409
+    )
 
     # internal actor правит несмотря на processing и без владения клипом
     r = client.patch(

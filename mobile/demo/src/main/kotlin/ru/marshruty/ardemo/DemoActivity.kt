@@ -66,6 +66,7 @@ private fun DemoScreen() {
     var latitude by remember { mutableStateOf(Simulation.Target.latitude.toString()) }
     var longitude by remember { mutableStateOf(Simulation.Target.longitude.toString()) }
     var label by remember { mutableStateOf("След кабельного окопа") }
+    var audioUri by remember { mutableStateOf("") }
     var lastResult by remember { mutableStateOf<String?>(null) }
     var hint by remember { mutableStateOf<String?>(null) }
 
@@ -141,6 +142,18 @@ private fun DemoScreen() {
             modifier = Modifier.fillMaxWidth(),
         )
 
+        // Записанного голоса у сценария нет — он приходит с бэкенда под точку.
+        // Здесь ссылку подставляют руками: иначе синхронность голоса и субтитров
+        // проверить нечем.
+        OutlinedTextField(
+            value = audioUri,
+            onValueChange = { audioUri = it },
+            label = { Text("Озвучка: ссылка или путь в assets") },
+            placeholder = { Text("пусто — рассказ пойдёт субтитрами") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
         // Одна точка, два режима: с маркером проводник встаёт на картинку через
         // ARCore, без маркера — прежний экран на CameraX и компасе.
         fun launchPoint(withMarker: Boolean) {
@@ -155,6 +168,9 @@ private fun DemoScreen() {
                 Simulation.point.copy(
                     target = ArTarget(GeoPoint(lat, lon), label = label),
                     marker = Simulation.marker.takeIf { withMarker },
+                    narration = Simulation.point.narration.copy(
+                        audioUri = audioUri.trim().ifEmpty { null },
+                    ),
                 ),
             )
         }

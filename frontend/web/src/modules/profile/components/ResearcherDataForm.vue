@@ -8,7 +8,7 @@ const { profile, saveMyProfile } = useProfileStore()
 
 const form = reactive({
   fullName: '',
-  phone: '+7 (920) 814-22-90',
+  phone: '',
   city: '',
   bio: '',
 })
@@ -84,6 +84,7 @@ async function onSubmit() {
           <input
             v-model="form.phone"
             type="tel"
+            placeholder="+7 ___ ___-__-__"
             class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
           />
         </div>

@@ -27,6 +27,7 @@ class ClipRepository:
         status: ClipStatus | None = None,
         submitted_by: str | None = None,
         public_only: bool = False,
+        poi_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> Sequence[MemorialClip]:
@@ -37,6 +38,8 @@ class ClipRepository:
             stmt = stmt.where(MemorialClip.submitted_by == submitted_by)
         if public_only:
             stmt = stmt.where(MemorialClip.is_public.is_(True))
+        if poi_id is not None:
+            stmt = stmt.where(MemorialClip.poi_id == poi_id)
         return self.db.scalars(
             stmt.order_by(MemorialClip.created_at.desc()).limit(limit).offset(offset)
         ).all()
