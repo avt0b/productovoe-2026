@@ -40,10 +40,13 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/map/, ''),
       },
-      '/api/search-hq': {
+      // Префикс /api/search (не /api/search-hq) — так называет этот путь
+      // nginx-шлюз (docker/nginx/conf.d/marshruty.conf), через который
+      // и продовый, и любой докеризованный dev-стенд ходят к search_hq_service.
+      '/api/search': {
         target: 'http://127.0.0.1:8004',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/search-hq/, ''),
+        rewrite: (path) => path.replace(/^\/api\/search/, ''),
       },
       '/api/archive': {
         target: 'http://127.0.0.1:8005',
