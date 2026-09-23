@@ -14,6 +14,7 @@ import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
+import { useBookmarks } from './bookmarks'
 import CompareSlider from './components/CompareSlider.vue'
 import EpochAudioCard from './components/EpochAudioCard.vue'
 import FamilyQuestCard from './components/FamilyQuestCard.vue'
@@ -30,7 +31,9 @@ const routeId = computed(() => (typeof currentRoute.query.route === 'string' ? c
 
 const { data: point, loading, error, retry } = useAsync(() => fetchRoutePoint(props.pointId, routeId.value))
 
-const bookmarked = ref(false)
+/** Закладка живёт в браузере: своей ручки у сервиса нет, но выбор должен переживать перезагрузку. */
+const bookmarks = useBookmarks()
+const bookmarked = computed(() => bookmarks.has(props.pointId))
 /** Что ответил AR-экран в прошлый раз. `null` — ещё не запускали. */
 const arNote = ref<string | null>(null)
 const arBusy = ref(false)
@@ -178,7 +181,7 @@ async function launchAr(): Promise<void> {
             :aria-pressed="bookmarked"
             class="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-low transition-transform hover:bg-surface-container active:scale-95"
             :class="bookmarked ? 'text-primary' : 'text-on-surface'"
-            @click="bookmarked = !bookmarked"
+            @click="bookmarks.toggle(props.pointId)"
           >
             <MsIcon :name="bookmarked ? 'bookmark' : 'bookmark_border'" :size="20" :filled="bookmarked" />
           </button>
@@ -196,7 +199,7 @@ async function launchAr(): Promise<void> {
       <DemoDataBadge v-if="point.source === 'demo'" />
 
       <!-- Прогресс маршрута: сколько точек семья уже прошла -->
-      <div v-if="canTrack" class="flex flex-col gap-1.5 rounded-DEFAULT bg-surface-container-low p-space-sm">
+      <div v-if="canTrack" class="flex flex-col gap-1.5 rounded-2xl bg-surface-container-lowest p-space-sm shadow-document">
         <div class="flex items-center justify-between font-label-md text-label-md text-on-surface">
           <span>Пройдено {{ doneCount }} из {{ point.totalSteps }}</span>
           <span v-if="isDone" class="inline-flex items-center gap-1 text-secondary">
@@ -218,7 +221,11 @@ async function launchAr(): Promise<void> {
 
       <!-- Название -->
       <div class="flex flex-col gap-space-xs">
-        <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">{{ point.title }}</h2>
+        <h2
+          class="ribbon-shimmer font-headline-lg-mobile text-headline-lg-mobile text-on-surface [--shimmer-base:theme(colors.ink.DEFAULT)]"
+        >
+          {{ point.title }}
+        </h2>
         <p class="flex items-center gap-1.5 font-body-md text-body-md text-on-surface-variant">
           <MsIcon name="explore" :size="18" class="text-secondary" />
           <span>{{ point.place }}</span>
@@ -233,17 +240,23 @@ async function launchAr(): Promise<void> {
       </div>
 
       <!-- История места -->
-      <div v-if="point.story" class="flex flex-col gap-space-xs rounded-DEFAULT bg-surface-container-lowest p-space-md shadow-sm">
-        <div class="flex items-center gap-space-xs text-on-surface">
-          <MsIcon name="menu_book" :size="20" class="text-primary" />
-          <h4 class="font-label-lg text-label-lg">История места</h4>
+      <div v-if="point.story" class="flex flex-col gap-space-xs rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
+        <div class="flex items-center gap-space-xs text-on-surface-variant">
+          <MsIcon name="menu_book" :size="18" class="text-primary" />
+          <h4 class="font-archival text-archival uppercase">История места</h4>
         </div>
         <p class="font-body-md text-body-md text-on-surface-variant">{{ point.story }}</p>
       </div>
 
       <CompareSlider v-if="point.comparison" v-bind="point.comparison" />
 
-      <EpochAudioCard v-if="point.audio" v-bind="point.audio" />
+      <EpochAudioCard
+        v-if="point.audioUrl"
+        :key="point.id"
+        :src="point.audioUrl"
+        :title="point.title"
+        :author="point.routeTitle"
+      />
 
       <FamilyQuestCard v-if="point.quest" :key="point.id" v-bind="point.quest" @done="markDone" />
 
@@ -252,7 +265,7 @@ async function launchAr(): Promise<void> {
         <button
           v-if="canTrack && !isDone"
           type="button"
-          class="flex w-full items-center justify-center gap-2 rounded-full bg-secondary px-space-md py-3.5 font-label-lg text-label-lg text-on-secondary shadow-md transition-all active:scale-[0.99] disabled:opacity-60"
+          class="flex w-full items-center justify-center gap-space-sm rounded-xl bg-secondary px-space-md py-3.5 font-label-lg text-label-lg text-on-secondary shadow-float transition-all active:scale-[0.99] disabled:opacity-60"
           :disabled="savingProgress"
           @click="markDone"
         >
@@ -267,50 +280,41 @@ async function launchAr(): Promise<void> {
         <button
           v-if="point.next"
           type="button"
-          class="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-space-md py-3.5 font-label-lg text-label-lg text-on-primary shadow-md transition-all hover:bg-primary-container active:scale-[0.99]"
+          class="flex w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container px-space-md py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99]"
           @click="openNext"
         >
           <MsIcon name="directions_walk" :size="20" class="shrink-0" />
           <span class="truncate">Дальше: {{ point.next.title }}</span>
           <span class="shrink-0 opacity-80">· {{ formatDistance(point.next.distanceKm) }}</span>
         </button>
-        <p
-          v-else-if="routeFinished || !canTrack"
-          class="flex items-center justify-center gap-2 rounded-full bg-secondary-container px-space-md py-3 font-label-lg text-label-lg text-on-secondary-container"
-          role="status"
-        >
-          <MsIcon name="emoji_events" :size="20" />
-          {{ routeFinished ? 'Маршрут пройден — спасибо, что помните!' : 'Последняя точка маршрута' }}
-        </p>
-        <p
-          v-else
-          class="flex items-center justify-center gap-2 rounded-full bg-surface-container-low px-space-md py-3 font-label-lg text-label-lg text-on-surface-variant"
-          role="status"
-        >
-          <MsIcon name="flag" :size="20" />
-          Последняя точка — отметьте все точки, чтобы пройти маршрут
-        </p>
+        <InlineNotice v-else-if="routeFinished" tone="success" icon="emoji_events">
+          Маршрут пройден — спасибо, что помните!
+        </InlineNotice>
+        <InlineNotice v-else-if="!canTrack" icon="flag">Последняя точка маршрута.</InlineNotice>
+        <InlineNotice v-else icon="flag">Последняя точка — отметьте все точки, чтобы маршрут засчитался.</InlineNotice>
 
-        <button
-          v-if="canOpenMap"
-          type="button"
-          class="flex w-full items-center justify-center gap-2 rounded-full bg-surface-container-lowest py-3 font-label-lg text-label-lg text-on-surface shadow-sm transition-all hover:bg-surface-container-low active:scale-[0.99]"
-          @click="openMap"
-        >
-          <MsIcon name="map" :size="20" />
-          <span>Маршрут на карте</span>
-        </button>
+        <div class="grid gap-space-xs" :class="canOpenMap && point.arHint ? 'grid-cols-2' : 'grid-cols-1'">
+          <button
+            v-if="canOpenMap"
+            type="button"
+            class="flex items-center justify-center gap-1.5 rounded-2xl bg-surface-container-lowest px-space-sm py-3 font-label-md text-label-md text-on-surface shadow-document transition-colors hover:bg-surface-container-low active:scale-[0.99]"
+            @click="openMap"
+          >
+            <MsIcon name="map" :size="20" class="shrink-0" />
+            <span class="truncate">Маршрут на карте</span>
+          </button>
 
-        <button
-          v-if="point.arHint"
-          type="button"
-          class="flex w-full items-center justify-center gap-2 rounded-full bg-surface-container-lowest py-3 font-label-lg text-label-lg text-secondary shadow-sm transition-all hover:bg-surface-container-low active:scale-[0.99] disabled:opacity-60"
-          :disabled="arBusy"
-          @click="launchAr"
-        >
-          <MsIcon :name="arBusy ? 'progress_activity' : 'view_in_ar'" :size="20" :class="{ 'animate-spin': arBusy }" />
-          <span>Запустить AR-поиск</span>
-        </button>
+          <button
+            v-if="point.arHint"
+            type="button"
+            class="flex items-center justify-center gap-1.5 rounded-2xl bg-surface-container-lowest px-space-sm py-3 font-label-md text-label-md text-secondary shadow-document transition-colors hover:bg-surface-container-low active:scale-[0.99] disabled:opacity-60"
+            :disabled="arBusy"
+            @click="launchAr"
+          >
+            <MsIcon :name="arBusy ? 'progress_activity' : 'view_in_ar'" :size="20" :class="{ 'animate-spin': arBusy }" />
+            <span class="truncate">AR-поиск</span>
+          </button>
+        </div>
         <ArHintCard v-if="point.arHint" :hint="point.arHint" :note="arNote" />
       </div>
     </template>

@@ -46,9 +46,9 @@ function markDone(): void {
 </script>
 
 <template>
-  <div class="relative flex flex-col gap-space-sm overflow-hidden rounded-DEFAULT bg-tertiary-fixed/30 p-space-md shadow-sm">
+  <div class="relative flex flex-col gap-space-sm overflow-hidden rounded-2xl border border-tertiary-fixed-dim/50 bg-tertiary-fixed/30 p-space-md shadow-document">
     <div class="flex items-center justify-between">
-      <div class="inline-flex items-center gap-1.5 rounded-full bg-tertiary-fixed px-2.5 py-1 font-label-sm text-label-sm text-on-tertiary-fixed">
+      <div class="inline-flex items-center gap-1.5 rounded-full bg-tertiary-fixed px-2.5 py-1 font-archival text-archival uppercase text-on-tertiary-fixed">
         <MsIcon name="star" :size="16" filled class="text-tertiary" />
         <span>Квест для всей семьи</span>
       </div>
@@ -63,7 +63,7 @@ function markDone(): void {
     <button
       v-if="!acceptedAnswers.length && verdict !== 'correct'"
       type="button"
-      class="mt-space-xs flex h-11 items-center justify-center gap-1.5 self-start rounded-full bg-tertiary-container px-space-md font-label-md text-label-md text-on-tertiary-container transition-transform active:scale-95"
+      class="mt-space-xs flex h-11 items-center justify-center gap-1.5 self-start rounded-full bg-tertiary px-space-md font-label-md text-label-md text-on-tertiary shadow-float transition-transform active:scale-95"
       @click="markDone"
     >
       <MsIcon name="task_alt" :size="18" />
@@ -76,13 +76,13 @@ function markDone(): void {
         <input
           v-model="answer"
           type="text"
-          placeholder="Введите ответ или номер..."
-          class="h-11 w-full rounded-full bg-surface-container-lowest px-4 font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none"
+          placeholder="Ваш ответ"
+          class="h-11 w-full rounded-full bg-surface-container-lowest px-4 font-body-md text-body-md text-on-surface outline-none transition-shadow placeholder:text-outline focus:shadow-float"
         />
       </label>
       <button
         type="submit"
-        class="flex h-11 shrink-0 items-center justify-center rounded-full bg-tertiary-container px-space-md font-label-md text-label-md text-on-tertiary-container transition-transform active:scale-95"
+        class="flex h-11 shrink-0 items-center justify-center rounded-full bg-tertiary px-space-md font-label-md text-label-md text-on-tertiary shadow-float transition-transform active:scale-95"
       >
         Проверить
       </button>
