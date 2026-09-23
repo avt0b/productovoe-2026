@@ -1,5 +1,6 @@
 export * from './coordinates'
 export * from './distance'
+export * from './routing'
 export * from './tiles'
 export * from './types'
 export * from './useGeolocation'

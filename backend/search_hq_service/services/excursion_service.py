@@ -11,8 +11,12 @@ from core.models import Excursion, ExcursionParticipant, ExcursionStatus, Regist
 from core.security import Principal
 from core.timeutil import as_utc, utcnow
 from repositories.excursion_repository import ExcursionRepository
+from services import notify_client, stats_client
 from services.bump_matcher import bump_matcher
 from services.permissions import can_guide, is_staff
+
+# Вид уведомления «краевед открыл сбор» — по нему приложение решает, куда вести.
+KIND_GATHERING_STARTED = "excursion_gathering_started"
 
 
 @dataclass(frozen=True)
@@ -114,7 +118,14 @@ class ExcursionService:
 
     # --- запись участников ---
 
-    def register(self, principal: Principal, excursion_id: str) -> ExcursionParticipant:
+    def register(
+        self,
+        principal: Principal,
+        excursion_id: str,
+        *,
+        organization_name: str = "",
+        group_size: int = 1,
+    ) -> ExcursionParticipant:
         excursion = self.get(excursion_id)
         if excursion.guide_id == principal.user_id:
             raise Conflict("Краевед не записывается на свою экскурсию")
@@ -123,17 +134,29 @@ class ExcursionService:
             raise Conflict("Запись закрыта: сбор уже начался или экскурсия завершена")
 
         existing = self.repo.get_participant(excursion_id, principal.user_id)
-        if existing and existing.status is RegistrationStatus.registered:
-            return existing
-        if self.repo.count_registered(excursion_id) >= excursion.capacity:
-            raise Conflict("Все места заняты")
+        already_registered = existing is not None and existing.status is RegistrationStatus.registered
+        # Заявка коллективная (модуль 5 ТЗ): один представитель школы/клуба
+        # держит одну строку-регистрацию на всю группу — capacity считаем по
+        # сумме group_size, а не по числу строк.
+        previous_size = existing.group_size if already_registered else 0
+        occupied = self.repo.count_registered(excursion_id)
+        projected = occupied - previous_size + group_size
+        if projected > excursion.capacity:
+            raise Conflict("Мест не хватит на всю группу")
 
         if existing:
             existing.status = RegistrationStatus.registered
+            existing.organization_name = organization_name
+            existing.group_size = group_size
             participant = existing
         else:
             participant = self.repo.add_participant(
-                ExcursionParticipant(excursion_id=excursion_id, user_id=principal.user_id)
+                ExcursionParticipant(
+                    excursion_id=excursion_id,
+                    user_id=principal.user_id,
+                    organization_name=organization_name,
+                    group_size=group_size,
+                )
             )
         self.db.commit()
         self.db.refresh(participant)
@@ -175,18 +198,44 @@ class ExcursionService:
         excursion.gathering_started_at = now
         excursion.gathering_ends_at = now + timedelta(minutes=settings.gathering_duration_minutes)
         self.db.commit()
+        self._announce_gathering(excursion)
         return self.gathering_state(principal, excursion_id)
+
+    def _announce_gathering(self, excursion: Excursion) -> None:
+        """Записанным — уведомление: сбор начался, краевед ждёт.
+
+        Раньше о сборе узнавали, только открыв экскурсию, — и приходили, когда
+        краевед уже ушёл с группой. Отменившим запись не пишем: они не придут.
+        Уже отмеченных тоже нет — до открытия сбора отметиться невозможно.
+        """
+        recipients = [
+            participant.user_id
+            for participant in self.repo.participants_for(excursion.id)
+            if participant.status is RegistrationStatus.registered
+        ]
+        where = f" — {excursion.place_name}" if excursion.place_name else ""
+        notify_client.notify_users(
+            user_ids=recipients,
+            kind=KIND_GATHERING_STARTED,
+            title="Сбор начался",
+            body=f"«{excursion.title}»{where}. Краевед ждёт: подойдите и встряхните телефон рядом с ним.",
+            payload={"excursion_id": excursion.id},
+        )
 
     def finish_gathering(self, principal: Principal, excursion_id: str) -> GatheringState:
         excursion = self.get(excursion_id)
         self._ensure_guide(principal, excursion)
-        self._close_if_expired(excursion)
+        already_expired = self._close_if_expired(excursion)
+        just_finished = False
         if excursion.status is ExcursionStatus.gathering:
             excursion.status = ExcursionStatus.finished
             excursion.gathering_ends_at = utcnow()
+            just_finished = True
         elif excursion.status is not ExcursionStatus.finished:
             raise Conflict("Сбор группы ещё не начинался")
         self.db.commit()
+        if already_expired or just_finished:
+            self._credit_excursion_completion(excursion)
         bump_matcher.forget(excursion_id)
         return self.gathering_state(principal, excursion_id)
 
@@ -194,6 +243,7 @@ class ExcursionService:
         excursion = self.get(excursion_id)
         if self._close_if_expired(excursion):
             self.db.commit()
+            self._credit_excursion_completion(excursion)
 
         is_guide = excursion.guide_id == principal.user_id or is_staff(principal)
         me = self.repo.get_participant(excursion_id, principal.user_id)
@@ -216,6 +266,7 @@ class ExcursionService:
         excursion = self.get(excursion_id)
         if self._close_if_expired(excursion):
             self.db.commit()
+            self._credit_excursion_completion(excursion)
         if excursion.status is not ExcursionStatus.gathering:
             raise Conflict("Сбор группы сейчас не идёт")
         return excursion
@@ -245,6 +296,9 @@ class ExcursionService:
         closed = [self._close_if_expired(excursion) for excursion in excursions]
         if any(closed):
             self.db.commit()
+            for excursion, was_closed in zip(excursions, closed, strict=True):
+                if was_closed:
+                    self._credit_excursion_completion(excursion)
 
         ids = [excursion.id for excursion in excursions]
         counts = self.repo.counts(ids)
@@ -266,6 +320,14 @@ class ExcursionService:
                 )
             views.append(ExcursionView(excursion, registered_count, checked_in_count, viewer))
         return views
+
+    def _credit_excursion_completion(self, excursion: Excursion) -> None:
+        """Статистика профиля («сколько сборов завершил») — краевед и
+        отметившиеся бампом участники. Незарегистрированных пришедших не
+        считаем — бамп без записи не отмечает, см. README."""
+        stats_client.increment_stat(user_id=excursion.guide_id, metric="excursions_completed")
+        for participant in self.repo.checked_in_for(excursion.id):
+            stats_client.increment_stat(user_id=participant.user_id, metric="excursions_completed")
 
     @staticmethod
     def _close_if_expired(excursion: Excursion) -> bool:

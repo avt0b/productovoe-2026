@@ -1,28 +1,29 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
 import { errorText, plural } from '@/core/format'
 import { geolocationProblem, useGeolocation } from '@/core/geo'
 import { useSessionStore } from '@/core/session'
+import { BumpPad, TogetherOverlay, useBump } from '@/features/bump'
 import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
 import AccountRequired from './components/AccountRequired.vue'
-import TogetherOverlay from './components/TogetherOverlay.vue'
+import DestinationPicker from './components/DestinationPicker.vue'
 import {
   fetchExcursion,
   fetchGathering,
   finishGathering,
-  sendBump,
+  leadWalk,
   startGathering,
   toPosition,
-  type BumpResult,
   type Gathering,
   type Position,
+  type WalkTarget,
 } from './data'
 import { formatTime, minutesLeft, participantLabel } from './format'
-import { useShake } from './useShake'
 
 const props = defineProps<{ excursionId: string }>()
 
@@ -36,26 +37,17 @@ const SENSOR_SILENCE_MS = 3000
 type Notice = { tone: 'info' | 'error' | 'success'; text: string }
 
 const session = useSessionStore()
+const router = useRouter()
 const { data: excursion, loading, error, retry } = useAsync(() => fetchExcursion(props.excursionId, true))
 const { position, status: geoStatus, start: startLocating } = useGeolocation()
-const {
-  status: shakeStatus,
-  intensity,
-  sensorAlive,
-  start: startShakeSensor,
-  stop: stopShakeSensor,
-  trigger: shakeByButton,
-} = useShake(onShake)
 
 const gathering = shallowRef<Gathering | null>(null)
 /** `setup` — ждём нажатия: разрешения на GPS и датчик спрашиваются только из нажатия. */
 const phase = ref<'setup' | 'active'>('setup')
-const sending = ref(false)
 const opening = ref(false)
 const confirmingFinish = ref(false)
 const sensorSilent = ref(false)
 const notice = ref<Notice | null>(null)
-const together = ref<{ title: string; subtitle: string } | null>(null)
 const now = ref(Date.now())
 
 const isGuide = computed(() => excursion.value?.viewer?.is_guide === true)
@@ -66,6 +58,32 @@ const minutes = computed(() => minutesLeft(gathering.value?.ends_at ?? excursion
 const geoProblem = computed(() => geolocationProblem(geoStatus.value))
 
 const partnerWord = computed(() => (isGuide.value ? 'с участником' : 'с краеведом'))
+
+/** Сам бамп — модуль `features/bump`: датчик, встряска на сервер, «Вы вместе!». */
+const bump = useBump({
+  excursionId: () => props.excursionId,
+  isGuide: () => isGuide.value,
+  isOpen: () => isOpen.value,
+  position,
+  afterBump: () => refreshGathering(),
+})
+const { sensor, sending, together } = bump
+const intensity = sensor.intensity
+
+/** Сообщения экрана: свои (открытие сбора) и бампа — показываем последнее. */
+watch(bump.notice, (value) => (notice.value = value))
+
+const padHeadline = computed(() => {
+  if (!isOpen.value) return 'Ждём открытия сбора'
+  if (!isGuide.value && checkedInAt.value) return 'Вы уже в группе'
+  return `Встряхните телефон одновременно ${partnerWord.value}`
+})
+
+const sensorProblem = computed(() => {
+  if (sensor.status.value === 'denied') return 'Доступ к датчику движения запрещён — нажимайте «Встряхнуть» одновременно.'
+  if (sensor.status.value === 'unsupported' || sensorSilent.value) return 'Датчик движения не отвечает — нажимайте «Встряхнуть» одновременно.'
+  return null
+})
 
 let clockTimer: ReturnType<typeof setInterval> | undefined
 let pollTimer: ReturnType<typeof setInterval> | undefined
@@ -95,16 +113,16 @@ async function refreshGathering(): Promise<void> {
 // Сбор закрыли (краевед или срок вышел) — датчик больше не нужен.
 watch(isOpen, (open, wasOpen) => {
   if (wasOpen && !open) {
-    stopShakeSensor()
+    sensor.stop()
     notice.value = { tone: 'info', text: 'Сбор группы закрыт' }
   }
 })
 
 async function getReady(): Promise<void> {
   startLocating()
-  await startShakeSensor()
+  await sensor.start()
   phase.value = 'active'
-  silenceTimer = setTimeout(() => (sensorSilent.value = !sensorAlive.value), SENSOR_SILENCE_MS)
+  silenceTimer = setTimeout(() => (sensorSilent.value = !sensor.sensorAlive.value), SENSOR_SILENCE_MS)
   if (isGuide.value && !isOpen.value) await openGathering()
 }
 
@@ -144,59 +162,6 @@ async function openGathering(): Promise<void> {
   }
 }
 
-async function onShake(shakenAt: number): Promise<void> {
-  if (sending.value) return
-  if (!isOpen.value) {
-    notice.value = { tone: 'info', text: isGuide.value ? 'Сначала откройте сбор' : 'Краевед ещё не открыл сбор — подождите' }
-    return
-  }
-  const fix = position.value
-  if (!fix) {
-    notice.value = { tone: 'info', text: 'Ждём GPS — встряхните ещё раз через пару секунд' }
-    return
-  }
-
-  sending.value = true
-  notice.value = { tone: 'info', text: isGuide.value ? 'Ищем, кто трясёт вместе с вами…' : 'Ищем краеведа…' }
-  try {
-    const shakenMsAgo = Math.min(5000, Math.max(0, Math.round(performance.now() - shakenAt)))
-    showResult(await sendBump(props.excursionId, toPosition(fix), shakenMsAgo))
-    await refreshGathering()
-  } catch (reason) {
-    notice.value = { tone: 'error', text: errorText(reason) }
-  } finally {
-    sending.value = false
-  }
-}
-
-function showResult(result: BumpResult): void {
-  if (result.result === 'matched') {
-    notice.value = null
-    // Число «в группе» из ответа краеведу не берём: отметку ставит запрос участника,
-    // и он может сохраниться на долю секунды позже. Счётчик на экране догонит опросом.
-    const matched = result.matched_user_ids.length
-    together.value = isGuide.value
-      ? {
-          title: 'Вы вместе!',
-          subtitle:
-            matched === 1
-              ? 'Участник отмечен — он в группе'
-              : `Отмечены ${matched} ${plural(matched, ['участник', 'участника', 'участников'])}`,
-        }
-      : { title: 'Вы вместе!', subtitle: 'Краевед отметил, что вы пришли. Хорошей экскурсии!' }
-    return
-  }
-  if (result.result === 'already_checked_in') {
-    notice.value = { tone: 'success', text: 'Вы уже в группе — трясти больше не нужно' }
-    return
-  }
-  notice.value = {
-    tone: 'info',
-    text: isGuide.value
-      ? 'Никто не встряхнул телефон одновременно с вами — попробуйте ещё раз вместе'
-      : 'Краевед не встряхнул телефон одновременно с вами — договоритесь и попробуйте ещё раз',
-  }
-}
 
 async function finish(): Promise<void> {
   try {
@@ -207,6 +172,45 @@ async function finish(): Promise<void> {
     notice.value = { tone: 'error', text: errorText(reason) }
   }
 }
+
+// --- группа выходит к памятному месту ---
+
+const picking = ref(false)
+const leading = ref(false)
+
+/** Карту группы видят краевед и те, кто отметился: остальных туда не пустит сервер. */
+const mayOpenMap = computed(() => isGuide.value || checkedInAt.value !== null)
+
+function openMap(): void {
+  void router.replace({ name: 'excursion-walk', params: { excursionId: props.excursionId } })
+}
+
+// Краевед повёл группу — у всех, кто на экране сбора, сама открывается карта.
+// Опрос сбора и так идёт каждые четыре секунды, отдельный не нужен.
+watch(
+  () => gathering.value?.status ?? excursion.value?.status,
+  (status) => {
+    if (status === 'walking' && mayOpenMap.value) openMap()
+  },
+)
+
+async function leadGroup(target: WalkTarget): Promise<void> {
+  if (leading.value) return
+  leading.value = true
+  try {
+    await leadWalk(props.excursionId, target)
+    picking.value = false
+    sensor.stop()
+    openMap()
+  } catch (reason) {
+    notice.value = { tone: 'error', text: errorText(reason) }
+  } finally {
+    leading.value = false
+  }
+}
+
+/** Откуда считать «ближайшие места»: где краевед сейчас, а без GPS — место сбора. */
+const pickFrom = computed(() => position.value ?? (excursion.value ? { lat: excursion.value.lat, lon: excursion.value.lon } : { lat: 52.9686, lon: 36.0694 }))
 
 const NOTICE_TONES: Record<Notice['tone'], string> = {
   info: 'bg-surface-container-high text-on-surface-variant',
@@ -295,55 +299,18 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
         </section>
 
         <!-- Тряска -->
-        <section v-else-if="phase === 'active'" class="flex flex-col items-center gap-space-md text-center">
-          <div class="relative flex h-56 w-56 items-center justify-center" aria-hidden="true">
-            <span
-              class="absolute inset-0 rounded-full bg-primary/15 transition-transform duration-100"
-              :style="{ transform: `scale(${0.8 + intensity * 0.35})` }"
-            />
-            <span class="absolute inset-8 rounded-full bg-primary/25" :class="{ 'animate-ping': sending }" />
-            <span
-              class="relative flex h-32 w-32 items-center justify-center rounded-full shadow-lg"
-              :class="isOpen ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-outline'"
-            >
-              <MsIcon :name="sending || opening ? 'progress_activity' : 'vibration'" :size="56" :class="{ 'animate-spin': sending || opening }" />
-            </span>
-          </div>
-
-          <p class="font-headline-sm text-headline-sm text-on-surface">
-            <template v-if="!isOpen">Ждём открытия сбора</template>
-            <template v-else-if="!isGuide && checkedInAt">Вы уже в группе</template>
-            <template v-else>Встряхните телефон одновременно {{ partnerWord }}</template>
-          </p>
-
-          <p
-            v-if="shakeStatus === 'unsupported' || shakeStatus === 'denied' || sensorSilent"
-            class="font-body-sm text-body-sm text-on-surface-variant"
-          >
-            {{
-              shakeStatus === 'denied'
-                ? 'Доступ к датчику движения запрещён — нажимайте «Встряхнуть» одновременно.'
-                : 'Датчик движения не отвечает — нажимайте «Встряхнуть» одновременно.'
-            }}
-          </p>
-
-          <button
-            type="button"
-            class="flex items-center gap-1.5 rounded-full bg-secondary-container px-space-lg py-2.5 font-label-lg text-label-lg text-on-secondary-container active:scale-95 disabled:opacity-60"
-            :disabled="sending || !isOpen"
-            @click="shakeByButton"
-          >
-            <MsIcon name="touch_app" :size="20" />
-            Встряхнуть
-          </button>
-
-          <p class="flex items-center gap-1 font-label-sm text-label-sm text-outline">
-            <MsIcon name="my_location" :size="14" />
-            <template v-if="position">GPS ± {{ Math.round(position.accuracyMeters) }} м</template>
-            <template v-else-if="geoProblem">{{ geoProblem }}</template>
-            <template v-else>Ищем GPS…</template>
-          </p>
-        </section>
+        <BumpPad
+          v-else-if="phase === 'active'"
+          :intensity="intensity"
+          :sending="sending"
+          :busy="opening"
+          :active="isOpen"
+          :headline="padHeadline"
+          :sensor-problem="sensorProblem"
+          :position="position"
+          :gps-problem="geoProblem"
+          @shake="sensor.trigger"
+        />
 
         <p v-if="notice" class="rounded-DEFAULT px-3 py-2 text-center font-body-sm text-body-sm" :class="NOTICE_TONES[notice.tone]" role="status">
           {{ notice.text }}
@@ -368,6 +335,19 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
           </ul>
 
           <template v-if="gathering.is_open">
+            <!-- Главное действие после сбора: повести всех к памятному месту. -->
+            <button
+              type="button"
+              class="flex h-11 items-center justify-center gap-space-xs rounded-full bg-primary font-label-lg text-label-lg text-on-primary active:scale-[0.98] disabled:opacity-60"
+              :disabled="leading || gathering.checked_in_count === 0"
+              @click="picking = true"
+            >
+              <MsIcon name="directions_walk" :size="18" />
+              Повести группу
+            </button>
+            <p v-if="gathering.checked_in_count === 0" class="font-body-sm text-body-sm text-on-surface-variant">
+              Сначала отметьте хотя бы одного — встряхните телефоны вместе.
+            </p>
             <button
               v-if="!confirmingFinish"
               type="button"
@@ -390,5 +370,13 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
     </template>
 
     <TogetherOverlay v-if="together" :title="together.title" :subtitle="together.subtitle" @close="together = null" />
+
+    <DestinationPicker
+      v-if="picking"
+      :from="pickFrom"
+      :busy="leading"
+      @close="picking = false"
+      @pick="leadGroup"
+    />
   </div>
 </template>

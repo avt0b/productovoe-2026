@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
+import { getMyProgress } from '@/core/services/routes'
+import { useSessionStore } from '@/core/session'
 import {
   distanceKm,
   formatDistance,
@@ -24,7 +26,24 @@ import RoutesSearchBar from './components/RoutesSearchBar.vue'
 import { PLACE_KINDS, fetchRoutesOverview, type RouteStop } from './data'
 
 const router = useRouter()
+const session = useSessionStore()
 const { data, loading, error, retry } = useAsync(fetchRoutesOverview)
+
+/** Пройденные точки маршрута дня — только с аккаунтом и живыми данными: прогресс хранит `route_service`. */
+const completedIds = ref<string[] | null>(null)
+watch(
+  data,
+  async (overview) => {
+    completedIds.value = null
+    if (!overview?.route || overview.source !== 'live' || !session.hasAccount) return
+    try {
+      completedIds.value = (await getMyProgress(overview.route.id))?.completed_waypoint_ids ?? null
+    } catch {
+      // Прогресс — дополнение к карте: не загрузился — карта и маршрут всё равно на месте.
+    }
+  },
+  { immediate: true },
+)
 const { position: userPosition, status: geoStatus, start: startLocating } = useGeolocation()
 
 const query = ref('')
@@ -162,6 +181,7 @@ function openStop(stop: RouteStop): void {
           :selected-stop-id="selectedStop?.id ?? null"
           :distance-to-stop="distanceFromUser(selectedStop ?? data.route.stops[0] ?? null)"
           :can-open="canOpenPoint"
+          :completed-ids="completedIds"
           @select-stop="selectedId = $event"
           @open-stop="openStop"
         />

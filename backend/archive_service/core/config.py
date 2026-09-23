@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # Внутренний служебный ключ: по нему admin_service ходит в /internal/*.
     internal_api_key: str = "dev-internal-key-change-me"
 
+    # --- достижение за помощь в верификации записи (геймификация) ---
+    user_service_url: str = "http://127.0.0.1:8002"
+    upstream_timeout_seconds: float = 3.0
+
     # Клиентское приложение ходит в сервис напрямую: dev-сервер Vite и APK
     # (Capacitor на Android отдаёт приложение с https://localhost).
     cors_origins: list[str] = [

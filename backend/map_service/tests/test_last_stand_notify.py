@@ -44,6 +44,17 @@ def test_unknown_soldier_gets_generic_title(client, notify_spy):
     assert "обнаружено место гибели бойца" in notify_spy[0]["title"]
 
 
+def test_creating_point_increments_finds_stat(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        last_stand_service_module, "increment_stat", lambda **kw: calls.append(kw)
+    )
+
+    make_point(client, auth_header(role="searcher", user_id="searcher-1"))
+
+    assert calls == [{"user_id": "searcher-1", "metric": "finds_count"}]
+
+
 def test_user_service_outage_does_not_break_point_creation(client, monkeypatch):
     """Без autouse-подмены: реальный notify_client бьётся в недоступный порт и сам
     гасит httpx.HTTPError — создание точки не должно от этого падать."""

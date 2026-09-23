@@ -6,7 +6,9 @@ import FamilyTree from './components/FamilyTree.vue'
 import AwardsBadges from './components/AwardsBadges.vue'
 import ResearcherDataForm from './components/ResearcherDataForm.vue'
 import ExpeditionSettings from './components/ExpeditionSettings.vue'
+import LocalHistorianVerification from './components/LocalHistorianVerification.vue'
 import { useAuthSession, roleLabel } from '@modules/auth'
+import { MyExcursions } from '@modules/excursions'
 import { useProfileStore } from './profileStore.js'
 
 const { session } = useAuthSession()
@@ -22,14 +24,19 @@ watch(
   },
 )
 
-// user_service ещё не хранит стаж/ранг/значки/семейное древо — это остаётся
-// демо-данными компонентов, пока эти поля не появятся на бэкенде.
+// user_service ещё не хранит стаж/ранг/семейное древо — это остаётся демо-
+// данными компонентов (явно помечены как демо внутри самих компонентов),
+// пока эти поля не появятся на бэкенде. Значки (AwardsBadges) и экскурсии
+// (MyExcursions) уже реальные — свои API. Пока profile.data не загружен,
+// heroProps пуст — ProfileHero сам показывает нейтральные заглушки, а не
+// чьё-то чужое имя.
 const heroProps = computed(() => {
   if (!profile.data) return {}
   return {
     name: profile.data.display_name || session.user?.email || 'Без имени',
     role: roleLabel(profile.data.role),
-    squad: profile.data.city ? `${profile.data.city}` : 'Город не указан',
+    squad: profile.data.city || '',
+    avatarUrl: profile.data.avatar_url || '',
   }
 })
 </script>
@@ -54,6 +61,8 @@ const heroProps = computed(() => {
       </div>
 
       <div class="lg:col-span-5 flex flex-col gap-8">
+        <MyExcursions />
+        <LocalHistorianVerification />
         <ResearcherDataForm />
         <ExpeditionSettings />
       </div>

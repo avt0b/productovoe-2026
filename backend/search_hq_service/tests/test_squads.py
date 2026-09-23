@@ -51,3 +51,26 @@ def test_delete_by_leader(client, leader_header):
     squad = create_squad(client, leader_header).json()
     assert client.delete(f"/squads/{squad['id']}", headers=leader_header).status_code == 204
     assert client.get(f"/squads/{squad['id']}").status_code == 404
+
+
+def test_squad_coordinates_and_bbox_filter(client):
+    inside = create_squad(
+        client, auth_header(role="searcher"), name="В Орле", lat=52.97, lon=36.07
+    ).json()
+    assert inside["lat"] == 52.97 and inside["lon"] == 36.07
+
+    outside = create_squad(
+        client, auth_header(role="searcher"), name="В Москве", lat=55.75, lon=37.62
+    ).json()
+
+    no_coords = create_squad(client, auth_header(role="searcher"), name="Без координат").json()
+    assert no_coords["lat"] is None and no_coords["lon"] is None
+
+    rows = client.get(
+        "/squads",
+        params={"min_lat": 52, "min_lon": 35, "max_lat": 53.5, "max_lon": 37},
+    ).json()
+    ids = {s["id"] for s in rows}
+    assert inside["id"] in ids
+    assert outside["id"] not in ids
+    assert no_coords["id"] not in ids

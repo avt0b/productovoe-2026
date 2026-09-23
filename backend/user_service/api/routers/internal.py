@@ -5,9 +5,22 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 
-from api.deps import DbSession, NotificationServiceDep, ProfileServiceDep
-from api.schemas.notification import BroadcastNearbyOut, BroadcastNearbyRequest
+from api.deps import (
+    AchievementServiceDep,
+    DbSession,
+    NotificationServiceDep,
+    ProfileServiceDep,
+    StatsServiceDep,
+)
+from api.schemas.achievement import AwardOut, AwardRequest
+from api.schemas.notification import (
+    BroadcastNearbyOut,
+    BroadcastNearbyRequest,
+    NotifyUsersOut,
+    NotifyUsersRequest,
+)
 from api.schemas.profile import ProfileOut
+from api.schemas.stats import StatIncrementOut, StatIncrementRequest
 from core.internal import InternalActor, require_internal_key
 from core.models import Profile
 
@@ -120,3 +133,39 @@ def broadcast_nearby(
         payload=payload.payload,
     )
     return BroadcastNearbyOut(notified=count)
+
+
+@router.post("/notifications/send", response_model=NotifyUsersOut)
+def notify_users(payload: NotifyUsersRequest, service: NotificationServiceDep) -> NotifyUsersOut:
+    """Адресная рассылка из другого сервиса — конкретным людям по user_id.
+
+    search_hq_service зовёт её, когда краевед открыл сбор: записанные узнают об
+    этом сразу, а не когда сами заглянут в экскурсию."""
+    count = service.notify_users(
+        user_ids=payload.user_ids,
+        kind=payload.kind,
+        title=payload.title,
+        body=payload.body,
+        payload=payload.payload,
+    )
+    return NotifyUsersOut(notified=count)
+
+
+@router.post("/achievements/award", response_model=AwardOut)
+def award_achievement(payload: AwardRequest, service: AchievementServiceDep) -> AwardOut:
+    """Вызывается сервисами-источниками события (route_service на завершении
+    маршрута, archive_service на верификации, search_hq_service на выезде/
+    донате). Идемпотентно — повторный вызов с тем же (user_id, code) не
+    создаёт дубликат и не шлёт уведомление повторно."""
+    _, awarded = service.award(user_id=payload.user_id, code=payload.code)
+    return AwardOut(code=payload.code, awarded=awarded)
+
+
+@router.post("/stats/increment", response_model=StatIncrementOut)
+def increment_stat(payload: StatIncrementRequest, service: StatsServiceDep) -> StatIncrementOut:
+    """Вызывается сервисами-источниками события (route_service на завершении
+    маршрута, search_hq_service на завершении экскурсии, map_service/
+    archive_service на новой находке). В отличие от ачивок — не идемпотентно,
+    каждый вызов реально прибавляет 1."""
+    stat = service.increment(user_id=payload.user_id, metric=payload.metric)
+    return StatIncrementOut(metric=stat.metric, value=stat.value)

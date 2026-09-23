@@ -6,11 +6,12 @@ import type { UserRole } from '@/core/session'
  * Данные окна «Экскурсии» — `search_hq_service` (`/excursions`).
  *
  * Типы повторяют схемы сервиса (`api/schemas/excursion.py`), поля в snake_case,
- * как в ответе. Демо-набора нет намеренно: запись и бамп без сервера ничего не
+ * как в ответе. Сама встряска — модуль `features/bump`. Демо-набора нет намеренно: запись и бамп без сервера ничего не
  * значат, экран честно показывает ошибку.
  */
 
-export type ExcursionStatus = 'scheduled' | 'gathering' | 'finished' | 'cancelled'
+/** `walking` — группа собрана, краевед ведёт её к памятному месту. */
+export type ExcursionStatus = 'scheduled' | 'gathering' | 'walking' | 'finished' | 'cancelled'
 
 export interface ExcursionViewer {
   is_guide: boolean
@@ -55,15 +56,6 @@ export interface Gathering {
   /** Кто пришёл — только у краеведа. */
   checked_in: { user_id: string; checked_in_at: string }[]
   my_checked_in_at: string | null
-}
-
-export type BumpOutcome = 'matched' | 'no_pair' | 'already_checked_in'
-
-export interface BumpResult {
-  result: BumpOutcome
-  matched_user_ids: string[]
-  checked_in_at: string | null
-  checked_in_count: number
 }
 
 export interface Position {
@@ -137,14 +129,57 @@ export function fetchGathering(excursionId: string): Promise<Gathering> {
   return apiRequest('GET', 'hq', path(excursionId, '/gathering'), { auth: true })
 }
 
-/**
- * Встряска телефона. Время встряски сервер считает сам: телефон сообщает
- * только, сколько миллисекунд назад тряхнули, — часы телефонов расходятся.
- * Ответ приходит, когда нашлась встряска второй стороны, или через ~2 с.
- */
-export function sendBump(excursionId: string, position: Position, shakenMsAgo: number): Promise<BumpResult> {
-  return apiRequest('POST', 'hq', path(excursionId, '/bumps'), {
-    body: { ...position, shaken_ms_ago: shakenMsAgo },
-    auth: true,
-  })
+// --- группа идёт к памятному месту ---
+
+export interface WalkDestination {
+  lat: number
+  lon: number
+  name: string
+  poi_id: string | null
 }
+
+export interface GroupMember {
+  user_id: string
+  is_guide: boolean
+  is_me: boolean
+  lat: number
+  lon: number
+  accuracy_m: number | null
+  updated_at: string
+}
+
+export interface Walk {
+  excursion_id: string
+  status: ExcursionStatus
+  is_guide: boolean
+  /** null — группа ещё не выходила. */
+  destination: WalkDestination | null
+  started_at: string | null
+  /** Краевед — первым; точки старше пары минут сервис не отдаёт. */
+  members: GroupMember[]
+}
+
+export interface WalkTarget {
+  lat: number
+  lon: number
+  name: string
+  poi_id: string | null
+}
+
+/** Краевед ведёт группу к месту. Первый раз — выход группы, потом — смена цели. */
+export function leadWalk(excursionId: string, target: WalkTarget): Promise<Walk> {
+  return apiRequest('POST', 'hq', path(excursionId, '/walk'), { body: target, auth: true })
+}
+
+export function fetchWalk(excursionId: string): Promise<Walk> {
+  return apiRequest('GET', 'hq', path(excursionId, '/walk'), { auth: true })
+}
+
+export function reportPosition(excursionId: string, position: Position): Promise<void> {
+  return apiRequest('PUT', 'hq', path(excursionId, '/walk/position'), { body: position, auth: true })
+}
+
+export function finishWalk(excursionId: string): Promise<Walk> {
+  return apiRequest('POST', 'hq', path(excursionId, '/walk/finish'), { auth: true })
+}
+

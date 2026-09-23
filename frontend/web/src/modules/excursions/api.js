@@ -1,0 +1,47 @@
+import { http } from '@shared/utils/httpClient.js'
+
+const BASE = '/api/search'
+
+// Коллективные и индивидуальные заявки на экскурсии (модуль 5 ТЗ) — реальный
+// бэкенд: экскурсия создаётся гидом заранее, участник записывается на неё —
+// как один человек (organization_name пусто, group_size=1) или как группа
+// (школа/клуб указывает organization_name и group_size), см.
+// search_hq_service/api/routers/excursions.py.
+// Токен необязателен (GET /excursions принимает и анонимов), но если он
+// есть — каждая экскурсия вернётся с viewer.registered/viewer.is_guide,
+// без этого фронт не может честно показать «вы уже записаны».
+export function listUpcomingExcursions(token) {
+  return http.get(`${BASE}/excursions?upcoming_only=true&limit=100`, token ? { token } : undefined)
+}
+
+export function registerForExcursion(token, excursionId, { organizationName = '', groupSize = 1 } = {}) {
+  return http.post(
+    `${BASE}/excursions/${excursionId}/registrations`,
+    { organization_name: organizationName, group_size: groupSize },
+    { token },
+  )
+}
+
+export function getGuideRating(guideId) {
+  return http.get(`${BASE}/guides/${guideId}/rating`)
+}
+
+// { guiding: Excursion[], joined: Excursion[] } — экскурсии, которые я веду
+// как гид, и те, на которые я записан (сам или через свою школу/клуб).
+export function getMyExcursions(token) {
+  return http.get(`${BASE}/excursions/mine`, { token })
+}
+
+// После начала сбора отписаться нельзя (ExcursionService.cancel_registration) —
+// бэкенд сам отклонит с 409, если статус экскурсии уже не scheduled.
+export function cancelRegistration(token, excursionId) {
+  return http.delete(`${BASE}/excursions/${excursionId}/registrations/me`, { token })
+}
+
+// Оценить может только тот, кто реально пришёл (RatingService.rate требует
+// participant.checked_in_at) и только когда экскурсия уже finished —
+// проверяем это на фронте по viewer.checked_in_at, чтобы не звать ручку
+// впустую и не путать человека абстрактным 403.
+export function rateExcursion(token, excursionId, { rating, comment = '' }) {
+  return http.post(`${BASE}/excursions/${excursionId}/rating`, { rating, comment }, { token })
+}

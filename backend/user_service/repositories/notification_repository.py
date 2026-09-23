@@ -44,6 +44,11 @@ class NotificationRepository:
     def get_device_by_token(self, token: str) -> NotificationDevice | None:
         return self.db.scalar(select(NotificationDevice).where(NotificationDevice.token == token))
 
+    def devices_for_user(self, user_id: str) -> Sequence[NotificationDevice]:
+        return self.db.scalars(
+            select(NotificationDevice).where(NotificationDevice.user_id == user_id)
+        ).all()
+
     def add_device(self, device: NotificationDevice) -> NotificationDevice:
         self.db.add(device)
         self.db.flush()

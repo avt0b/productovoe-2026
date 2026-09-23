@@ -11,6 +11,8 @@ export interface SessionUser {
   avatarUrl?: string
   /** Роль из `auth_service`. У демо-пользователя её нет. */
   role?: UserRole
+  /** Администратор платформы (`is_root`): сервисы пускают его туда же, куда модератора. */
+  isRoot?: boolean
   email?: string
 }
 
@@ -23,10 +25,10 @@ export interface SessionTokens {
 }
 
 /**
- * Каким способом человек входит. Пароль и регистрация идут в `auth_service`,
- * Госуслуги / VK ID / Сбер ID пока ведут в демо-вход.
+ * Вход по паролю или регистрация в `auth_service`. VK ID, MAX и Госуслуги —
+ * отдельный путь через провайдера (`externalAuth.ts`).
  */
-export type SignInMethod = 'password' | 'register' | 'gosuslugi' | 'vk-id' | 'sber-id'
+export type SignInMethod = 'password' | 'register'
 
 export interface SignInRequest {
   method: SignInMethod

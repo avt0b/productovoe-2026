@@ -24,6 +24,9 @@ function formatCoords(lat, lon) {
 
 const coordsText = computed(() => (props.point ? formatCoords(props.point.lat, props.point.lon) : ''))
 const statusLabel = computed(() => STATUS_LABEL[props.point?.status] ?? '')
+const addedText = computed(() =>
+  props.point ? new Date(props.point.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
+)
 </script>
 
 <template>
@@ -59,6 +62,8 @@ const statusLabel = computed(() => STATUS_LABEL[props.point?.status] ?? '')
         </p>
       </div>
     </div>
+
+    <span class="font-label-sm text-label-sm text-on-surface-variant px-1">Добавлено в map_service: {{ addedText }}</span>
   </div>
   <p v-else class="font-body-md text-body-md text-on-surface-variant">Выберите точку на карте, чтобы увидеть досье.</p>
 </template>

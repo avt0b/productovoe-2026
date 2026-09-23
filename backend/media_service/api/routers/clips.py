@@ -37,10 +37,10 @@ def my_clips(
 
 
 @router.post("", response_model=ClipOut, status_code=status.HTTP_201_CREATED)
-def create_clip(
+async def create_clip(
     payload: ClipCreate, principal: CurrentPrincipal, service: ClipServiceDep
 ) -> ClipOut:
-    return ClipOut.model_validate(service.create(principal, payload.model_dump()))
+    return ClipOut.model_validate(await service.create(principal, payload.model_dump()))
 
 
 @router.get("/{clip_id}", response_model=ClipOut)

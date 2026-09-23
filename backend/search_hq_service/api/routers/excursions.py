@@ -4,11 +4,14 @@ from fastapi import APIRouter, Query, status
 
 from api.deps import (
     BumpServiceDep,
+    ChatServiceDep,
     CurrentPrincipal,
     ExcursionServiceDep,
     OptionalPrincipal,
     RatingServiceDep,
+    WalkServiceDep,
 )
+from api.schemas.chat import ChatMessageCreate, ChatMessageOut
 from api.schemas.excursion import (
     BumpIn,
     BumpOut,
@@ -19,6 +22,10 @@ from api.schemas.excursion import (
     GatheringStartIn,
     MyExcursionsOut,
     ParticipantOut,
+    PositionIn,
+    RegistrationCreate,
+    WalkLeadIn,
+    WalkOut,
 )
 from api.schemas.rating import GuideRatingCreate, GuideRatingOut
 
@@ -87,9 +94,20 @@ def cancel_excursion(
     status_code=status.HTTP_201_CREATED,
 )
 def register_for_excursion(
-    excursion_id: str, principal: CurrentPrincipal, service: ExcursionServiceDep
+    excursion_id: str,
+    principal: CurrentPrincipal,
+    service: ExcursionServiceDep,
+    payload: RegistrationCreate | None = None,
 ) -> ParticipantOut:
-    return ParticipantOut.model_validate(service.register(principal, excursion_id))
+    data = payload or RegistrationCreate()
+    return ParticipantOut.model_validate(
+        service.register(
+            principal,
+            excursion_id,
+            organization_name=data.organization_name,
+            group_size=data.group_size,
+        )
+    )
 
 
 @router.delete("/{excursion_id}/registrations/me", status_code=status.HTTP_204_NO_CONTENT)
@@ -137,6 +155,43 @@ def gathering_state(
     return GatheringOut.from_state(service.gathering_state(principal, excursion_id))
 
 
+@router.post("/{excursion_id}/walk", response_model=WalkOut)
+def lead_walk(
+    excursion_id: str, payload: WalkLeadIn, principal: CurrentPrincipal, service: WalkServiceDep
+) -> WalkOut:
+    """Краевед ведёт группу к месту. Первый вызов закрывает сбор и зовёт отмеченных
+    на карту; следующие только меняют цель."""
+    state = service.lead(
+        principal,
+        excursion_id,
+        lat=payload.lat,
+        lon=payload.lon,
+        name=payload.name,
+        poi_id=payload.poi_id,
+    )
+    return WalkOut.from_state(state)
+
+
+@router.get("/{excursion_id}/walk", response_model=WalkOut)
+def walk_state(excursion_id: str, principal: CurrentPrincipal, service: WalkServiceDep) -> WalkOut:
+    """Цель и где сейчас группа. Видят краевед и отметившиеся бампом."""
+    return WalkOut.from_state(service.state(principal, excursion_id))
+
+
+@router.put("/{excursion_id}/walk/position", status_code=status.HTTP_204_NO_CONTENT)
+def report_position(
+    excursion_id: str, payload: PositionIn, principal: CurrentPrincipal, service: WalkServiceDep
+) -> None:
+    service.report_position(
+        principal, excursion_id, lat=payload.lat, lon=payload.lon, accuracy_m=payload.accuracy_m
+    )
+
+
+@router.post("/{excursion_id}/walk/finish", response_model=WalkOut)
+def finish_walk(excursion_id: str, principal: CurrentPrincipal, service: WalkServiceDep) -> WalkOut:
+    return WalkOut.from_state(service.finish(principal, excursion_id))
+
+
 @router.post("/{excursion_id}/bumps", response_model=BumpOut)
 def bump(
     excursion_id: str, payload: BumpIn, principal: CurrentPrincipal, service: BumpServiceDep
@@ -173,3 +228,32 @@ def rate_excursion(
 @router.get("/{excursion_id}/rating", response_model=list[GuideRatingOut])
 def excursion_ratings(excursion_id: str, service: RatingServiceDep) -> list[GuideRatingOut]:
     return [GuideRatingOut.model_validate(r) for r in service.for_excursion(excursion_id)]
+
+
+# --- чат сбора ---
+
+
+@router.get("/{excursion_id}/messages", response_model=list[ChatMessageOut])
+def list_excursion_messages(
+    excursion_id: str,
+    principal: CurrentPrincipal,
+    service: ChatServiceDep,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[ChatMessageOut]:
+    rows = service.excursion_messages(principal, excursion_id, limit=limit, offset=offset)
+    return [ChatMessageOut.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/{excursion_id}/messages", response_model=ChatMessageOut, status_code=status.HTTP_201_CREATED
+)
+def post_excursion_message(
+    excursion_id: str,
+    payload: ChatMessageCreate,
+    principal: CurrentPrincipal,
+    service: ChatServiceDep,
+) -> ChatMessageOut:
+    return ChatMessageOut.model_validate(
+        service.post_excursion_message(principal, excursion_id, payload.body)
+    )

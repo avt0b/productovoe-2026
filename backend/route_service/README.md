@@ -39,9 +39,11 @@ AR-подсказками. `poi_id` точек совпадает с id тех �
   `is_published` (черновик виден только автору и модератору).
 - **Waypoint** — точка: `order_index`, координаты, `poi_id` (ссылка на точку
   слоя «ВОВ» в `map_service`), `story`, `kid_task` («Найди калибр пушки»),
-  `audio_url`, `ar_hint`.
+  `audio_url`, `ar_hint`, `expected_answer` (эталонный ответ на `kid_task` —
+  в API наружу не отдаётся, только флаг `has_answer`).
 - **RouteProgress** — прогресс семьи: `completed_waypoint_ids` (в порядке
-  маршрута), `current_index`, `completed_at`; уникален по `(route_id, user_id)`.
+  маршрута), `current_index`, `answers` (waypoint_id → верно ли ответили),
+  `completed_at`; уникален по `(route_id, user_id)`.
 
 ## Эндпоинты
 
@@ -50,6 +52,7 @@ AR-подсказками. `poi_id` точек совпадает с id тех �
 | GET | `/routes` `?mode&city` | публично — только опубликованные |
 | GET | `/routes/mine` | автор (свои, включая черновики) |
 | POST | `/routes` | `local_historian` / `mentor` / `moderator` / root |
+| POST | `/routes/auto-generate` | `local_historian` / `mentor` / `moderator` / root — черновик из точек `map_service` рядом с `lat`/`lon` (`409`, если точек рядом нет) |
 | GET | `/routes/{id}` | опубликованный — все; черновик — автор / модератор |
 | PATCH · DELETE | `/routes/{id}` | автор / модератор / root |
 | POST | `/routes/{id}/publish` | автор / модератор (нужна ≥1 точка, иначе `409`) |
@@ -58,12 +61,33 @@ AR-подсказками. `poi_id` точек совпадает с id тех �
 | PATCH · DELETE | `/waypoints/{id}` | автор / модератор |
 | POST | `/routes/{id}/waypoints/reorder` | автор / модератор — список id должен без пропусков и дублей совпадать с точками маршрута, иначе `404` |
 | POST | `/routes/{id}/progress/start` | любой авторизованный (идемпотентно) |
-| POST | `/routes/{id}/progress/complete-waypoint` | любой авторизованный |
+| POST | `/routes/{id}/progress/complete-waypoint` | любой авторизованный — опциональный `answer` сверяется с `expected_answer` точки (не блокирует прохождение, просто не засчитывается) |
 | GET | `/routes/{id}/progress/me` | любой авторизованный |
+| GET | `/routes/{id}/archive-prompts` | как у маршрута — неподтверждённые заметки `archive_service` рядом с точками, «помоги проверить» (модуль 6 ТЗ) |
+| GET | `/routes/{id}/media-prompts` | как у маршрута — точки без «живого фото» в `media_service`, «оживить фото бойца» (модуль 7 ТЗ) |
+
+Завершение маршрута (`completed_at` выставляется на последней `complete-waypoint`)
+шлёт `user_service` `POST /internal/achievements/award` с кодом
+`first_route_completed` (`services/achievement_client.py`) — см.
+[user_service/README.md](../user_service/README.md#достижения), и туда же
+`POST /internal/stats/increment` с `routes_completed`
+(`services/stats_client.py`) — см. [user_service/README.md](../user_service/README.md#статистика-профиля).
+Недоступность user_service не мешает пройти маршрут — ни ачивка, ни счётчик
+просто не обновятся.
+
+### Автогенерация маршрута
+
+`POST /routes/auto-generate` (модуль 2 ТЗ, «автоматически строить квест-маршруты»):
+по `lat`/`lon`/`radius_km` тянет точки слоя «ВОВ» из `map_service`
+(`GET /poi/nearby`, см. `services/map_client.py`), жадно строит из них
+маршрут-прогулку (каждый раз ближайшая ещё не взятая точка — не «звезда» из
+одного центра, как у сырого `nearby`) и создаёт черновик (`is_published=false`)
+с посчитанным `distance_km`. У точек заполнены только `title`/координаты/
+`poi_id`/`story` (из описания POI) — `kid_task`/`audio_url`/`ar_hint` пустые,
+это уже ручная работа автора после автогенерации. `map_service` недоступен или
+точек рядом нет — `409`.
 
 ## Дальше
 
-- Автогенерация маршрута: подтянуть точки из `map_service` (`/poi/nearby`)
-  по городу/радиусу и собрать черновик — «Автоматически строить квест-маршруты».
 - Аудиоспектакли и AR-контент через `media_service`.
 - Ачивки за пройденные маршруты → `user_service` (геймификация).

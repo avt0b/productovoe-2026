@@ -9,6 +9,9 @@ from core.models import LastStandPoint, LastStandStatus
 from core.security import Principal
 from repositories.last_stand_repository import LastStandRepository
 from services.notify_client import notify_nearby_subscribers
+from services.stats_client import increment_stat
+
+STAT_FINDS_COUNT = "finds_count"
 
 # Кто может заводить точки «Последнего боя».
 _CONTRIBUTOR_ROLES = {"searcher", "local_historian", "mentor", "moderator"}
@@ -52,10 +55,12 @@ class LastStandService:
         self.db.commit()
         self.db.refresh(point)
 
+        # "{distance_km}" — плейсхолдер, user_service подставит реальную
+        # дистанцию до конкретного подписчика (см. NotificationService.broadcast_nearby).
         title = (
-            f"Обнаружено место гибели: {point.soldier_name}"
+            f"Обнаружено место гибели: {point.soldier_name} — в {{distance_km}} км от вас"
             if point.soldier_name
-            else "В вашем районе обнаружено место гибели бойца"
+            else "В {distance_km} км от вас обнаружено место гибели бойца"
         )
         notify_nearby_subscribers(
             lat=point.lat,
@@ -63,6 +68,7 @@ class LastStandService:
             title=title,
             body="Требуется помощь в идентификации.",
         )
+        increment_stat(user_id=principal.user_id, metric=STAT_FINDS_COUNT)
         return point
 
     def update(self, principal: Principal, point_id: str, data: dict) -> LastStandPoint:

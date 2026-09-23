@@ -4,7 +4,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from conftest import auth_header
 
+from core.config import settings
 from services.bump_matcher import BumpMatcher, Shake, bump_matcher
+# Импорт до autouse-заглушки из conftest: тесту клиента нужен настоящий.
+from services.notify_client import notify_users as real_notify_users
 
 # Братская могила на площади Мира, Орёл — место сбора группы.
 SITE = {"lat": 52.967986, "lon": 36.078488}
@@ -117,6 +120,52 @@ def test_registration_capacity_and_viewer(client, guide_header):
     assert [e["id"] for e in mine["joined"]] == [excursion["id"]]
 
 
+def test_collective_registration_counts_group_size_against_capacity(client, guide_header):
+    excursion = make_excursion(client, guide_header, capacity=10).json()
+    school = auth_header(user_id="school-1")
+
+    r = client.post(
+        f"/excursions/{excursion['id']}/registrations",
+        headers=school,
+        json={"organization_name": "Школа №5", "group_size": 8},
+    )
+    assert r.status_code == 201
+    participant = r.json()
+    assert participant["organization_name"] == "Школа №5"
+    assert participant["group_size"] == 8
+
+    detail = client.get(f"/excursions/{excursion['id']}").json()
+    assert detail["registered_count"] == 8
+
+    # ещё 3 места не влезут — из 10 занято 8.
+    assert (
+        client.post(
+            f"/excursions/{excursion['id']}/registrations",
+            headers=auth_header(user_id="b"),
+            json={"group_size": 3},
+        ).status_code
+        == 409
+    )
+    # а 2 — влезут ровно впритык.
+    assert (
+        client.post(
+            f"/excursions/{excursion['id']}/registrations",
+            headers=auth_header(user_id="c"),
+            json={"group_size": 2},
+        ).status_code
+        == 201
+    )
+
+    # школа может поправить размер группы своей же повторной записью.
+    r2 = client.post(
+        f"/excursions/{excursion['id']}/registrations",
+        headers=school,
+        json={"organization_name": "Школа №5", "group_size": 6},
+    )
+    assert r2.status_code == 201
+    assert client.get(f"/excursions/{excursion['id']}").json()["registered_count"] == 8
+
+
 def test_registration_closes_when_gathering_starts(client, guide_header, visitor_header):
     excursion_id = gathering_excursion(client, guide_header, visitor_header)
 
@@ -174,11 +223,14 @@ def test_guide_and_visitor_bump_together(client, guide_header, visitor_header):
 def test_shakes_seconds_apart_do_not_match(client, guide_header, visitor_header):
     excursion_id = gathering_excursion(client, guide_header, visitor_header)
 
-    # Участник тряхнул за 3 секунды до отправки — окно всего полторы.
+    # Участник тряхнул заметно раньше, чем закрылось окно. Разница — от
+    # настройки и с запасом: число вроде «3000 мс» при окне в 3 с стоит на самой
+    # границе, и тест проходил или падал в зависимости от миллисекунд между потоками.
+    too_early_ms = int((settings.bump_window_seconds + 1.5) * 1000)
     guide_bump, visitor_bump = bump_together(
         client,
         (guide_header, excursion_id, {}),
-        (visitor_header, excursion_id, {"shaken_ms_ago": 3000}),
+        (visitor_header, excursion_id, {"shaken_ms_ago": too_early_ms}),
     )
 
     assert guide_bump.json()["result"] == "no_pair"
@@ -229,3 +281,42 @@ def test_matcher_forgets_old_shakes():
     matcher.shake(Shake("ex", "a", False, 1000.0))
     clock[0] += 60
     assert matcher.shake(Shake("ex", GUIDE, True, 1000.5)) == []
+
+
+def test_gathering_start_notifies_registered_people(client, guide_header, visitor_header, monkeypatch):
+    from services import notify_client
+
+    sent = []
+    monkeypatch.setattr(notify_client, "notify_users", lambda **kw: sent.append(kw))
+
+    excursion_id = make_excursion(client, guide_header).json()["id"]
+    register(client, visitor_header, excursion_id)
+    # Записался и передумал — ему о сборе не пишем.
+    other = auth_header(user_id="visitor-2")
+    register(client, other, excursion_id)
+    client.delete(f"/excursions/{excursion_id}/registrations/me", headers=other)
+
+    assert start_gathering(client, guide_header, excursion_id).status_code == 200
+
+    assert len(sent) == 1
+    call = sent[0]
+    assert call["user_ids"] == [VISITOR]
+    assert call["kind"] == "excursion_gathering_started"
+    assert call["payload"] == {"excursion_id": excursion_id}
+    assert "Площадь Мира" in call["body"]
+
+    # Повторное «Начать сбор» ничего не рассылает: сбор уже идёт.
+    start_gathering(client, guide_header, excursion_id)
+    assert len(sent) == 1
+
+
+def test_notify_client_swallows_network_errors(monkeypatch):
+    """user_service лежит — открытие сбора не должно падать вместе с ним."""
+    import httpx
+
+    def down(*args, **kwargs):
+        raise httpx.ConnectError("user_service лежит")
+
+    monkeypatch.setattr(httpx, "post", down)
+    # Настоящий клиент, взятый до подмены заглушкой из conftest.
+    real_notify_users(user_ids=["visitor-1"], kind="k", title="t", body="b")

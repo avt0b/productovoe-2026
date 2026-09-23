@@ -1,37 +1,20 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
-
 import MsIcon from '@/ui/MsIcon.vue'
 
-import type { FindRecord } from '../data'
+import { STATUS_LABELS, type FindRecord, type FindStatus } from '../data'
 
-defineProps<{ record: FindRecord }>()
+defineProps<{
+  record: FindRecord
+  /** Есть окно «Штаб» — «Готов помочь» ведёт к выездам отрядов. */
+  canVolunteer: boolean
+  /** Модератор: может сменить стадию места. */
+  canModerate: boolean
+  busy: boolean
+}>()
 
-/** Сколько держать подтверждение на кнопке, прежде чем вернуть исходную надпись. */
-const FEEDBACK_MS = 3000
+defineEmits<{ volunteer: []; addData: []; setStatus: [status: FindStatus] }>()
 
-const volunteered = ref(false)
-const openingForm = ref(false)
-let volunteerTimer: ReturnType<typeof setTimeout> | undefined
-let formTimer: ReturnType<typeof setTimeout> | undefined
-
-/** Заявки пока никуда не уходят — кнопка показывает, что нажатие принято. */
-function volunteer(): void {
-  volunteered.value = true
-  clearTimeout(volunteerTimer)
-  volunteerTimer = setTimeout(() => (volunteered.value = false), FEEDBACK_MS)
-}
-
-function addData(): void {
-  openingForm.value = true
-  clearTimeout(formTimer)
-  formTimer = setTimeout(() => (openingForm.value = false), FEEDBACK_MS - 1000)
-}
-
-onBeforeUnmount(() => {
-  clearTimeout(volunteerTimer)
-  clearTimeout(formTimer)
-})
+const STAGES: FindStatus[] = ['found', 'confirmed', 'raised']
 </script>
 
 <template>
@@ -69,23 +52,41 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <!-- Модератор переводит место по стадиям кейса: обнаружено → подтверждено архивом → останки подняты. -->
+    <div v-if="canModerate" class="flex flex-col gap-space-xs">
+      <span class="font-label-md text-label-md text-on-surface">Стадия (модератор)</span>
+      <div class="grid grid-cols-3 gap-1 rounded-DEFAULT bg-surface-container-low p-1">
+        <button
+          v-for="stage in STAGES"
+          :key="stage"
+          type="button"
+          class="rounded-DEFAULT px-1 py-2 font-label-sm text-label-sm leading-tight transition-colors disabled:opacity-60"
+          :class="record.status === stage ? 'bg-secondary text-on-secondary' : 'text-on-surface'"
+          :disabled="busy || record.status === stage"
+          @click="$emit('setStatus', stage)"
+        >
+          {{ STATUS_LABELS[stage] }}
+        </button>
+      </div>
+    </div>
+
     <div class="flex flex-col gap-space-sm pt-1 sm:flex-row">
       <button
+        v-if="canVolunteer"
         type="button"
-        class="flex flex-1 items-center justify-center gap-1.5 rounded-full px-space-md py-3 font-label-lg text-label-lg shadow-md transition-transform hover:opacity-95 active:scale-95"
-        :class="volunteered ? 'bg-secondary text-on-secondary' : 'bg-primary text-on-primary'"
-        @click="volunteer"
+        class="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-primary px-space-md py-3 font-label-lg text-label-lg text-on-primary shadow-md transition-transform hover:opacity-95 active:scale-95"
+        @click="$emit('volunteer')"
       >
-        <MsIcon :name="volunteered ? 'check' : 'handshake'" :size="20" />
-        <span>{{ volunteered ? 'Заявка принята!' : 'Я готов помочь в выезде' }}</span>
+        <MsIcon name="handshake" :size="20" />
+        <span>Я готов помочь в выезде</span>
       </button>
       <button
         type="button"
         class="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-secondary-container px-space-md py-3 font-label-lg text-label-lg text-on-secondary-container transition-transform hover:opacity-90 active:scale-95"
-        @click="addData"
+        @click="$emit('addData')"
       >
-        <MsIcon :name="openingForm ? 'folder_open' : 'upload_file'" :size="20" />
-        <span>{{ openingForm ? 'Открытие формы...' : 'Дополнить данными' }}</span>
+        <MsIcon name="upload_file" :size="20" />
+        <span>Дополнить данными</span>
       </button>
     </div>
   </div>

@@ -81,13 +81,46 @@ async function submit() {
   }
 }
 
+const retryError = ref('')
+
 async function retry(clip) {
+  retryError.value = ''
   try {
     const updated = await api.retryClip(session.accessToken, clip.id)
     const i = myClips.value.findIndex((c) => c.id === clip.id)
     if (i !== -1) myClips.value[i] = updated
-  } catch {
-    // best-effort
+  } catch (err) {
+    retryError.value = err.detail ?? 'Не удалось поставить заявку в очередь заново'
+  }
+}
+
+const shareOpenId = ref(null)
+const shareForm = reactive({ recipient: '', note: '' })
+const shareStatus = ref('idle') // idle | sending | done
+const shareError = ref('')
+
+function openShare(clip) {
+  shareOpenId.value = shareOpenId.value === clip.id ? null : clip.id
+  shareForm.recipient = ''
+  shareForm.note = ''
+  shareStatus.value = 'idle'
+  shareError.value = ''
+}
+
+async function sendShare(clip) {
+  shareError.value = ''
+  if (!shareForm.recipient.trim()) {
+    shareError.value = 'Укажите, кому отправить — e-mail, телефон или соцсеть'
+    return
+  }
+  shareStatus.value = 'sending'
+  try {
+    await api.shareClip(session.accessToken, clip.id, { recipient: shareForm.recipient.trim(), note: shareForm.note.trim() })
+    shareStatus.value = 'done'
+    setTimeout(() => (shareOpenId.value = null), 1500)
+  } catch (err) {
+    shareStatus.value = 'idle'
+    shareError.value = err.detail ?? 'Не удалось отправить'
   }
 }
 </script>
@@ -176,33 +209,66 @@ async function retry(clip) {
       <p v-if="loadStatus === 'loaded' && !myClips.length" class="font-body-sm text-body-sm text-on-surface-variant">
         Заявок пока нет.
       </p>
-      <div
-        v-for="clip in myClips"
-        :key="clip.id"
-        class="bg-surface-container-low p-3.5 rounded-DEFAULT flex items-center justify-between gap-3"
-      >
-        <div class="flex flex-col min-w-0">
-          <span class="font-label-md text-label-md text-on-surface font-bold truncate">
-            {{ clip.soldier_name || 'Без имени' }}
-          </span>
-          <span v-if="clip.status === 'failed' && clip.error" class="font-body-sm text-body-sm text-error truncate">
-            {{ clip.error }}
-          </span>
+      <p v-if="retryError" class="font-label-sm text-label-sm text-error font-bold">{{ retryError }}</p>
+      <div v-for="clip in myClips" :key="clip.id" class="bg-surface-container-low rounded-DEFAULT overflow-hidden">
+        <div class="p-3.5 flex items-center justify-between gap-3">
+          <div class="flex flex-col min-w-0">
+            <span class="font-label-md text-label-md text-on-surface font-bold truncate">
+              {{ clip.soldier_name || 'Без имени' }}
+            </span>
+            <span v-if="clip.status === 'failed' && clip.error" class="font-body-sm text-body-sm text-error truncate">
+              {{ clip.error }}
+            </span>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span
+              class="px-2.5 py-1 rounded-full font-label-sm text-label-sm font-bold flex items-center gap-1"
+              :class="STATUS_META[clip.status].class"
+            >
+              <span class="material-symbols-outlined text-[14px]">{{ STATUS_META[clip.status].icon }}</span>
+              {{ STATUS_META[clip.status].label }}
+            </span>
+            <button
+              v-if="clip.status === 'failed'"
+              class="px-3 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm font-bold"
+              @click="retry(clip)"
+            >
+              Повторить
+            </button>
+            <button
+              v-if="clip.status === 'ready'"
+              class="px-3 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm font-bold flex items-center gap-1"
+              @click="openShare(clip)"
+            >
+              <span class="material-symbols-outlined text-[16px]">forward</span>
+              Отправить родным
+            </button>
+          </div>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <span
-            class="px-2.5 py-1 rounded-full font-label-sm text-label-sm font-bold flex items-center gap-1"
-            :class="STATUS_META[clip.status].class"
-          >
-            <span class="material-symbols-outlined text-[14px]">{{ STATUS_META[clip.status].icon }}</span>
-            {{ STATUS_META[clip.status].label }}
-          </span>
+
+        <div v-if="shareOpenId === clip.id" class="p-3.5 pt-0 flex flex-col gap-2">
+          <input
+            v-model="shareForm.recipient"
+            type="text"
+            placeholder="E-mail, телефон или профиль родных"
+            class="w-full h-10 px-3.5 rounded-full bg-surface-container font-body-sm text-body-sm text-on-surface outline-none focus:bg-surface-container-high transition-colors"
+          />
+          <input
+            v-model="shareForm.note"
+            type="text"
+            placeholder="Сопроводительная записка (необязательно)"
+            class="w-full h-10 px-3.5 rounded-full bg-surface-container font-body-sm text-body-sm text-on-surface outline-none focus:bg-surface-container-high transition-colors"
+          />
+          <p v-if="shareError" class="font-label-sm text-label-sm text-error font-bold">{{ shareError }}</p>
           <button
-            v-if="clip.status === 'failed'"
-            class="px-3 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm font-bold"
-            @click="retry(clip)"
+            type="button"
+            class="self-start px-4 py-1.5 rounded-full font-label-sm text-label-sm font-bold flex items-center gap-1.5"
+            :class="shareStatus === 'done' ? 'bg-secondary text-on-secondary' : 'bg-primary text-on-primary'"
+            :disabled="shareStatus === 'sending'"
+            @click="sendShare(clip)"
           >
-            Повторить
+            <span class="material-symbols-outlined text-[16px]">{{ shareStatus === 'done' ? 'check_circle' : 'send' }}</span>
+            {{ shareStatus === 'done' ? 'Отправлено' : 'Отправить' }}
           </button>
         </div>
       </div>

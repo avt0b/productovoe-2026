@@ -7,7 +7,10 @@ from core.models import RegistrationStatus, TripRegistration, VolunteerTrip
 from core.security import Principal
 from repositories.squad_repository import SquadRepository
 from repositories.trip_repository import TripRepository
+from services.achievement_client import award_achievement
 from services.permissions import is_staff
+
+ACHIEVEMENT_TRIP_VOLUNTEER = "trip_volunteer"
 
 
 class TripService:
@@ -66,6 +69,7 @@ class TripService:
             )
         self.db.commit()
         self.db.refresh(reg)
+        award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_TRIP_VOLUNTEER)
         return reg
 
     def cancel(self, principal: Principal, trip_id: str) -> None:
@@ -74,6 +78,10 @@ class TripService:
             raise NotFound("Регистрация не найдена")
         reg.status = RegistrationStatus.cancelled
         self.db.commit()
+
+    def mine(self, principal: Principal, *, upcoming_only: bool) -> Sequence[VolunteerTrip]:
+        """Выезды, на которые человек записан, — чтобы приложение показало «Вы записаны»."""
+        return self.repo.trips_of_volunteer(principal.user_id, upcoming_only=upcoming_only)
 
     def registrations_for(self, principal: Principal, trip_id: str) -> Sequence[TripRegistration]:
         trip = self.get(trip_id)

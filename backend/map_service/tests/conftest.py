@@ -51,11 +51,12 @@ def client():
 
 @pytest.fixture(autouse=True)
 def no_real_notify_calls(monkeypatch):
-    """По умолчанию не ходим в сеть за user_service — тесты не про уведомления
-    делают это через каждое создание точки «Последнего боя»."""
+    """По умолчанию не ходим в сеть за user_service — тесты не про уведомления/
+    статистику делают это через каждое создание точки «Последнего боя»."""
     import services.last_stand_service as last_stand_service_module
 
     monkeypatch.setattr(last_stand_service_module, "notify_nearby_subscribers", lambda **kw: None)
+    monkeypatch.setattr(last_stand_service_module, "increment_stat", lambda **kw: None)
 
 
 def pytest_sessionfinish(session, exitstatus):

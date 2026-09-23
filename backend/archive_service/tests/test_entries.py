@@ -83,6 +83,75 @@ def test_verify_permissions(client):
     )
 
 
+def test_verify_awards_archive_helper_achievement(client, monkeypatch):
+    import services.entry_service as entry_service_module
+
+    calls = []
+    monkeypatch.setattr(
+        entry_service_module, "award_achievement", lambda **kw: calls.append(kw)
+    )
+
+    e = create_entry(client, auth_header(user_id="author-1")).json()
+    client.post(
+        f"/entries/{e['id']}/verify", headers=auth_header(role="moderator", user_id="mod-1"), json={}
+    )
+    assert calls == [{"user_id": "mod-1", "code": "archive_helper"}]
+
+
+def test_reject_also_awards_archive_helper_achievement(client, monkeypatch):
+    import services.entry_service as entry_service_module
+
+    calls = []
+    monkeypatch.setattr(
+        entry_service_module, "award_achievement", lambda **kw: calls.append(kw)
+    )
+
+    e = create_entry(client, auth_header(user_id="author-1")).json()
+    client.post(
+        f"/entries/{e['id']}/reject", headers=auth_header(role="moderator", user_id="mod-1"), json={}
+    )
+    assert calls == [{"user_id": "mod-1", "code": "archive_helper"}]
+
+
+def test_verify_credits_finds_stat_to_author_not_verifier(client, monkeypatch):
+    import services.entry_service as entry_service_module
+
+    calls = []
+    monkeypatch.setattr(
+        entry_service_module, "increment_stat", lambda **kw: calls.append(kw)
+    )
+
+    e = create_entry(client, auth_header(user_id="author-1")).json()
+    client.post(
+        f"/entries/{e['id']}/verify", headers=auth_header(role="moderator", user_id="mod-1"), json={}
+    )
+    assert calls == [{"user_id": "author-1", "metric": "finds_count"}]
+
+
+def test_reject_does_not_credit_finds_stat(client, monkeypatch):
+    import services.entry_service as entry_service_module
+
+    calls = []
+    monkeypatch.setattr(
+        entry_service_module, "increment_stat", lambda **kw: calls.append(kw)
+    )
+
+    e = create_entry(client, auth_header(user_id="author-1")).json()
+    client.post(
+        f"/entries/{e['id']}/reject", headers=auth_header(role="moderator", user_id="mod-1"), json={}
+    )
+    assert calls == []
+
+
+def test_searcher_can_verify(client):
+    e = create_entry(client, auth_header(user_id="author-1")).json()
+    r = client.post(
+        f"/entries/{e['id']}/verify", headers=auth_header(role="searcher"), json={}
+    )
+    assert r.status_code == 200
+    assert r.json()["verified_by"]
+
+
 def test_reject_with_note(client):
     e = create_entry(client, auth_header(user_id="author-1")).json()
     r = client.post(

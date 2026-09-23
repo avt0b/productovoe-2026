@@ -23,10 +23,17 @@ def list_squads(
     service: SquadServiceDep,
     region: Annotated[str | None, Query(max_length=120)] = None,
     q: Annotated[str | None, Query(max_length=200)] = None,
+    min_lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    min_lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    max_lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    max_lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[SquadOut]:
-    rows = service.search(region=region, q=q, limit=limit, offset=offset)
+    bbox = None
+    if None not in (min_lat, min_lon, max_lat, max_lon):
+        bbox = (min_lat, min_lon, max_lat, max_lon)
+    rows = service.search(region=region, q=q, bbox=bbox, limit=limit, offset=offset)
     return [SquadOut.model_validate(s) for s in rows]
 
 

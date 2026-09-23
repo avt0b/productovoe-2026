@@ -10,10 +10,13 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "android:sync": "vite build --mode android && cap sync android",
+    "android:ar": "node scripts/build-ar.mjs",
     "android:open": "cap open android"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
     "@capacitor/core": "^8.5.2",
     "leaflet": "^1.9.4",
     "pinia": "^2.2.6",

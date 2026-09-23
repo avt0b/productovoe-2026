@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from core.db import get_db
 from core.security import Principal, decode_access_token, principal_from_payload
 from services.archive_prompt_service import ArchivePromptService
+from services.media_prompt_service import MediaPromptService
 from services.progress_service import ProgressService
 from services.route_service import RouteService
 
@@ -58,6 +59,11 @@ def get_archive_prompt_service(db: DbSession) -> ArchivePromptService:
     return ArchivePromptService(db)
 
 
+def get_media_prompt_service(db: DbSession) -> MediaPromptService:
+    return MediaPromptService(db)
+
+
 RouteServiceDep = Annotated[RouteService, Depends(get_route_service)]
 ProgressServiceDep = Annotated[ProgressService, Depends(get_progress_service)]
 ArchivePromptServiceDep = Annotated[ArchivePromptService, Depends(get_archive_prompt_service)]
+MediaPromptServiceDep = Annotated[MediaPromptService, Depends(get_media_prompt_service)]

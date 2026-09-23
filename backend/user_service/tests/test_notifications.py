@@ -53,6 +53,22 @@ def test_broadcast_notifies_only_nearby_subscribers(client):
     assert far_mine == []
 
 
+def test_broadcast_substitutes_distance_placeholder(client):
+    near_header = subscribe(client, "near-2", home=NEAR_HOME)
+
+    r = broadcast(
+        client,
+        title="В {distance_km} км от вас обнаружено место гибели бойца",
+        body="Требуется помощь в идентификации.",
+    )
+    assert r.json()["notified"] == 1
+
+    mine = client.get("/notifications", headers=near_header).json()
+    title = mine[0]["title"]
+    assert "{distance_km}" not in title
+    assert "км от вас обнаружено место гибели бойца" in title
+
+
 def test_broadcast_ignores_unsubscribed_and_homeless_profiles(client):
     # Подписан, но без домашних координат — радиус не от чего считать.
     header = auth_header(user_id="no-home")
@@ -120,3 +136,47 @@ def test_unregister_device(client):
     )
     assert client.delete("/notifications/devices/tok-3", headers=header).status_code == 204
     assert client.delete("/notifications/devices/tok-3", headers=header).status_code == 404
+
+
+def send(client, headers=INTERNAL_HEADERS, **over):
+    body = {
+        "user_ids": ["visitor-1", "visitor-2"],
+        "kind": "excursion_gathering_started",
+        "title": "Сбор начался",
+        "body": "Краевед ждёт на месте сбора.",
+        "payload": {"excursion_id": "exc-1"},
+    }
+    body.update(over)
+    return client.post("/internal/notifications/send", headers=headers, json=body)
+
+
+def test_send_notifies_exactly_the_listed_people(client):
+    r = send(client)
+    assert r.status_code == 200
+    assert r.json()["notified"] == 2
+
+    mine = client.get("/notifications", headers=auth_header(user_id="visitor-1")).json()
+    assert len(mine) == 1
+    assert mine[0]["kind"] == "excursion_gathering_started"
+    assert mine[0]["payload"] == {"excursion_id": "exc-1"}
+    assert mine[0]["read_at"] is None
+
+    # Не из списка — ничего не получил.
+    assert client.get("/notifications", headers=auth_header(user_id="stranger")).json() == []
+
+
+def test_send_does_not_need_a_profile_and_skips_duplicates(client):
+    # Ни профиля, ни подписки: уведомление привязано к человеку, а не к анкете.
+    r = send(client, user_ids=["fresh-user", "fresh-user", ""])
+    assert r.status_code == 200
+    assert r.json()["notified"] == 1
+    assert len(client.get("/notifications", headers=auth_header(user_id="fresh-user")).json()) == 1
+
+
+def test_send_is_internal_only(client):
+    assert send(client, headers={}).status_code in (401, 403)
+    assert send(client, headers={"X-Internal-Key": "wrong"}).status_code in (401, 403)
+
+
+def test_send_rejects_empty_list(client):
+    assert send(client, user_ids=[]).status_code == 422

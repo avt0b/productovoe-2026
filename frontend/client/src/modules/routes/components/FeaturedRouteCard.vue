@@ -12,6 +12,8 @@ const props = defineProps<{
   /** Сколько идти до точки, о которой рассказывает карточка, — если известно, где человек. */
   distanceToStop: string | null
   canOpen: boolean
+  /** Пройденные точки — из прогресса `route_service`. `null` — прогресса нет (демо или маршрут не начат). */
+  completedIds: string[] | null
 }>()
 
 const emit = defineEmits<{
@@ -21,6 +23,8 @@ const emit = defineEmits<{
 
 /** Точка, о которой сейчас карточка: выбранная на карте, а если ничего не выбрано — первая. */
 const focusStop = computed(() => props.route.stops.find((stop) => stop.id === props.selectedStopId) ?? props.route.stops[0] ?? null)
+
+const doneCount = computed(() => props.route.stops.filter((stop) => props.completedIds?.includes(stop.id)).length)
 
 const stopsLabel = computed(() => `${props.route.stops.length} ${plural(props.route.stops.length, ['точка', 'точки', 'точек'])}`)
 </script>
@@ -56,6 +60,13 @@ const stopsLabel = computed(() => `${props.route.stops.length} ${plural(props.ro
         <MsIcon name="family_restroom" :size="14" />
         Для семьи
       </span>
+      <span
+        v-if="completedIds && doneCount > 0"
+        class="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 font-label-md text-label-md text-on-secondary"
+      >
+        <MsIcon name="task_alt" :size="14" />
+        Пройдено {{ doneCount }} из {{ route.stops.length }}
+      </span>
     </div>
 
     <!-- Точки маршрута: нажатие подсвечивает точку на карте -->
@@ -72,7 +83,8 @@ const stopsLabel = computed(() => `${props.route.stops.length} ${plural(props.ro
             class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-label-md text-label-md"
             :class="focusStop?.id === stop.id ? 'bg-secondary text-on-secondary' : 'bg-surface-container-high text-on-surface-variant'"
           >
-            {{ stop.step }}
+            <MsIcon v-if="completedIds?.includes(stop.id)" name="check" :size="16" />
+            <template v-else>{{ stop.step }}</template>
           </span>
           <span class="min-w-0 flex-1 truncate font-label-lg text-label-lg text-on-surface">{{ stop.title }}</span>
           <MsIcon v-if="stop.hasAr" name="view_in_ar" :size="18" class="shrink-0 text-tertiary" aria-label="Есть AR" />

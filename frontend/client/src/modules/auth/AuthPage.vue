@@ -1,10 +1,21 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { useAsync } from '@/core/async'
 import { errorText } from '@/core/format'
 import { usePreferencesStore } from '@/core/preferences'
-import { useSessionStore, type SignInMethod } from '@/core/session'
+import { serverLabel } from '@/core/server'
+import {
+  clearPendingLogin,
+  completeExternalLogin,
+  listProviders,
+  startExternalLogin,
+  useSessionStore,
+  type ExternalProvider,
+  type PendingLogin,
+  type SignInMethod,
+} from '@/core/session'
 import MsIcon from '@/ui/MsIcon.vue'
 import ToggleSwitch from '@/ui/ToggleSwitch.vue'
 
@@ -30,7 +41,27 @@ const signInError = ref<string | null>(null)
 /** Какой способ входа сейчас в работе — чтобы крутилка была на нажатой кнопке, а не на всех. */
 const activeMethod = ref<SignInMethod | null>(null)
 
+/** VK ID, MAX, Госуслуги: что включено на сервере. Не ответил — кнопки неактивны. */
+const providers = useAsync(async () => {
+  try {
+    return await listProviders()
+  } catch {
+    return null
+  }
+})
+const activeProvider = ref<ExternalProvider | null>(null)
+/** Ждём, пока человек подтвердит вход у провайдера: в боте MAX или в браузере телефона. */
+const waiting = ref<PendingLogin | null>(null)
+const PROVIDER_TITLES: Record<ExternalProvider, string> = { vk: 'VK ID', max: 'MAX', gosuslugi: 'Госуслугах' }
+/** Как часто спрашивать, подтверждён ли вход через бота, мс. */
+const POLL_MS = 2000
+let pollTimer: ReturnType<typeof setTimeout> | undefined
+
 const submitLabel = computed(() => (mode.value === 'login' ? 'Войти в экспедицию' : 'Создать аккаунт'))
+
+/** Выбор сервера — временный модуль `server`. Уберут его — строка пропадёт сама. */
+const canPickServer = computed(() => router.hasRoute('server'))
+const server = computed(() => serverLabel())
 
 /**
  * Куда вернуть после входа. Только внутренний путь: `?next=//evil.example`
@@ -64,6 +95,57 @@ async function enter(method: SignInMethod): Promise<void> {
 function submit(): void {
   void enter(mode.value === 'login' ? 'password' : 'register')
 }
+
+async function enterExternal(provider: ExternalProvider): Promise<void> {
+  if (activeProvider.value || session.pending) return
+  activeProvider.value = provider
+  signInError.value = null
+  try {
+    const pending = await startExternalLogin(provider)
+    // В браузере с редиректом страница уже уходит к провайдеру. Бот MAX и APK
+    // возвращают управление сюда — ждём подтверждения.
+    waiting.value = pending
+    if (pending.kind === 'bot') schedulePoll()
+  } catch (reason) {
+    signInError.value = errorText(reason)
+    activeProvider.value = null
+  }
+}
+
+/** Бот MAX не возвращает человека по ссылке — спрашиваем сервис, подтверждён ли вход. */
+function schedulePoll(): void {
+  clearTimeout(pollTimer)
+  pollTimer = setTimeout(() => void poll(), POLL_MS)
+}
+
+async function poll(): Promise<void> {
+  const pending = waiting.value
+  if (!pending) return
+  if (pending.expiresAt <= Date.now()) {
+    cancelExternal()
+    signInError.value = 'Время на подтверждение вышло — начните вход заново'
+    return
+  }
+  try {
+    const result = await completeExternalLogin(pending, null)
+    if (!result) return schedulePoll()
+    session.adopt(result)
+    waiting.value = null
+    await router.replace(nextPath() ?? { name: 'home' })
+  } catch (reason) {
+    cancelExternal()
+    signInError.value = errorText(reason)
+  }
+}
+
+function cancelExternal(): void {
+  clearTimeout(pollTimer)
+  clearPendingLogin()
+  waiting.value = null
+  activeProvider.value = null
+}
+
+onBeforeUnmount(() => clearTimeout(pollTimer))
 </script>
 
 <template>
@@ -85,6 +167,16 @@ function submit(): void {
         Живая история, семейные маршруты и поиск защитников Отечества
       </p>
     </div>
+
+    <RouterLink
+      v-if="canPickServer"
+      :to="{ name: 'server' }"
+      class="mb-space-md flex items-center gap-space-sm rounded-full bg-surface-container-low px-space-md py-2 text-on-surface-variant transition-colors hover:bg-surface-container"
+    >
+      <MsIcon name="dns" :size="18" class="shrink-0 text-secondary" />
+      <span class="min-w-0 flex-1 truncate font-label-md text-label-md">Сервер: {{ server }}</span>
+      <span class="shrink-0 font-label-md text-label-md text-primary">Изменить</span>
+    </RouterLink>
 
     <AuthBanner class="mb-space-lg" />
 
@@ -206,7 +298,8 @@ function submit(): void {
         </p>
 
         <p class="text-center font-label-sm text-label-sm text-outline">
-          Оставьте поля пустыми, чтобы войти в демо-режиме без аккаунта. Записаться на экскурсию в нём нельзя.
+          Оставьте поля пустыми, чтобы войти в демо-режиме без аккаунта: смотреть можно всё, записываться и
+          отмечать — нет.
         </p>
       </form>
 
@@ -216,7 +309,27 @@ function submit(): void {
         <div class="h-px flex-grow bg-surface-variant" />
       </div>
 
-      <SsoButtons :active="activeMethod" :disabled="session.pending" class="mb-space-sm" @select="enter" />
+      <SsoButtons
+        :providers="providers.data.value"
+        :active="activeProvider"
+        :disabled="session.pending || waiting !== null"
+        class="mb-space-sm"
+        @select="enterExternal"
+      />
+      <p v-if="!providers.loading.value && !providers.data.value" class="text-center font-label-sm text-label-sm text-outline">
+        Сервер входа не ответил — входить через VK ID, MAX и Госуслуги пока нельзя
+      </p>
+
+      <div v-if="waiting" class="mt-space-sm flex items-start gap-space-sm rounded-xl bg-secondary-container/50 p-space-sm" role="status">
+        <MsIcon name="progress_activity" :size="20" class="mt-0.5 shrink-0 animate-spin text-secondary" />
+        <div class="min-w-0 flex-1">
+          <p class="font-label-md text-label-md text-on-surface">Подтвердите вход в {{ PROVIDER_TITLES[waiting.provider] }}</p>
+          <p class="font-body-sm text-body-sm text-on-surface-variant">
+            {{ waiting.kind === 'bot' ? 'Откройте бота и нажмите «Начать» — приложение войдёт само.' : 'После подтверждения браузер вернёт вас в приложение.' }}
+          </p>
+        </div>
+        <button type="button" class="shrink-0 font-label-md text-label-md text-primary" @click="cancelExternal">Отмена</button>
+      </div>
     </div>
 
     <!-- Архивная полоска -->

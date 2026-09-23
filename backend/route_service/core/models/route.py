@@ -55,5 +55,8 @@ class Waypoint(UUIDPrimaryKeyMixin, Base):
     kid_task: Mapped[str] = mapped_column(Text, default="", nullable=False)
     audio_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     ar_hint: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    # Эталонный ответ на kid_task, сверяется на progress/complete-waypoint.
+    # Пусто — задание не проверяется (просто факт «дошёл до точки»).
+    expected_answer: Mapped[str] = mapped_column(Text, default="", nullable=False)
 
     route: Mapped[Route] = relationship(back_populates="waypoints")

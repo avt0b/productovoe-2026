@@ -69,7 +69,7 @@ uv run python -m scripts.seed_orel
 | --- | --- | --- | --- |
 | GET | `/poi` | публично | фильтры: `kind`, `q`, bbox (`min_lat…max_lon`) |
 | GET | `/poi/nearby` | публично | `lat`, `lon`, `radius_km`, `kind` → сортировка по расстоянию |
-| POST | `/poi` | любой авторизованный | |
+| POST | `/poi` | `searcher` / `local_historian` / `mentor` / `moderator` / root | |
 | GET | `/poi/{id}` | публично | |
 | PATCH | `/poi/{id}` | автор или `moderator`/root | |
 | DELETE | `/poi/{id}` | автор или `moderator`/root | |
@@ -103,6 +103,10 @@ uv run python -m scripts.seed_orel
 при сбое) дёргает `user_service` (`services/notify_client.py`) — тот находит
 подписчиков «Последнего боя» в их собственном `alert_radius_km` от домашних
 координат и кладёт им уведомление в ленту. Подробности — README `user_service`.
+
+Тем же best-effort образом (`services/stats_client.py`) шлёт туда `finds_count`
+— новая точка засчитывается в статистику профиля автора (`created_by`). См.
+[user_service/README.md](../user_service/README.md#статистика-профиля).
 
 ## Дальше
 

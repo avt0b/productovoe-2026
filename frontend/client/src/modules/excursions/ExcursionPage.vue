@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
@@ -23,6 +23,42 @@ const session = useSessionStore()
 const { data: excursion, loading, error, retry } = useAsync(() =>
   fetchExcursion(props.excursionId, session.hasAccount),
 )
+
+/**
+ * Как часто записанный участник проверяет, не открыл ли краевед сбор, мс.
+ *
+ * Раньше экскурсия загружалась один раз: краевед уже стоял на месте, а у
+ * участника до перезахода висело «Экскурсия скоро» без кнопки «отметиться».
+ * Пять секунд — человек ещё идёт к месту сбора, а кнопка уже появилась.
+ */
+const WATCH_START_MS = 5000
+
+/** Ждать начала сбора есть смысл только записанному, пока сбор не начался. */
+const waitingForGathering = computed(
+  () => excursion.value?.status === 'scheduled' && excursion.value.viewer?.registered === true,
+)
+
+let watchTimer: ReturnType<typeof setInterval> | undefined
+
+/** Тихое обновление: без «загрузки» на экране — иначе он мигал бы каждые пять секунд. */
+async function refreshQuietly(): Promise<void> {
+  try {
+    excursion.value = await fetchExcursion(props.excursionId, session.hasAccount)
+  } catch {
+    // Сеть моргнула — попробуем на следующем круге, экран не трогаем.
+  }
+}
+
+watch(
+  waitingForGathering,
+  (waiting) => {
+    clearInterval(watchTimer)
+    watchTimer = waiting ? setInterval(() => void refreshQuietly(), WATCH_START_MS) : undefined
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => clearInterval(watchTimer))
 
 const busy = ref(false)
 const actionError = ref<string | null>(null)
@@ -63,6 +99,10 @@ async function act(action: () => Promise<unknown>): Promise<void> {
 
 function openGathering(): void {
   void router.push({ name: 'excursion-gathering', params: { excursionId: props.excursionId } })
+}
+
+function openWalk(): void {
+  void router.push({ name: 'excursion-walk', params: { excursionId: props.excursionId } })
 }
 </script>
 
@@ -122,6 +162,15 @@ function openGathering(): void {
             <MsIcon name="vibration" :size="20" />
             {{ excursion.status === 'gathering' ? 'Открыть сбор группы' : 'Я на месте — начать сбор' }}
           </button>
+          <button
+            v-if="excursion.status === 'walking'"
+            type="button"
+            class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+            @click="openWalk"
+          >
+            <MsIcon name="map" :size="20" />
+            Группа идёт — карта
+          </button>
           <template v-if="excursion.status === 'scheduled'">
             <button
               v-if="confirming !== 'cancel'"
@@ -160,6 +209,15 @@ function openGathering(): void {
           >
             <MsIcon name="vibration" :size="20" />
             Сбор идёт — отметиться
+          </button>
+          <button
+            v-else-if="excursion.status === 'walking' && excursion.viewer?.checked_in_at"
+            type="button"
+            class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+            @click="openWalk"
+          >
+            <MsIcon name="map" :size="20" />
+            Группа идёт — карта
           </button>
           <p v-else-if="excursion.status === 'scheduled'" class="font-body-sm text-body-sm text-on-surface-variant">
             Когда краевед на месте откроет сбор, встряхните телефон вместе с ним.
