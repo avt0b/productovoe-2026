@@ -1,10 +1,55 @@
 /**
- * Токены перенесены из экспорта Google Stitch без изменений — чтобы вёрстка
- * совпадала с макетом один в один. Новые цвета сюда, а не в компоненты:
- * произвольных `#hex` в разметке быть не должно.
+ * Токены «Маршруты победы».
+ *
+ * Основа — экспорт Google Stitch (схема Material 3: пары `primary`/`on-primary`,
+ * `surface`/`on-surface`). Поверх неё — архивная тема: вместо холодного серого
+ * интерфейса лист старого пергамента, акцент — цвета георгиевской ленты.
+ * Новые цвета сюда, а не в компоненты: произвольных `#hex` в разметке быть не должно.
  */
 
 const manrope = ['Manrope', 'system-ui', 'Segoe UI', 'Roboto', 'sans-serif']
+
+/**
+ * Пергамент: лист, на котором лежит всё приложение. От самого светлого
+ * (карточка поверх листа) к самому тёмному (штриховка, разделители).
+ */
+const parchment = {
+  lightest: '#fdf8ec',
+  lighter: '#f8f0dd',
+  base: '#f3e9d2',
+  dim: '#ecdfc2',
+  deep: '#e3d3ae',
+  shade: '#d6c295',
+  line: '#c2ab7c',
+}
+
+/**
+ * Охра и чёрный георгиевской ленты. Самой ленты на экранах уже нет,
+ * но из этих цветов собрана третичная роль — «наградные» акценты.
+ */
+const ribbon = {
+  black: '#241f18',
+  'black-soft': '#3a3227',
+  orange: '#e8a33d',
+  'orange-deep': '#c97f1c',
+  'orange-pale': '#f6dcae',
+}
+
+/**
+ * Ночной слой: экран входа лежит на фотографии, и поверх неё нужен
+ * затемняющий подмалёвок плюс стеклянные поверхности формы.
+ */
+const night = {
+  DEFAULT: '#0d0b09',
+  soft: '#1d1815',
+}
+
+/** Выцветшие чернила — текст и штампы на пергаменте. */
+const ink = {
+  DEFAULT: '#2c2519',
+  muted: '#6a5c44',
+  faded: '#9a886a',
+}
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -12,59 +57,71 @@ export default {
   content: ['./index.html', './src/**/*.{vue,ts}'],
   theme: {
     extend: {
+      screens: {
+        /**
+         * Низкий экран (iPhone SE, старые Android). Вёрстка входа на нём
+         * ужимается, чтобы форма целиком помещалась без прокрутки.
+         */
+        short: { raw: '(max-height: 740px)' },
+      },
       colors: {
-        background: '#f9f9fb',
-        surface: '#f9f9fb',
-        'surface-bright': '#f9f9fb',
-        'surface-dim': '#d9dadc',
+        parchment,
+        ink,
+        night,
+
+        background: parchment.base,
+        surface: parchment.base,
+        'surface-bright': parchment.lighter,
+        'surface-dim': parchment.deep,
         'surface-tint': '#ae3024',
-        'surface-variant': '#e2e2e5',
-        'surface-container-lowest': '#ffffff',
-        'surface-container-low': '#f3f3f6',
-        'surface-container': '#eeeef0',
-        'surface-container-high': '#e8e8ea',
-        'surface-container-highest': '#e2e2e5',
-        'inverse-surface': '#2f3133',
-        'inverse-on-surface': '#f0f0f3',
+        'surface-variant': parchment.dim,
+        'surface-container-lowest': parchment.lightest,
+        'surface-container-low': parchment.lighter,
+        'surface-container': parchment.dim,
+        'surface-container-high': parchment.deep,
+        'surface-container-highest': parchment.shade,
+        'inverse-surface': ink.DEFAULT,
+        'inverse-on-surface': parchment.lightest,
 
-        primary: '#ab2e22',
-        'primary-container': '#cd4637',
-        'on-primary': '#ffffff',
+        primary: '#a52a1f',
+        'primary-container': '#c23c2b',
+        'on-primary': '#fdf8ec',
         'on-primary-container': '#fffbff',
-        'primary-fixed': '#ffdad5',
-        'primary-fixed-dim': '#ffb4a9',
-        'on-primary-fixed': '#410000',
-        'on-primary-fixed-variant': '#8c170f',
-        'inverse-primary': '#ffb4a9',
+        'primary-fixed': '#f6d9cf',
+        'primary-fixed-dim': '#e8a999',
+        'on-primary-fixed': '#3d0c06',
+        'on-primary-fixed-variant': '#7e1d14',
+        'inverse-primary': '#e8a999',
 
-        secondary: '#51634e',
-        'secondary-container': '#d3e9cd',
-        'on-secondary': '#ffffff',
-        'on-secondary-container': '#566954',
-        'secondary-fixed': '#d3e9cd',
-        'secondary-fixed-dim': '#b7ccb2',
-        'on-secondary-fixed': '#0f1f0f',
-        'on-secondary-fixed-variant': '#394b37',
+        secondary: '#4d5e43',
+        'secondary-container': '#d8e0c8',
+        'on-secondary': '#fdf8ec',
+        'on-secondary-container': '#3c4a35',
+        'secondary-fixed': '#dde5cd',
+        'secondary-fixed-dim': '#bcc9ae',
+        'on-secondary-fixed': '#141d0f',
+        'on-secondary-fixed-variant': '#39472f',
 
-        tertiary: '#854f00',
-        'tertiary-container': '#a76500',
-        'on-tertiary': '#ffffff',
+        // Третичный — латунь и охра: награды, отличия, «наградные» акценты.
+        tertiary: '#8a5a13',
+        'tertiary-container': ribbon['orange-deep'],
+        'on-tertiary': '#fdf8ec',
         'on-tertiary-container': '#fffbff',
-        'tertiary-fixed': '#ffdcbc',
-        'tertiary-fixed-dim': '#ffb86a',
-        'on-tertiary-fixed': '#2c1700',
-        'on-tertiary-fixed-variant': '#683d00',
+        'tertiary-fixed': ribbon['orange-pale'],
+        'tertiary-fixed-dim': ribbon.orange,
+        'on-tertiary-fixed': '#2c1a00',
+        'on-tertiary-fixed-variant': '#6b4200',
 
-        error: '#ba1a1a',
-        'error-container': '#ffdad6',
-        'on-error': '#ffffff',
-        'on-error-container': '#93000a',
+        error: '#a51b14',
+        'error-container': '#f5d7ce',
+        'on-error': '#fdf8ec',
+        'on-error-container': '#7a0d09',
 
-        'on-surface': '#1a1c1e',
-        'on-surface-variant': '#59413d',
-        'on-background': '#1a1c1e',
-        outline: '#8d706c',
-        'outline-variant': '#e1bfba',
+        'on-surface': ink.DEFAULT,
+        'on-surface-variant': ink.muted,
+        'on-background': ink.DEFAULT,
+        outline: ink.faded,
+        'outline-variant': parchment.line,
 
         // Цвета, которые в макете стояли прямо в разметке. Вынесены сюда,
         // чтобы у каждого было имя и одно место правки.
@@ -73,20 +130,23 @@ export default {
           DEFAULT: '#4d5e43',
           muted: '#5b6e58',
           line: '#7a8d77',
-          surface: '#f2f5f0',
-          'surface-high': '#ebf0e8',
+          surface: '#eef0e4',
+          'surface-high': '#e6eada',
         },
         /** Нарисованная карта маршрутов: бумага, сетка, лес, река. */
         map: {
-          paper: '#f4f1ea',
-          grid: '#dfe5dc',
-          forest: '#e6ede4',
-          river: '#b6d2d1',
+          paper: parchment.lighter,
+          grid: parchment.deep,
+          forest: '#dfe5d3',
+          river: '#bcd3cc',
         },
         /** Подложка «Задания исследователя». */
-        quest: '#fdf6ed',
+        quest: parchment.lightest,
       },
       borderRadius: {
+        // Шкала крупная: `xl` здесь 3rem, а не привычные 0.75rem. На невысоком
+        // элементе такое скругление съедает верхние и нижние углы целиком, и
+        // кнопка превращается в овал — для карточек берите `2xl` (1rem).
         DEFAULT: '1rem',
         lg: '2rem',
         xl: '3rem',
@@ -95,10 +155,15 @@ export default {
         sheet: '28px',
       },
       boxShadow: {
-        header: '0 1px 8px rgba(0, 0, 0, 0.04)',
-        nav: '0 10px 25px -5px rgba(36, 38, 40, 0.08)',
-        sheet: '0 12px 36px rgba(36, 38, 40, 0.08)',
-        float: '0 4px 16px rgba(36, 38, 40, 0.08)',
+        // Тени тёплые: на пергаменте серая тень выглядит грязным пятном.
+        header: '0 1px 8px rgba(92, 69, 32, 0.07)',
+        nav: '0 10px 25px -5px rgba(92, 69, 32, 0.12)',
+        sheet: '0 12px 36px rgba(92, 69, 32, 0.13)',
+        float: '0 4px 16px rgba(92, 69, 32, 0.12)',
+        /** Карточка-документ, лежащая на листе: мягкая тень плюс тёплый кант. */
+        document: '0 2px 0 rgba(255, 252, 242, 0.7) inset, 0 8px 24px rgba(92, 69, 32, 0.12)',
+        /** Оттиск печати и наградных кнопок. */
+        stamp: '0 2px 10px rgba(122, 29, 20, 0.28)',
       },
       spacing: {
         'space-xs': '0.25rem',
@@ -106,6 +171,7 @@ export default {
         'space-md': '1rem',
         'space-lg': '1.5rem',
         'space-xl': '2rem',
+        'space-2xl': '3rem',
         margin: '1rem',
         'margin-tablet': '2rem',
         'margin-desktop': '3rem',
@@ -128,6 +194,8 @@ export default {
         'label-lg': manrope,
         'label-md': manrope,
         'label-sm': manrope,
+        /** Архивная надпись: разрядка вразбивку, как на описи дела. */
+        archival: manrope,
       },
       fontSize: {
         'headline-xl': ['40px', { lineHeight: '48px', letterSpacing: '-0.02em', fontWeight: '800' }],
@@ -142,6 +210,8 @@ export default {
         'label-lg': ['15px', { lineHeight: '20px', letterSpacing: '0.01em', fontWeight: '600' }],
         'label-md': ['13px', { lineHeight: '18px', letterSpacing: '0.02em', fontWeight: '600' }],
         'label-sm': ['11px', { lineHeight: '16px', letterSpacing: '0.04em', fontWeight: '700' }],
+        /** Надзаголовки-рубрики: «ЭКСПЕДИЦИЯ ПАМЯТИ», «АРХИВ». */
+        archival: ['11px', { lineHeight: '14px', letterSpacing: '0.18em', fontWeight: '700' }],
       },
       maxWidth: {
         /** Ширина «телефона»: на десктопе приложение не растягивается во весь экран. */

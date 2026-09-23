@@ -1,41 +1,39 @@
 <script setup lang="ts">
-import type { SignInMethod } from '@/core/session'
 import MsIcon from '@/ui/MsIcon.vue'
 
-defineProps<{
-  /** Способ входа, который сейчас в работе. */
-  active: SignInMethod | null
-  disabled: boolean
-}>()
+defineProps<{ disabled: boolean }>()
 
-defineEmits<{ select: [method: SignInMethod] }>()
+defineEmits<{ select: [provider: { id: string; title: string }] }>()
 
-/** Внешние провайдеры входа. Пока все ведут в ту же заглушку, что и пароль. */
+/**
+ * Внешние провайдеры входа. Обмена токенами за ними пока нет: кнопка сообщает
+ * наверх, какой способ выбрали, а экран входа объясняет, что он не подключён.
+ */
 const providers = [
-  { method: 'gosuslugi', title: 'Госуслуги', icon: 'account_balance', tone: 'bg-primary/10 text-primary' },
-  { method: 'vk-id', title: 'VK ID', icon: 'share', tone: 'bg-secondary/15 text-secondary' },
-  { method: 'sber-id', title: 'Сбер ID', icon: 'payments', tone: 'bg-secondary-fixed text-on-secondary-fixed' },
-] as const satisfies readonly { method: SignInMethod; title: string; icon: string; tone: string }[]
+  { id: 'gosuslugi', title: 'Госуслуги', icon: 'account_balance', tone: 'bg-white/90 text-primary' },
+  { id: 'vk-id', title: 'VK ID', icon: 'share', tone: 'bg-white/90 text-secondary' },
+  { id: 'sber-id', title: 'Сбер ID', icon: 'payments', tone: 'bg-white/90 text-tertiary' },
+] as const satisfies readonly { id: string; title: string; icon: string; tone: string }[]
 </script>
 
 <template>
   <div class="grid grid-cols-3 gap-space-sm">
     <button
-      v-for="provider in providers"
-      :key="provider.method"
+      v-for="(provider, index) in providers"
+      :key="provider.id"
       type="button"
-      class="flex flex-col items-center justify-center rounded-xl bg-surface-container-low px-1 py-2.5 transition-colors hover:bg-surface-container disabled:opacity-60"
+      class="flex flex-col items-center justify-center rounded-lg border border-white/20 bg-white/10 px-1 py-2.5 backdrop-blur-sm transition-colors hover:border-white/40 hover:bg-white/20 disabled:opacity-60 short:py-2"
       :disabled="disabled"
-      @click="$emit('select', provider.method)"
+      @click="$emit('select', { id: provider.id, title: provider.title })"
     >
       <div class="mb-1 flex h-7 w-7 items-center justify-center rounded-full" :class="provider.tone">
-        <MsIcon
-          :name="active === provider.method ? 'progress_activity' : provider.icon"
-          :size="15"
-          :class="{ 'animate-spin': active === provider.method }"
-        />
+        <MsIcon :name="provider.icon" :size="15" />
       </div>
-      <span class="truncate font-label-sm text-label-sm text-on-surface">{{ provider.title }}</span>
+      <span
+        class="ribbon-shimmer truncate font-label-sm text-label-sm text-white"
+        :style="{ animationDelay: `${2000 + index * 260}ms` }"
+        >{{ provider.title }}</span
+      >
     </button>
   </div>
 </template>
