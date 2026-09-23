@@ -11,8 +11,11 @@ const props = defineProps({
 const status = ref('idle') // idle | locating | error
 const error = ref('')
 
+// rtext — точки маршрута через "~" (lat,lon~lat,lon), rtt=auto — на машине.
+// Точку отправления можно оставить пустой (rtext=~lat,lon) — Яндекс.Карты
+// сами попросят её ввести.
 function openDirections(fromLat, fromLon) {
-  const url = `https://www.google.com/maps/dir/?api=1&origin=${fromLat},${fromLon}&destination=${props.point.lat},${props.point.lon}&travelmode=driving`
+  const url = `https://yandex.ru/maps/?rtext=${fromLat},${fromLon}~${props.point.lat},${props.point.lon}&rtt=auto`
   window.open(url, '_blank', 'noopener')
 }
 
@@ -21,11 +24,7 @@ function buildRoute() {
   if (!navigator.geolocation) {
     // Геолокации нет (или страница не по HTTPS) — открываем маршрут без
     // точки отправления, внешние карты сами предложат её ввести.
-    window.open(
-      `https://www.google.com/maps/dir/?api=1&destination=${props.point.lat},${props.point.lon}&travelmode=driving`,
-      '_blank',
-      'noopener',
-    )
+    window.open(`https://yandex.ru/maps/?rtext=~${props.point.lat},${props.point.lon}&rtt=auto`, '_blank', 'noopener')
     return
   }
   status.value = 'locating'
