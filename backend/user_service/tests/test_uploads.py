@@ -65,3 +65,21 @@ def test_upload_stores_object_and_returns_url_usable_as_avatar(client, fake_stor
     )
     assert updated.status_code == 200
     assert updated.json()["avatar_url"] == url
+
+
+def test_avatar_url_can_be_cleared(client):
+    header = auth_header(user_id="u1")
+    client.put("/profiles/me", headers=header, json={"avatar_url": "https://example.com/a.jpg"})
+
+    cleared = client.put("/profiles/me", headers=header, json={"avatar_url": None})
+    assert cleared.status_code == 200
+    assert cleared.json()["avatar_url"] is None
+
+
+def test_other_fields_ignore_explicit_null(client):
+    header = auth_header(user_id="u1")
+    client.put("/profiles/me", headers=header, json={"city": "Орёл"})
+
+    r = client.put("/profiles/me", headers=header, json={"city": None})
+    assert r.status_code == 200
+    assert r.json()["city"] == "Орёл"

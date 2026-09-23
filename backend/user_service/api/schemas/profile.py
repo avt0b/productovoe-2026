@@ -42,7 +42,10 @@ class ProfileUpdate(BaseModel):
     home_lon: float | None = Field(default=None, ge=-180, le=180)
 
     def to_update_dict(self) -> dict:
-        return self.model_dump(exclude_unset=True, exclude_none=True)
+        # avatar_url — единственное поле, где null осмыслен (снять аватарку):
+        # остальные строковые поля в модели NOT NULL, слать под них null незачем.
+        data = self.model_dump(exclude_unset=True)
+        return {k: v for k, v in data.items() if v is not None or k == "avatar_url"}
 
 
 class VerifyRequest(BaseModel):
