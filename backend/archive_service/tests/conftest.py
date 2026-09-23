@@ -49,6 +49,15 @@ def client():
         yield c
 
 
+@pytest.fixture(autouse=True)
+def no_real_achievement_calls(monkeypatch):
+    """По умолчанию не ходим в сеть за user_service — тесты не про ачивки
+    делают это на каждом verify/reject."""
+    import services.entry_service as entry_service_module
+
+    monkeypatch.setattr(entry_service_module, "award_achievement", lambda **kw: None)
+
+
 def pytest_sessionfinish(session, exitstatus):
     try:
         os.unlink(_db_path)

@@ -37,6 +37,11 @@ Swagger — <http://127.0.0.1:8005/docs>. Тесты: `uv run pytest`.
 | `POST /entries/{id}/verify` · `/reject` | `searcher` / `local_historian` / `mentor` / `moderator` / root |
 | `DELETE /entries/{id}` | верификатор, либо автор пока `pending` |
 
+Каждый `verify`/`reject` шлёт `user_service` `POST /internal/achievements/award`
+с кодом `archive_helper` (`services/achievement_client.py`) — геймификация
+«помочь проверить» из ТЗ. Недоступность user_service не мешает
+верифицировать запись — ачивка просто не выдастся.
+
 ### Служебная заметка (`review_note`) не публична
 
 `review_note` — комментарий верификатора (обычно виден только на `reject`, но

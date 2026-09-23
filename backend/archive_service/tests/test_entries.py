@@ -83,6 +83,36 @@ def test_verify_permissions(client):
     )
 
 
+def test_verify_awards_archive_helper_achievement(client, monkeypatch):
+    import services.entry_service as entry_service_module
+
+    calls = []
+    monkeypatch.setattr(
+        entry_service_module, "award_achievement", lambda **kw: calls.append(kw)
+    )
+
+    e = create_entry(client, auth_header(user_id="author-1")).json()
+    client.post(
+        f"/entries/{e['id']}/verify", headers=auth_header(role="moderator", user_id="mod-1"), json={}
+    )
+    assert calls == [{"user_id": "mod-1", "code": "archive_helper"}]
+
+
+def test_reject_also_awards_archive_helper_achievement(client, monkeypatch):
+    import services.entry_service as entry_service_module
+
+    calls = []
+    monkeypatch.setattr(
+        entry_service_module, "award_achievement", lambda **kw: calls.append(kw)
+    )
+
+    e = create_entry(client, auth_header(user_id="author-1")).json()
+    client.post(
+        f"/entries/{e['id']}/reject", headers=auth_header(role="moderator", user_id="mod-1"), json={}
+    )
+    assert calls == [{"user_id": "mod-1", "code": "archive_helper"}]
+
+
 def test_searcher_can_verify(client):
     e = create_entry(client, auth_header(user_id="author-1")).json()
     r = client.post(

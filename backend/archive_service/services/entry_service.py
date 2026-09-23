@@ -8,11 +8,13 @@ from core.exceptions import Conflict, NotFound, PermissionDenied
 from core.models import ArchiveEntry, EntryStatus
 from core.security import Principal
 from repositories.entry_repository import EntryRepository
+from services.achievement_client import award_achievement
 
 logger = logging.getLogger(__name__)
 
 # Кто может верифицировать записи (поисковик / краевед / наставник / модератор).
 VERIFIER_ROLES = {"searcher", "local_historian", "mentor", "moderator"}
+ACHIEVEMENT_ARCHIVE_HELPER = "archive_helper"
 
 
 def _can_verify(principal: Principal) -> bool:
@@ -138,4 +140,5 @@ class EntryService:
         entry.review_note = note
         self.db.commit()
         self.db.refresh(entry)
+        award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_ARCHIVE_HELPER)
         return entry
