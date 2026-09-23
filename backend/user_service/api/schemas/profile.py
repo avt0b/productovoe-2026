@@ -25,6 +25,11 @@ class ProfileOut(BaseModel):
     # владение»). Дефолт [] — на месте, где achievements не подгружали явно
     # (PUT/verify/список), model_validate(profile) просто оставит пусто.
     achievements: list[AchievementOut] = []
+    # Та же история, что и с achievements выше — заполняются только там, где
+    # запрошены явно (GET /profiles/me, GET /profiles/{id}), иначе дефолт 0.
+    routes_completed: int = 0
+    excursions_completed: int = 0
+    finds_count: int = 0
     created_at: datetime
 
 

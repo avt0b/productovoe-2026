@@ -39,8 +39,13 @@ Swagger — <http://127.0.0.1:8005/docs>. Тесты: `uv run pytest`.
 
 Каждый `verify`/`reject` шлёт `user_service` `POST /internal/achievements/award`
 с кодом `archive_helper` (`services/achievement_client.py`) — геймификация
-«помочь проверить» из ТЗ. Недоступность user_service не мешает
-верифицировать запись — ачивка просто не выдастся.
+«помочь проверить» из ТЗ, достаётся верификатору. Недоступность user_service
+не мешает верифицировать запись — ачивка просто не выдастся.
+
+Отдельно, только на `verify` (не на `reject`), туда же летит
+`POST /internal/stats/increment` с `finds_count` — но уже **автору записи**
+(`submitted_by`), не верификатору: это статистика профиля «сколько находок»,
+не ачивка. См. [user_service/README.md](../user_service/README.md#статистика-профиля).
 
 ### Служебная заметка (`review_note`) не публична
 
