@@ -16,3 +16,10 @@ export function updateMyProfile(token, payload) {
 export function getMyAchievements(token) {
   return http.get('/api/users/achievements/me', { token })
 }
+
+// media_service принимает только изображения (JPEG/PNG/WebP, ≤15МБ) — этого
+// достаточно для фото документа (диплом, членский билет краеведческого
+// общества и т.п.), отдельной ручки под документы на бэке нет.
+export function uploadVerificationDocument(token, file) {
+  return http.upload('/api/media/uploads', file, { token })
+}

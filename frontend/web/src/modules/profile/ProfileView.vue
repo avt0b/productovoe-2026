@@ -6,6 +6,7 @@ import FamilyTree from './components/FamilyTree.vue'
 import AwardsBadges from './components/AwardsBadges.vue'
 import ResearcherDataForm from './components/ResearcherDataForm.vue'
 import ExpeditionSettings from './components/ExpeditionSettings.vue'
+import LocalHistorianVerification from './components/LocalHistorianVerification.vue'
 import { useAuthSession, roleLabel } from '@modules/auth'
 import { MyExcursions } from '@modules/excursions'
 import { useProfileStore } from './profileStore.js'
@@ -61,6 +62,7 @@ const heroProps = computed(() => {
 
       <div class="lg:col-span-5 flex flex-col gap-8">
         <MyExcursions />
+        <LocalHistorianVerification />
         <ResearcherDataForm />
         <ExpeditionSettings />
       </div>

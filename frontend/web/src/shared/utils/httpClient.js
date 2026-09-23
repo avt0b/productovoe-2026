@@ -35,10 +35,31 @@ async function request(path, { method = 'GET', body, token, headers } = {}) {
   return payload
 }
 
+// multipart/form-data — свой путь в обход request(), потому что там тело
+// всегда уходит как JSON (Content-Type: application/json).
+async function upload(path, file, { token } = {}) {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(path, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  })
+  const isJson = res.headers.get('content-type')?.includes('application/json')
+  const payload = isJson ? await res.json().catch(() => null) : null
+  if (!res.ok) {
+    const detail = payload?.detail ?? res.statusText
+    throw new ApiError(typeof detail === 'string' ? detail : 'Ошибка запроса', res.status, detail)
+  }
+  return payload
+}
+
 export const http = {
   get: (path, options) => request(path, { ...options, method: 'GET' }),
   post: (path, body, options) => request(path, { ...options, method: 'POST', body }),
   put: (path, body, options) => request(path, { ...options, method: 'PUT', body }),
   patch: (path, body, options) => request(path, { ...options, method: 'PATCH', body }),
   delete: (path, options) => request(path, { ...options, method: 'DELETE' }),
+  upload,
 }
