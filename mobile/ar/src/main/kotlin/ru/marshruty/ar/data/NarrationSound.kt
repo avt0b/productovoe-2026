@@ -22,6 +22,12 @@ interface NarrationSound {
     /** Позиция звука, мс. `null` — звука нет, время придётся считать самому. */
     val positionMillis: Long?
 
+    /**
+     * Длина записи, мс. `null` — пока неизвестна: плеер ещё готовится или
+     * звука нет вовсе. По ней подгоняются субтитры, нарезанные на глаз.
+     */
+    val durationMillis: Long?
+
     /** Человек хочет слушать: рассказ не на паузе и не доигран. */
     val isPlaying: Boolean
 
@@ -158,6 +164,15 @@ internal class MediaPlayerNarration(
             State.FINISHED -> player?.duration?.toLong() ?: 0L
             State.READY -> runCatching { player?.currentPosition?.toLong() }.getOrNull()
             State.FAILED -> null
+        }
+
+    override val durationMillis: Long?
+        get() = when (state) {
+            State.READY, State.FINISHED ->
+                // У потокового источника длина бывает неизвестна: MediaPlayer
+                // отдаёт -1, и подогнать субтитры не под что.
+                runCatching { player?.duration?.toLong() }.getOrNull()?.takeIf { it > 0 }
+            State.PREPARING, State.FAILED -> null
         }
 
     override val isPlaying: Boolean

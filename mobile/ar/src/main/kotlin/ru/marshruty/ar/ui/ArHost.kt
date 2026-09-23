@@ -46,6 +46,7 @@ import ru.marshruty.ar.domain.DeviceOrientation
 import ru.marshruty.ar.domain.MarkerStatus
 import ru.marshruty.ar.domain.buildSceneState
 import ru.marshruty.ar.domain.croppedFieldOfView
+import ru.marshruty.ar.domain.fittedTo
 import ru.marshruty.ar.domain.flipTransform
 import ru.marshruty.ar.domain.narrationPositionMillis
 import ru.marshruty.ar.domain.resolveCompanionAction
@@ -162,7 +163,21 @@ fun ArHost(
 
     // Голос проводника. null — озвучки на точку нет, рассказ идёт субтитрами.
     val narration = rememberNarrationSound(spec.narration.audioUri)
-    val narrationDuration = remember(spec.narration) { spec.narration.subtitles.durationMillis() }
+
+    // Длина записи известна не сразу — плеер сообщает её, когда подготовится.
+    val audioDuration = remember { mutableLongStateOf(0L) }
+
+    // Субтитры, нарезанные хостом на глаз, подгоняются под голос. Настоящие
+    // таймкоды остаются как есть: они точнее любой оценки.
+    val shownSpec = remember(spec, audioDuration.longValue) {
+        val duration = audioDuration.longValue
+        if (!spec.narration.subtitlesAreEstimated || duration <= 0) {
+            spec
+        } else {
+            spec.copy(narration = spec.narration.copy(subtitles = spec.narration.subtitles.fittedTo(duration)))
+        }
+    }
+    val narrationDuration = remember(shownSpec.narration) { shownSpec.narration.subtitles.durationMillis() }
 
     var narrationStartedAt by remember { mutableLongStateOf(0L) }
     var pausedPosition by remember { mutableLongStateOf(0L) }
@@ -193,6 +208,9 @@ fun ArHost(
     val narrationPosition = remember { mutableLongStateOf(0L) }
     LaunchedEffect(narration, spec.narration) {
         while (true) {
+            narration?.durationMillis?.let { known ->
+                if (audioDuration.longValue != known) audioDuration.longValue = known
+            }
             // Без звука пауза должна останавливать и субтитры: часы-то идут.
             if (isPlaying || narration != null) {
                 narrationPosition.longValue = narrationPositionMillis(
@@ -210,8 +228,8 @@ fun ArHost(
         }
     }
 
-    val subtitlePosition by remember(spec.narration) {
-        derivedStateOf { spec.narration.subtitles.stablePositionAt(narrationPosition.longValue) }
+    val subtitlePosition by remember(shownSpec.narration) {
+        derivedStateOf { shownSpec.narration.subtitles.stablePositionAt(narrationPosition.longValue) }
     }
     val actionState = remember(trickClip, isSpeaking) {
         derivedStateOf {
@@ -264,7 +282,7 @@ fun ArHost(
 
     Box(modifier = modifier.fillMaxSize()) {
         ArScreen(
-            spec = spec,
+            spec = shownSpec,
             scene = scene,
             playback = NarrationPlayback(
                 positionMillis = subtitlePosition,
