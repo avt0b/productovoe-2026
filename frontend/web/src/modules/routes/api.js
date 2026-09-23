@@ -2,6 +2,7 @@ import { http } from '@shared/utils/httpClient.js'
 
 const BASE = '/api/routes/routes'
 const POI_BASE = '/api/map/poi'
+const ARCHIVE_ENTRIES_BASE = '/api/archive/entries'
 
 // Слой «ВОВ» (map_service): захоронения, памятники, места боёв и т.д.
 // Ручка публичная, токен не нужен (map_service/api/routers/poi.py list_poi).
@@ -31,4 +32,28 @@ export function getMyProgress(token, routeId) {
 
 export function completeWaypoint(token, routeId, waypointId) {
   return http.post(`${BASE}/${routeId}/progress/complete-waypoint`, { waypoint_id: waypointId }, { token })
+}
+
+// archive_service: «народный архив» — неподтверждённые записи в прямоугольнике
+// вокруг маршрута, витрина для подсказки «рядом есть неподтверждённая заметка,
+// помоги проверить» (entries.py: GET /entries/nearby-pending). Публичная ручка,
+// токен не нужен.
+export function listNearbyPendingEntries({ minLat, minLon, maxLat, maxLon }) {
+  const params = new URLSearchParams({
+    min_lat: minLat,
+    min_lon: minLon,
+    max_lat: maxLat,
+    max_lon: maxLon,
+    limit: 50,
+  })
+  return http.get(`${ARCHIVE_ENTRIES_BASE}/nearby-pending?${params}`)
+}
+
+// Проверить может поисковик/краевед/наставник/модератор (EntryService.VERIFIER_ROLES).
+export function verifyArchiveEntry(token, entryId, note = '') {
+  return http.post(`${ARCHIVE_ENTRIES_BASE}/${entryId}/verify`, { note }, { token })
+}
+
+export function rejectArchiveEntry(token, entryId, note = '') {
+  return http.post(`${ARCHIVE_ENTRIES_BASE}/${entryId}/reject`, { note }, { token })
 }
