@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
@@ -23,6 +23,42 @@ const session = useSessionStore()
 const { data: excursion, loading, error, retry } = useAsync(() =>
   fetchExcursion(props.excursionId, session.hasAccount),
 )
+
+/**
+ * Как часто записанный участник проверяет, не открыл ли краевед сбор, мс.
+ *
+ * Раньше экскурсия загружалась один раз: краевед уже стоял на месте, а у
+ * участника до перезахода висело «Экскурсия скоро» без кнопки «отметиться».
+ * Пять секунд — человек ещё идёт к месту сбора, а кнопка уже появилась.
+ */
+const WATCH_START_MS = 5000
+
+/** Ждать начала сбора есть смысл только записанному, пока сбор не начался. */
+const waitingForGathering = computed(
+  () => excursion.value?.status === 'scheduled' && excursion.value.viewer?.registered === true,
+)
+
+let watchTimer: ReturnType<typeof setInterval> | undefined
+
+/** Тихое обновление: без «загрузки» на экране — иначе он мигал бы каждые пять секунд. */
+async function refreshQuietly(): Promise<void> {
+  try {
+    excursion.value = await fetchExcursion(props.excursionId, session.hasAccount)
+  } catch {
+    // Сеть моргнула — попробуем на следующем круге, экран не трогаем.
+  }
+}
+
+watch(
+  waitingForGathering,
+  (waiting) => {
+    clearInterval(watchTimer)
+    watchTimer = waiting ? setInterval(() => void refreshQuietly(), WATCH_START_MS) : undefined
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => clearInterval(watchTimer))
 
 const busy = ref(false)
 const actionError = ref<string | null>(null)

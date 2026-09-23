@@ -5,6 +5,8 @@ import pytest
 from conftest import auth_header
 
 from services.bump_matcher import BumpMatcher, Shake, bump_matcher
+# Импорт до autouse-заглушки из conftest: тесту клиента нужен настоящий.
+from services.notify_client import notify_users as real_notify_users
 
 # Братская могила на площади Мира, Орёл — место сбора группы.
 SITE = {"lat": 52.967986, "lon": 36.078488}
@@ -275,3 +277,42 @@ def test_matcher_forgets_old_shakes():
     matcher.shake(Shake("ex", "a", False, 1000.0))
     clock[0] += 60
     assert matcher.shake(Shake("ex", GUIDE, True, 1000.5)) == []
+
+
+def test_gathering_start_notifies_registered_people(client, guide_header, visitor_header, monkeypatch):
+    from services import notify_client
+
+    sent = []
+    monkeypatch.setattr(notify_client, "notify_users", lambda **kw: sent.append(kw))
+
+    excursion_id = make_excursion(client, guide_header).json()["id"]
+    register(client, visitor_header, excursion_id)
+    # Записался и передумал — ему о сборе не пишем.
+    other = auth_header(user_id="visitor-2")
+    register(client, other, excursion_id)
+    client.delete(f"/excursions/{excursion_id}/registrations/me", headers=other)
+
+    assert start_gathering(client, guide_header, excursion_id).status_code == 200
+
+    assert len(sent) == 1
+    call = sent[0]
+    assert call["user_ids"] == [VISITOR]
+    assert call["kind"] == "excursion_gathering_started"
+    assert call["payload"] == {"excursion_id": excursion_id}
+    assert "Площадь Мира" in call["body"]
+
+    # Повторное «Начать сбор» ничего не рассылает: сбор уже идёт.
+    start_gathering(client, guide_header, excursion_id)
+    assert len(sent) == 1
+
+
+def test_notify_client_swallows_network_errors(monkeypatch):
+    """user_service лежит — открытие сбора не должно падать вместе с ним."""
+    import httpx
+
+    def down(*args, **kwargs):
+        raise httpx.ConnectError("user_service лежит")
+
+    monkeypatch.setattr(httpx, "post", down)
+    # Настоящий клиент, взятый до подмены заглушкой из conftest.
+    real_notify_users(user_ids=["visitor-1"], kind="k", title="t", body="b")

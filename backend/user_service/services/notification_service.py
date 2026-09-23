@@ -65,6 +65,27 @@ class NotificationService:
 
     # --- рассылка (вызывается из /internal, см. api/routers/internal.py) ---
 
+    def notify_users(
+        self, *, user_ids: list[str], kind: str, title: str, body: str, payload: dict | None
+    ) -> int:
+        """Уведомляет конкретных людей. Возвращает число созданных уведомлений.
+
+        Профиль для этого не нужен: уведомление привязано к user_id, а не к
+        профилю, — человек, ещё не заполнивший профиль, тоже должен узнать, что
+        его ждут на сборе.
+        """
+        # Один и тот же человек мог попасть в список дважды — второе уведомление
+        # о том же событии было бы шумом.
+        unique_ids = list(dict.fromkeys(user_id for user_id in user_ids if user_id))
+        for user_id in unique_ids:
+            notification = self.repo.add(
+                Notification(user_id=user_id, kind=kind, title=title, body=body, payload=payload)
+            )
+            push_service.deliver(self.db, notification)
+        if unique_ids:
+            self.db.commit()
+        return len(unique_ids)
+
     def broadcast_nearby(
         self, *, lat: float, lon: float, kind: str, title: str, body: str, payload: dict | None
     ) -> int:

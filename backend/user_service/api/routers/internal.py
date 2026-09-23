@@ -13,7 +13,12 @@ from api.deps import (
     StatsServiceDep,
 )
 from api.schemas.achievement import AwardOut, AwardRequest
-from api.schemas.notification import BroadcastNearbyOut, BroadcastNearbyRequest
+from api.schemas.notification import (
+    BroadcastNearbyOut,
+    BroadcastNearbyRequest,
+    NotifyUsersOut,
+    NotifyUsersRequest,
+)
 from api.schemas.profile import ProfileOut
 from api.schemas.stats import StatIncrementOut, StatIncrementRequest
 from core.internal import InternalActor, require_internal_key
@@ -128,6 +133,22 @@ def broadcast_nearby(
         payload=payload.payload,
     )
     return BroadcastNearbyOut(notified=count)
+
+
+@router.post("/notifications/send", response_model=NotifyUsersOut)
+def notify_users(payload: NotifyUsersRequest, service: NotificationServiceDep) -> NotifyUsersOut:
+    """Адресная рассылка из другого сервиса — конкретным людям по user_id.
+
+    search_hq_service зовёт её, когда краевед открыл сбор: записанные узнают об
+    этом сразу, а не когда сами заглянут в экскурсию."""
+    count = service.notify_users(
+        user_ids=payload.user_ids,
+        kind=payload.kind,
+        title=payload.title,
+        body=payload.body,
+        payload=payload.payload,
+    )
+    return NotifyUsersOut(notified=count)
 
 
 @router.post("/achievements/award", response_model=AwardOut)

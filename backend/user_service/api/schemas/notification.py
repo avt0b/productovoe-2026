@@ -49,3 +49,21 @@ class BroadcastNearbyRequest(BaseModel):
 
 class BroadcastNearbyOut(BaseModel):
     notified: int
+
+
+class NotifyUsersRequest(BaseModel):
+    """Адресная рассылка из другого сервиса: конкретным людям, а не «всем рядом».
+
+    Пример — search_hq_service, когда краевед открыл сбор: уведомление уходит
+    тем, кто записан на экскурсию, где бы они сейчас ни были.
+    """
+
+    user_ids: list[str] = Field(min_length=1, max_length=500)
+    kind: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=255)
+    body: str = Field(default="", max_length=2000)
+    payload: dict | None = None
+
+
+class NotifyUsersOut(BaseModel):
+    notified: int

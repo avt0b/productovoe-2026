@@ -68,6 +68,15 @@ def no_real_achievement_calls(monkeypatch):
     monkeypatch.setattr(stats_client_module, "increment_stat", lambda **kw: None)
 
 
+@pytest.fixture(autouse=True)
+def no_real_notifications(monkeypatch):
+    """Уведомления о сборе — тоже поход в user_service; тесты, которым они
+    важны, подменяют заглушку на свою и смотрят, что ушло."""
+    from services import notify_client
+
+    monkeypatch.setattr(notify_client, "notify_users", lambda **kw: None)
+
+
 def pytest_sessionfinish(session, exitstatus):
     try:
         os.unlink(_db_path)
