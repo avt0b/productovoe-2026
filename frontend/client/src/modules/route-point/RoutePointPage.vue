@@ -135,7 +135,13 @@ async function launchAr(): Promise<void> {
       companion: current.solemn
         ? null
         : { name: 'Проводник маршрута', subtitle: current.routeTitle, asset: 'companion/verny.glb' },
-      narration: { audioUrl: current.audioUrl, subtitles: buildSubtitles(current.story ?? current.title) },
+      narration: {
+        audioUrl: current.audioUrl,
+        subtitles: buildSubtitles(current.story ?? current.title),
+        // Строки нарезаны из текста, а не размечены по голосу: с озвучкой
+        // модуль подгонит их сам, иначе она уйдёт вперёд субтитров.
+        subtitlesAreEstimated: true,
+      },
       marker: { asset: AR_MARKER, fallbackAfterMs: 4000 },
     })
     if (result.outcome === 'completed') {

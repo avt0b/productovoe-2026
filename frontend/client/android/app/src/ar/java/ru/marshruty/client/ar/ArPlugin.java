@@ -152,8 +152,13 @@ public class ArPlugin extends Plugin {
     private NarrationSpec narration(JSObject narration) throws JSONException {
         List<SubtitleLine> lines = new ArrayList<>();
         String audioUri = null;
+        // Таймкодов бэкенд не отдаёт, и приложение режет текст на глаз. Модулю
+        // об этом надо сказать: он подгонит строки под длину записи, иначе
+        // голос и субтитры разъедутся уже на второй фразе.
+        boolean estimated = false;
         if (narration != null) {
             audioUri = narration.getString("audioUrl");
+            estimated = Boolean.TRUE.equals(narration.getBoolean("subtitlesAreEstimated", false));
             JSONArray subtitles = narration.getJSONArray("subtitles");
             if (subtitles != null) {
                 for (int index = 0; index < subtitles.length(); index++) {
@@ -166,7 +171,7 @@ public class ArPlugin extends Plugin {
                 }
             }
         }
-        return new NarrationSpec(audioUri, lines);
+        return new NarrationSpec(audioUri, lines, estimated);
     }
 
     private MarkerSpec marker(JSObject marker) {
