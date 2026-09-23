@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
 import { useAuthSession } from '@modules/auth'
+import ExcursionChecklistModal from './ExcursionChecklistModal.vue'
 import * as excursionsApi from '../api.js'
 
 const { session } = useAuthSession()
@@ -38,6 +39,32 @@ watch(() => session.accessToken, load)
 function formatDate(iso) {
   return new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
 }
+
+// Отписаться можно только пока экскурсия ещё не начала собираться
+// (ExcursionService.cancel_registration: "После начала сбора отписаться нельзя").
+const cancellingId = ref(null)
+const cancelError = ref('')
+
+async function cancelRegistration(ex) {
+  cancellingId.value = ex.id
+  cancelError.value = ''
+  try {
+    await excursionsApi.cancelRegistration(session.accessToken, ex.id)
+    joined.value = joined.value.filter((j) => j.id !== ex.id)
+  } catch (err) {
+    cancelError.value = err.detail ?? 'Не удалось отписаться от экскурсии'
+  } finally {
+    cancellingId.value = null
+  }
+}
+
+const checklistOpen = ref(false)
+const checklistExcursion = ref(null)
+
+function openChecklist(ex) {
+  checklistExcursion.value = ex
+  checklistOpen.value = true
+}
 </script>
 
 <template>
@@ -55,6 +82,7 @@ function formatDate(iso) {
     </p>
 
     <template v-else-if="status === 'loaded'">
+      <p v-if="cancelError" class="font-body-sm text-body-sm text-error">{{ cancelError }}</p>
       <p v-if="!joined.length && !guiding.length" class="font-body-sm text-body-sm text-on-surface-variant">
         Вы пока не записаны ни на одну экскурсию.
       </p>
@@ -64,7 +92,7 @@ function formatDate(iso) {
         <div
           v-for="ex in joined"
           :key="ex.id"
-          class="bg-surface-container-low p-3.5 rounded-DEFAULT flex items-center justify-between gap-3"
+          class="bg-surface-container-low p-3.5 rounded-DEFAULT flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         >
           <div class="flex flex-col min-w-0">
             <span class="font-label-md text-label-md text-on-surface font-bold truncate">{{ ex.title }}</span>
@@ -72,12 +100,34 @@ function formatDate(iso) {
               {{ formatDate(ex.starts_at) }} · {{ ex.place_name || 'место уточняется' }}
             </span>
           </div>
-          <span
-            class="px-2.5 py-1 rounded-full font-label-sm text-label-sm font-bold shrink-0"
-            :class="STATUS_META[ex.status]?.class ?? 'bg-surface-container text-on-surface-variant'"
-          >
-            {{ STATUS_META[ex.status]?.label ?? ex.status }}
-          </span>
+          <div class="flex items-center gap-2 shrink-0 flex-wrap">
+            <span
+              class="px-2.5 py-1 rounded-full font-label-sm text-label-sm font-bold"
+              :class="STATUS_META[ex.status]?.class ?? 'bg-surface-container text-on-surface-variant'"
+            >
+              {{ STATUS_META[ex.status]?.label ?? ex.status }}
+            </span>
+            <button
+              type="button"
+              class="px-3 py-1.5 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm font-bold flex items-center gap-1.5 hover:bg-surface-container-high transition-colors"
+              @click="openChecklist(ex)"
+            >
+              <span class="material-symbols-outlined text-[16px]">checklist</span>
+              Что взять
+            </button>
+            <button
+              v-if="ex.status === 'scheduled'"
+              type="button"
+              class="px-3 py-1.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-bold flex items-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-50"
+              :disabled="cancellingId === ex.id"
+              @click="cancelRegistration(ex)"
+            >
+              <span class="material-symbols-outlined text-[16px]" :class="{ 'animate-spin': cancellingId === ex.id }">
+                {{ cancellingId === ex.id ? 'sync' : 'close' }}
+              </span>
+              Отписаться
+            </button>
+          </div>
         </div>
       </div>
 
@@ -97,5 +147,7 @@ function formatDate(iso) {
         </div>
       </div>
     </template>
+
+    <ExcursionChecklistModal v-model="checklistOpen" :excursion="checklistExcursion" />
   </div>
 </template>
