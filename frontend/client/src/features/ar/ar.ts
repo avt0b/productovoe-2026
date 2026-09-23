@@ -13,7 +13,16 @@ export interface ArPoint {
    * могилы и мемориала он читается как неуважение.
    */
   companion: { name: string; subtitle: string; asset: string } | null
-  narration: { audioUrl: string | null; subtitles: ArSubtitle[] }
+  narration: {
+    /** Записанная озвучка точки. `null` — рассказ идёт одними субтитрами. */
+    audioUrl: string | null
+    subtitles: ArSubtitle[]
+    /**
+     * Субтитры нарезаны на глаз, а не размечены по голосу. Модуль подгонит их
+     * под длину записи, когда та известна.
+     */
+    subtitlesAreEstimated?: boolean
+  }
   /** Печатная табличка на точке: проводник встаёт на неё через ARCore. */
   marker: { asset: string; widthMeters?: number; fallbackAfterMs?: number } | null
 }
@@ -52,8 +61,11 @@ export function openAr(point: ArPoint): Promise<ArResult> {
 const LINE_MS = 6000
 
 /**
- * Рассказ точки — в субтитры по предложениям. Озвучки пока нет: модуль всё
- * равно показывает текст, а на улице его чаще читают, чем слушают.
+ * Рассказ точки — в субтитры по предложениям.
+ *
+ * Разметки по голосу бэкенд не отдаёт, поэтому строки нарезаются на глаз и
+ * помечаются `subtitlesAreEstimated`: с озвучкой модуль растянет их под её
+ * длину, без озвучки они так и идут по шесть секунд.
  */
 export function buildSubtitles(story: string): ArSubtitle[] {
   const sentences = story
