@@ -1,6 +1,6 @@
 import { http } from '@shared/utils/httpClient.js'
 
-const BASE = '/api/search-hq'
+const BASE = '/api/search'
 
 export function listNeeds({ kind, status = 'open' } = {}) {
   const params = new URLSearchParams({ status })

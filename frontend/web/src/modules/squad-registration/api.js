@@ -1,6 +1,6 @@
 import { http } from '@shared/utils/httpClient.js'
 
-const BASE = '/api/search-hq/squads'
+const BASE = '/api/search/squads'
 
 // Отряды — реальный бэкенд (search_hq_service, POST /squads уже существует).
 export function createSquad(token, payload) {
