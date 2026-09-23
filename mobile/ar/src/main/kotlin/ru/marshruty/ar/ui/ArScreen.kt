@@ -30,6 +30,8 @@ import ru.marshruty.ar.lineAt
 data class ArScreenActions(
     val onClose: () -> Unit = {},
     val onToggleMute: () -> Unit = {},
+    /** Пауза и продолжение рассказа: у памятника останавливаются и молчат. */
+    val onTogglePlay: () -> Unit = {},
     val onReplay: () -> Unit = {},
     val onAim: () -> Unit = {},
     val onMarkerTap: () -> Unit = {},
@@ -153,7 +155,9 @@ fun ArScreen(
                     spec = companion,
                     subtitle = spec.narration.subtitles.lineAt(playback.positionMillis)?.text,
                     isSpeaking = playback.isPlaying && !playback.isMuted,
+                    isPlaying = playback.isPlaying,
                     aimLabel = spec.target?.let { "Навести на цель" },
+                    onTogglePlay = actions.onTogglePlay,
                     onReplay = actions.onReplay,
                     onAim = actions.onAim,
                     onTrick = actions.onTrick,
