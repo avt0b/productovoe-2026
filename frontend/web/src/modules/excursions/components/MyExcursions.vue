@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { useAuthSession } from '@modules/auth'
 import ExcursionChecklistModal from './ExcursionChecklistModal.vue'
+import ExcursionMapModal from './ExcursionMapModal.vue'
 import * as excursionsApi from '../api.js'
 
 const { session } = useAuthSession()
@@ -65,6 +66,14 @@ function openChecklist(ex) {
   checklistExcursion.value = ex
   checklistOpen.value = true
 }
+
+const mapOpen = ref(false)
+const mapExcursion = ref(null)
+
+function openMap(ex) {
+  mapExcursion.value = ex
+  mapOpen.value = true
+}
 </script>
 
 <template>
@@ -110,6 +119,14 @@ function openChecklist(ex) {
             <button
               type="button"
               class="px-3 py-1.5 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm font-bold flex items-center gap-1.5 hover:bg-surface-container-high transition-colors"
+              @click="openMap(ex)"
+            >
+              <span class="material-symbols-outlined text-[16px]">map</span>
+              Карта
+            </button>
+            <button
+              type="button"
+              class="px-3 py-1.5 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm font-bold flex items-center gap-1.5 hover:bg-surface-container-high transition-colors"
               @click="openChecklist(ex)"
             >
               <span class="material-symbols-outlined text-[16px]">checklist</span>
@@ -144,10 +161,19 @@ function openChecklist(ex) {
               {{ formatDate(ex.starts_at) }} · {{ ex.registered_count }} записалось
             </span>
           </div>
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm font-bold flex items-center gap-1.5 hover:bg-surface-container-high transition-colors shrink-0"
+            @click="openMap(ex)"
+          >
+            <span class="material-symbols-outlined text-[16px]">map</span>
+            Карта
+          </button>
         </div>
       </div>
     </template>
 
     <ExcursionChecklistModal v-model="checklistOpen" :excursion="checklistExcursion" />
+    <ExcursionMapModal v-model="mapOpen" :excursion="mapExcursion" />
   </div>
 </template>

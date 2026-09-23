@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import LeafletMap from '@shared/components/LeafletMap.vue'
+import DirectionsButton from '@shared/components/DirectionsButton.vue'
+import PointReviews from '@shared/components/PointReviews.vue'
 import * as routesApi from '../api.js'
 
 const FALLBACK_CENTER = [52.9651, 36.0785] // Орёл
@@ -74,6 +76,10 @@ const kindsPresent = computed(() => {
   const present = new Set(points.value.map((p) => p.kind))
   return Object.keys(KIND_META).filter((k) => present.has(k))
 })
+
+function formatAdded(iso) {
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+}
 </script>
 
 <template>
@@ -150,16 +156,22 @@ const kindsPresent = computed(() => {
       </template>
     </div>
 
-    <div v-if="selected" class="p-5 border-t border-surface-container-high flex items-start gap-3">
-      <div class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
-        <span class="material-symbols-outlined text-[18px]">{{ KIND_META[selected.kind]?.icon ?? 'push_pin' }}</span>
+    <div v-if="selected" class="p-5 border-t border-surface-container-high flex flex-col gap-4">
+      <div class="flex items-start gap-3">
+        <div class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-[18px]">{{ KIND_META[selected.kind]?.icon ?? 'push_pin' }}</span>
+        </div>
+        <div class="flex flex-col gap-1 min-w-0">
+          <span class="font-label-lg text-label-lg text-on-surface font-bold">{{ selected.title }}</span>
+          <span v-if="selected.description" class="font-body-sm text-body-sm text-on-surface-variant">{{ selected.description }}</span>
+          <span v-if="selected.date_text" class="font-label-sm text-label-sm text-secondary font-bold">{{ selected.date_text }}</span>
+          <span v-if="selected.source" class="font-label-sm text-label-sm text-on-surface-variant">Источник: {{ selected.source }}</span>
+          <span class="font-label-sm text-label-sm text-on-surface-variant">Добавлено в map_service: {{ formatAdded(selected.created_at) }}</span>
+        </div>
       </div>
-      <div class="flex flex-col gap-1 min-w-0">
-        <span class="font-label-lg text-label-lg text-on-surface font-bold">{{ selected.title }}</span>
-        <span v-if="selected.description" class="font-body-sm text-body-sm text-on-surface-variant">{{ selected.description }}</span>
-        <span v-if="selected.date_text" class="font-label-sm text-label-sm text-secondary font-bold">{{ selected.date_text }}</span>
-        <span v-if="selected.source" class="font-label-sm text-label-sm text-on-surface-variant">Источник: {{ selected.source }}</span>
-      </div>
+
+      <DirectionsButton :point="selected" />
+      <PointReviews :point="selected" />
     </div>
   </section>
 </template>

@@ -6,8 +6,8 @@ import ArchivalMetadata from './ArchivalMetadata.vue'
 import ExpeditionActivity from './ExpeditionActivity.vue'
 import DossierActions from './DossierActions.vue'
 import DossierStatusControls from './DossierStatusControls.vue'
-import DirectionsButton from './DirectionsButton.vue'
-import PointReviews from './PointReviews.vue'
+import DirectionsButton from '@shared/components/DirectionsButton.vue'
+import PointReviews from '@shared/components/PointReviews.vue'
 import { useAuthSession } from '@modules/auth'
 
 defineProps({
