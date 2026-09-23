@@ -14,6 +14,7 @@ from services.need_service import NeedService
 from services.rating_service import RatingService
 from services.squad_service import SquadService
 from services.trip_service import TripService
+from services.walk_service import WalkService
 
 _bearer = HTTPBearer(auto_error=True)
 _optional_bearer = HTTPBearer(auto_error=False)
@@ -70,6 +71,10 @@ def get_bump_service(db: DbSession) -> BumpService:
     return BumpService(db)
 
 
+def get_walk_service(db: DbSession) -> WalkService:
+    return WalkService(db)
+
+
 def get_rating_service(db: DbSession) -> RatingService:
     return RatingService(db)
 
@@ -83,5 +88,6 @@ NeedServiceDep = Annotated[NeedService, Depends(get_need_service)]
 TripServiceDep = Annotated[TripService, Depends(get_trip_service)]
 ExcursionServiceDep = Annotated[ExcursionService, Depends(get_excursion_service)]
 BumpServiceDep = Annotated[BumpService, Depends(get_bump_service)]
+WalkServiceDep = Annotated[WalkService, Depends(get_walk_service)]
 RatingServiceDep = Annotated[RatingService, Depends(get_rating_service)]
 ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]

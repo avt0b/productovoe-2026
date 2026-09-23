@@ -1,6 +1,12 @@
 from core.models.base import Base
 from core.models.chat import ChatMessage, ChatSubjectType
-from core.models.excursion import Excursion, ExcursionParticipant, ExcursionStatus
+from core.models.excursion import (
+    Excursion,
+    ExcursionParticipant,
+    ExcursionPosition,
+    ExcursionStatus,
+    ExcursionWalk,
+)
 from core.models.need import Donation, DonationStatus, NeedKind, NeedStatus, SquadNeed
 from core.models.rating import GuideRating
 from core.models.squad import Squad
@@ -14,7 +20,9 @@ __all__ = [
     "DonationStatus",
     "Excursion",
     "ExcursionParticipant",
+    "ExcursionPosition",
     "ExcursionStatus",
+    "ExcursionWalk",
     "GuideRating",
     "NeedKind",
     "NeedStatus",

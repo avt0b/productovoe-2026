@@ -10,7 +10,8 @@ import type { UserRole } from '@/core/session'
  * значат, экран честно показывает ошибку.
  */
 
-export type ExcursionStatus = 'scheduled' | 'gathering' | 'finished' | 'cancelled'
+/** `walking` — группа собрана, краевед ведёт её к памятному месту. */
+export type ExcursionStatus = 'scheduled' | 'gathering' | 'walking' | 'finished' | 'cancelled'
 
 export interface ExcursionViewer {
   is_guide: boolean
@@ -127,3 +128,58 @@ export function finishGathering(excursionId: string): Promise<Gathering> {
 export function fetchGathering(excursionId: string): Promise<Gathering> {
   return apiRequest('GET', 'hq', path(excursionId, '/gathering'), { auth: true })
 }
+
+// --- группа идёт к памятному месту ---
+
+export interface WalkDestination {
+  lat: number
+  lon: number
+  name: string
+  poi_id: string | null
+}
+
+export interface GroupMember {
+  user_id: string
+  is_guide: boolean
+  is_me: boolean
+  lat: number
+  lon: number
+  accuracy_m: number | null
+  updated_at: string
+}
+
+export interface Walk {
+  excursion_id: string
+  status: ExcursionStatus
+  is_guide: boolean
+  /** null — группа ещё не выходила. */
+  destination: WalkDestination | null
+  started_at: string | null
+  /** Краевед — первым; точки старше пары минут сервис не отдаёт. */
+  members: GroupMember[]
+}
+
+export interface WalkTarget {
+  lat: number
+  lon: number
+  name: string
+  poi_id: string | null
+}
+
+/** Краевед ведёт группу к месту. Первый раз — выход группы, потом — смена цели. */
+export function leadWalk(excursionId: string, target: WalkTarget): Promise<Walk> {
+  return apiRequest('POST', 'hq', path(excursionId, '/walk'), { body: target, auth: true })
+}
+
+export function fetchWalk(excursionId: string): Promise<Walk> {
+  return apiRequest('GET', 'hq', path(excursionId, '/walk'), { auth: true })
+}
+
+export function reportPosition(excursionId: string, position: Position): Promise<void> {
+  return apiRequest('PUT', 'hq', path(excursionId, '/walk/position'), { body: position, auth: true })
+}
+
+export function finishWalk(excursionId: string): Promise<Walk> {
+  return apiRequest('POST', 'hq', path(excursionId, '/walk/finish'), { auth: true })
+}
+

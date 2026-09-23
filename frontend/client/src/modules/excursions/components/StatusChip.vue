@@ -9,6 +9,7 @@ defineProps<{ status: ExcursionStatus }>()
 const TONES: Record<ExcursionStatus, { chip: string; icon: string }> = {
   scheduled: { chip: 'bg-secondary-container text-on-secondary-container', icon: 'event_available' },
   gathering: { chip: 'bg-primary text-on-primary', icon: 'vibration' },
+  walking: { chip: 'bg-tertiary text-on-tertiary', icon: 'directions_walk' },
   finished: { chip: 'bg-surface-container-high text-on-surface-variant', icon: 'task_alt' },
   cancelled: { chip: 'bg-error-container text-on-error-container', icon: 'event_busy' },
 }
@@ -19,7 +20,7 @@ const TONES: Record<ExcursionStatus, { chip: string; icon: string }> = {
     class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-label-sm text-label-sm"
     :class="TONES[status].chip"
   >
-    <MsIcon :name="TONES[status].icon" :size="14" :class="{ 'animate-pulse': status === 'gathering' }" />
+    <MsIcon :name="TONES[status].icon" :size="14" :class="{ 'animate-pulse': status === 'gathering' || status === 'walking' }" />
     {{ STATUS_LABELS[status] }}
   </span>
 </template>

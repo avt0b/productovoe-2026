@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from conftest import auth_header
 
+from core.config import settings
 from services.bump_matcher import BumpMatcher, Shake, bump_matcher
 # Импорт до autouse-заглушки из conftest: тесту клиента нужен настоящий.
 from services.notify_client import notify_users as real_notify_users
@@ -222,11 +223,14 @@ def test_guide_and_visitor_bump_together(client, guide_header, visitor_header):
 def test_shakes_seconds_apart_do_not_match(client, guide_header, visitor_header):
     excursion_id = gathering_excursion(client, guide_header, visitor_header)
 
-    # Участник тряхнул за 3 секунды до отправки — окно всего полторы.
+    # Участник тряхнул заметно раньше, чем закрылось окно. Разница — от
+    # настройки и с запасом: число вроде «3000 мс» при окне в 3 с стоит на самой
+    # границе, и тест проходил или падал в зависимости от миллисекунд между потоками.
+    too_early_ms = int((settings.bump_window_seconds + 1.5) * 1000)
     guide_bump, visitor_bump = bump_together(
         client,
         (guide_header, excursion_id, {}),
-        (visitor_header, excursion_id, {"shaken_ms_ago": 3000}),
+        (visitor_header, excursion_id, {"shaken_ms_ago": too_early_ms}),
     )
 
     assert guide_bump.json()["result"] == "no_pair"
