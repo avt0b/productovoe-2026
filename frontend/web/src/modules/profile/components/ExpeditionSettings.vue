@@ -61,8 +61,13 @@ async function signOut() {
           <div class="flex items-center gap-3">
             <span class="material-symbols-outlined text-secondary text-[24px]">download_done</span>
             <div class="flex flex-col">
-              <span class="font-label-md text-label-md font-bold text-on-surface">Оффлайн-карты рубежей</span>
-              <span class="font-body-sm text-body-sm text-on-surface-variant">Сектор «Орловский плацдарм»</span>
+              <span class="font-label-md text-label-md font-bold text-on-surface flex items-center gap-1.5 flex-wrap">
+                Оффлайн-карты рубежей
+                <span class="px-1.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-[10px] font-bold uppercase">
+                  демо
+                </span>
+              </span>
+              <span class="font-body-sm text-body-sm text-on-surface-variant">Ни в одном сервисе нет офлайн-карт</span>
             </div>
           </div>
           <span class="font-label-sm text-label-sm bg-secondary-fixed text-on-secondary-fixed font-bold px-2.5 py-1 rounded-full">
