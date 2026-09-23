@@ -34,7 +34,8 @@ const props = withDefaults(
 
 const selected = defineModel<string | null>('selected', { default: null })
 
-const emit = defineEmits<{ locate: [] }>()
+/** `pick` — тап по пустому месту карты: окно может взять эту точку (новое место «Последнего боя»). */
+const emit = defineEmits<{ locate: []; pick: [point: LatLon] }>()
 
 const PIN_TONES: Record<GeoTone, string> = {
   primary: 'bg-primary text-on-primary',
@@ -211,6 +212,8 @@ onMounted(() => {
   pathLayer.addTo(map)
   userLayer.addTo(map)
   markerLayer.addTo(map)
+  // Клик по метке до карты не доходит — сюда попадает только пустое место.
+  map.on('click', (event: L.LeafletMouseEvent) => emit('pick', { lat: event.latlng.lat, lon: event.latlng.lng }))
 
   renderPaths()
   renderMarkers()

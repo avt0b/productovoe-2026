@@ -112,7 +112,17 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Уточнить пользователя сессии: имя и город приходят из профиля
+   * (`user_service`), а не из входа — в `auth_service` их нет.
+   */
+  function updateUser(patch: Partial<Pick<SessionUser, 'name' | 'city' | 'headline' | 'avatarUrl'>>): void {
+    if (!user.value) return
+    user.value = { ...user.value, ...patch }
+    persist()
+  }
+
   setAuthHandlers({ accessToken: () => tokens.value?.accessToken ?? null, refresh })
 
-  return { user, tokens, pending, isAuthenticated, hasAccount, signIn, adopt, signOut, refresh }
+  return { user, tokens, pending, isAuthenticated, hasAccount, signIn, adopt, signOut, refresh, updateUser }
 })

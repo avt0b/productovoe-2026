@@ -3,9 +3,13 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
+import { errorText } from '@/core/format'
 import { formatDistance } from '@/core/geo'
+import { completeWaypoint, getMyProgress, type RouteProgress } from '@/core/services/routes'
+import { useSessionStore } from '@/core/session'
 import { shareCurrentPage } from '@/core/share'
 import DemoDataBadge from '@/ui/DemoDataBadge.vue'
+import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
@@ -18,6 +22,7 @@ const props = defineProps<{ pointId: string }>()
 
 const currentRoute = useRoute()
 const router = useRouter()
+const session = useSessionStore()
 
 /** Маршрут, в котором открыта точка, — из `?route=`. */
 const routeId = computed(() => (typeof currentRoute.query.route === 'string' ? currentRoute.query.route : null))
@@ -30,8 +35,53 @@ const arNotice = ref(false)
 // «Дальше» открывает тот же экран с другой точкой: компонент переиспользуется, данные надо перезагрузить.
 watch([() => props.pointId, routeId], () => {
   arNotice.value = false
+  progressError.value = null
   void retry()
 })
+
+/**
+ * Прогресс маршрута хранит `route_service` — нужен аккаунт и живые данные:
+ * у демо-маршрута на сервере нет таких точек.
+ */
+const progress = ref<RouteProgress | null>(null)
+const savingProgress = ref(false)
+const progressError = ref<string | null>(null)
+
+const canTrack = computed(() => session.hasAccount && point.value?.source === 'live' && routeId.value !== null)
+const isDone = computed(() => progress.value?.completed_waypoint_ids.includes(props.pointId) ?? false)
+const doneCount = computed(() => progress.value?.completed_waypoint_ids.length ?? 0)
+const routeFinished = computed(() => Boolean(progress.value?.completed_at))
+
+watch(
+  [point, canTrack],
+  async () => {
+    if (!canTrack.value || !routeId.value) {
+      progress.value = null
+      return
+    }
+    try {
+      progress.value = await getMyProgress(routeId.value)
+    } catch {
+      // Прогресс — дополнение к точке: не загрузился — точка всё равно открыта.
+      progress.value = null
+    }
+  },
+  { immediate: true },
+)
+
+/** Засчитать точку: кнопкой, выполненным заданием или найденной AR-меткой. */
+async function markDone(): Promise<void> {
+  if (!canTrack.value || !routeId.value || isDone.value || savingProgress.value) return
+  savingProgress.value = true
+  progressError.value = null
+  try {
+    progress.value = await completeWaypoint(routeId.value, props.pointId)
+  } catch (reason) {
+    progressError.value = errorText(reason)
+  } finally {
+    savingProgress.value = false
+  }
+}
 
 const canOpenMap = computed(() => router.hasRoute('routes'))
 
@@ -83,6 +133,27 @@ function openMap(): void {
 
       <DemoDataBadge v-if="point.source === 'demo'" />
 
+      <!-- Прогресс маршрута: сколько точек семья уже прошла -->
+      <div v-if="canTrack" class="flex flex-col gap-1.5 rounded-DEFAULT bg-surface-container-low p-space-sm">
+        <div class="flex items-center justify-between font-label-md text-label-md text-on-surface">
+          <span>Пройдено {{ doneCount }} из {{ point.totalSteps }}</span>
+          <span v-if="isDone" class="inline-flex items-center gap-1 text-secondary">
+            <MsIcon name="check_circle" :size="16" filled />
+            Точка пройдена
+          </span>
+        </div>
+        <div
+          class="h-2 w-full overflow-hidden rounded-full bg-surface-container-high"
+          role="progressbar"
+          :aria-valuenow="doneCount"
+          aria-valuemin="0"
+          :aria-valuemax="point.totalSteps"
+          :aria-label="`Пройдено ${doneCount} из ${point.totalSteps}`"
+        >
+          <div class="h-full rounded-full bg-secondary transition-all duration-500" :style="{ width: `${(doneCount / point.totalSteps) * 100}%` }" />
+        </div>
+      </div>
+
       <!-- Название -->
       <div class="flex flex-col gap-space-xs">
         <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">{{ point.title }}</h2>
@@ -112,10 +183,25 @@ function openMap(): void {
 
       <EpochAudioCard v-if="point.audio" v-bind="point.audio" />
 
-      <FamilyQuestCard v-if="point.quest" :key="point.id" v-bind="point.quest" />
+      <FamilyQuestCard v-if="point.quest" :key="point.id" v-bind="point.quest" @done="markDone" />
 
       <!-- Действия -->
       <div class="flex flex-col gap-space-xs pt-space-xs">
+        <button
+          v-if="canTrack && !isDone"
+          type="button"
+          class="flex w-full items-center justify-center gap-2 rounded-full bg-secondary px-space-md py-3.5 font-label-lg text-label-lg text-on-secondary shadow-md transition-all active:scale-[0.99] disabled:opacity-60"
+          :disabled="savingProgress"
+          @click="markDone"
+        >
+          <MsIcon :name="savingProgress ? 'progress_activity' : 'task_alt'" :size="20" :class="{ 'animate-spin': savingProgress }" />
+          Я здесь — отметить точку пройденной
+        </button>
+        <InlineNotice v-if="progressError" tone="error">{{ progressError }}</InlineNotice>
+        <InlineNotice v-else-if="!session.hasAccount" icon="bookmark_add">
+          Войдите в аккаунт, чтобы пройденные точки сохранялись и маршрут засчитывался.
+        </InlineNotice>
+
         <button
           v-if="point.next"
           type="button"
@@ -127,12 +213,20 @@ function openMap(): void {
           <span class="shrink-0 opacity-80">· {{ formatDistance(point.next.distanceKm) }}</span>
         </button>
         <p
-          v-else
+          v-else-if="routeFinished || !canTrack"
           class="flex items-center justify-center gap-2 rounded-full bg-secondary-container px-space-md py-3 font-label-lg text-label-lg text-on-secondary-container"
           role="status"
         >
           <MsIcon name="emoji_events" :size="20" />
-          Маршрут пройден — спасибо, что помните!
+          {{ routeFinished ? 'Маршрут пройден — спасибо, что помните!' : 'Последняя точка маршрута' }}
+        </p>
+        <p
+          v-else
+          class="flex items-center justify-center gap-2 rounded-full bg-surface-container-low px-space-md py-3 font-label-lg text-label-lg text-on-surface-variant"
+          role="status"
+        >
+          <MsIcon name="flag" :size="20" />
+          Последняя точка — отметьте все точки, чтобы пройти маршрут
         </p>
 
         <button

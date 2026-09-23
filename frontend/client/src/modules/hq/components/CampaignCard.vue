@@ -1,44 +1,43 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
-import { formatMoney, plural } from '@/core/format'
+import { formatMoney } from '@/core/format'
 import MsIcon from '@/ui/MsIcon.vue'
 
-import type { Campaign } from '../data'
+import type { Need, Squad } from '../data'
 
-const props = defineProps<{ campaign: Campaign }>()
+const props = defineProps<{
+  need: Need
+  squad: Squad | undefined
+  /** Командир этого отряда или модератор: может закрыть сбор. */
+  canManage: boolean
+}>()
 
-const percent = computed(() => Math.min(100, Math.round((props.campaign.raised / props.campaign.goal) * 100)))
+defineEmits<{ donate: []; close: [] }>()
 
-const daysLeft = computed(
-  () => `Осталось ${props.campaign.daysLeft} ${plural(props.campaign.daysLeft, ['день', 'дня', 'дней'])}`,
-)
-
-const supporters = computed(() => {
-  const count = props.campaign.supporters
-  return `${count} ${plural(count, ['человек', 'человека', 'человек'])} уже ${count % 10 === 1 && count % 100 !== 11 ? 'помог' : 'помогли'} отряду`
+const percent = computed(() => {
+  const target = props.need.target_amount
+  return target ? Math.min(100, Math.round((props.need.collected_amount / target) * 100)) : null
 })
 
-/**
- * Оплаты пока нет. Показывать «Спасибо за поддержку!», когда деньги никуда не
- * ушли, значит обмануть человека, — поэтому кнопка честно говорит, что будет.
- */
-const donateNotice = ref(false)
+const isOpen = computed(() => props.need.status === 'open')
 </script>
 
 <template>
   <article class="relative flex flex-col gap-4 rounded-lg bg-surface-container-lowest p-5 shadow-sm">
     <div class="flex items-center justify-between gap-2">
       <span
-        v-if="campaign.urgent"
+        v-if="isOpen"
         class="flex items-center gap-1 rounded-full bg-primary-fixed px-3 py-1 font-label-sm text-label-sm text-on-primary-fixed-variant"
       >
         <span class="h-2 w-2 animate-pulse rounded-full bg-primary" />
-        Срочный сбор
+        Сбор открыт
       </span>
-      <span class="flex items-center gap-1 font-label-sm text-label-sm text-outline">
-        <MsIcon name="schedule" :size="16" />
-        {{ daysLeft }}
+      <span v-else class="rounded-full bg-secondary-container px-3 py-1 font-label-sm text-label-sm text-on-secondary-container">
+        Сбор закрыт
+      </span>
+      <span v-if="squad?.region" class="flex items-center gap-1 font-label-sm text-label-sm text-outline">
+        <MsIcon name="location_on" :size="14" />{{ squad.region }}
       </span>
     </div>
 
@@ -47,23 +46,24 @@ const donateNotice = ref(false)
         <MsIcon name="flag" />
       </div>
       <div class="min-w-0">
-        <h3 class="truncate font-headline-sm text-headline-sm text-on-surface">{{ campaign.squad }}</h3>
-        <p class="flex items-center gap-1 font-body-sm text-body-sm text-outline">
-          <MsIcon name="location_on" :size="14" />{{ campaign.city }}
-        </p>
+        <h3 class="font-headline-sm text-headline-sm leading-tight text-on-surface">{{ need.title }}</h3>
+        <p class="truncate font-body-sm text-body-sm text-outline">{{ squad?.name ?? 'Поисковый отряд' }}</p>
       </div>
     </div>
 
-    <div class="rounded-DEFAULT bg-surface-container-low p-3.5">
-      <p class="font-body-md text-body-md leading-snug text-on-surface">{{ campaign.purpose }}</p>
+    <div v-if="need.description" class="rounded-DEFAULT bg-surface-container-low p-3.5">
+      <p class="font-body-md text-body-md leading-snug text-on-surface">{{ need.description }}</p>
     </div>
 
     <div class="flex flex-col gap-2">
       <div class="flex items-baseline justify-between">
-        <span class="font-headline-sm text-headline-sm font-extrabold text-on-surface">{{ formatMoney(campaign.raised) }}</span>
-        <span class="font-body-sm text-body-sm text-outline">из {{ formatMoney(campaign.goal) }} ({{ percent }}%)</span>
+        <span class="font-headline-sm text-headline-sm font-extrabold text-on-surface">{{ formatMoney(need.collected_amount) }}</span>
+        <span v-if="need.target_amount" class="font-body-sm text-body-sm text-outline">
+          из {{ formatMoney(need.target_amount) }} ({{ percent }}%)
+        </span>
       </div>
       <div
+        v-if="percent !== null"
         class="h-3 w-full overflow-hidden rounded-full bg-surface-container-high p-0.5"
         role="progressbar"
         :aria-valuenow="percent"
@@ -73,39 +73,24 @@ const donateNotice = ref(false)
       >
         <div class="h-full rounded-full bg-primary-container transition-all duration-500" :style="{ width: `${percent}%` }" />
       </div>
-      <div class="mt-1 flex items-center gap-2">
-        <div class="flex -space-x-2">
-          <span
-            v-for="(initials, index) in campaign.supporterInitials"
-            :key="initials"
-            class="flex h-6 w-6 items-center justify-center rounded-full font-label-sm text-label-sm"
-            :class="index % 2 === 0 ? 'bg-tertiary-fixed text-on-tertiary-fixed' : 'bg-secondary-fixed text-on-secondary-fixed'"
-          >
-            {{ initials }}
-          </span>
-          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-fixed font-label-sm text-label-sm text-on-primary-fixed">
-            +
-          </span>
-        </div>
-        <span class="font-body-sm text-body-sm text-on-surface-variant">{{ supporters }}</span>
-      </div>
     </div>
 
     <button
+      v-if="isOpen"
       type="button"
       class="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 font-label-lg text-label-lg text-on-primary shadow-md shadow-primary/25 transition-all hover:brightness-105 active:scale-[0.98]"
-      @click="donateNotice = true"
+      @click="$emit('donate')"
     >
       <MsIcon name="volunteer_activism" :size="20" filled />
-      Помочь отряду (от {{ formatMoney(campaign.minDonation) }})
+      Помочь отряду
     </button>
-    <p
-      v-if="donateNotice"
-      class="flex items-start gap-2 rounded-DEFAULT bg-surface-container-low px-3 py-2 font-body-sm text-body-sm text-on-surface-variant"
-      role="status"
+    <button
+      v-if="isOpen && canManage"
+      type="button"
+      class="-mt-2 self-center font-label-md text-label-md text-on-surface-variant underline-offset-2 hover:underline"
+      @click="$emit('close')"
     >
-      <MsIcon name="info" :size="18" class="mt-0.5 shrink-0 text-primary" />
-      Оплату через ЮKassa подключим следующим шагом — пока деньги не списываются.
-    </p>
+      Закрыть сбор
+    </button>
   </article>
 </template>
