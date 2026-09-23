@@ -53,6 +53,14 @@ fun List<SubtitleLine>.stablePositionAt(positionMillis: Long): Long {
     return if (positionMillis < line.toMillis) line.fromMillis else line.toMillis
 }
 
+/**
+ * Сколько длится рассказ, мс.
+ *
+ * Нужно там, где озвучки нет: иначе экран никогда не узнает, что рассказ
+ * кончился, и проводник будет «говорить» молча до самого выхода.
+ */
+fun List<SubtitleLine>.durationMillis(): Long = maxOfOrNull { it.toMillis } ?: 0L
+
 /** Состояние проигрывания рассказа. */
 data class NarrationPlayback(
     val positionMillis: Long = 0L,

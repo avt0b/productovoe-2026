@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import ru.marshruty.ar.ArPointSpec
 import ru.marshruty.ar.ArResult
 import ru.marshruty.ar.NarrationPlayback
@@ -46,11 +47,21 @@ import ru.marshruty.ar.domain.MarkerStatus
 import ru.marshruty.ar.domain.buildSceneState
 import ru.marshruty.ar.domain.croppedFieldOfView
 import ru.marshruty.ar.domain.flipTransform
+import ru.marshruty.ar.domain.narrationPositionMillis
 import ru.marshruty.ar.domain.resolveCompanionAction
+import ru.marshruty.ar.durationMillis
 import ru.marshruty.ar.stablePositionAt
 
 /** Соотношение сторон кадра, который отдаёт CameraX по умолчанию. */
 private const val FRAME_ASPECT_RATIO = 3.0 / 4.0
+
+/**
+ * Как часто спрашивать, где идёт рассказ, мс.
+ *
+ * Строка субтитров живёт секунды, так что чаще незачем; реже — и смена строки
+ * начнёт запаздывать за голосом заметно на слух.
+ */
+private const val NARRATION_POLL_MILLIS = 100L
 
 /**
  * Сборка экрана из живых источников.
@@ -149,10 +160,18 @@ fun ArHost(
         }
     }
 
+    // Голос проводника. null — озвучки на точку нет, рассказ идёт субтитрами.
+    val narration = rememberNarrationSound(spec.narration.audioUri)
+    val narrationDuration = remember(spec.narration) { spec.narration.subtitles.durationMillis() }
+
     var narrationStartedAt by remember { mutableLongStateOf(0L) }
+    var pausedPosition by remember { mutableLongStateOf(0L) }
     var isMuted by remember { mutableStateOf(false) }
     var isPlaying by remember { mutableStateOf(true) }
     var trickStartedAt by remember { mutableStateOf<Long?>(null) }
+
+    // Рассказ начинается сам: человек пришёл на точку слушать, а не нажимать.
+    LaunchedEffect(narration) { narration?.play() }
 
     // Маркер задан и ARCore работает — проводник стоит на табличке в 3D.
     // Иначе прежний режим: кадр CameraX, компас и плоский персонаж внизу.
@@ -168,10 +187,31 @@ fun ArHost(
     val trickClip = frames.trickClip()
     val isSpeaking = isPlaying && !isMuted
 
-    val subtitlePosition by remember(spec.narration) {
-        derivedStateOf {
-            spec.narration.subtitles.stablePositionAt((clock.longValue - narrationStartedAt).coerceAtLeast(0))
+    // Позиция рассказа. Плеер опрашивается не каждый кадр: сто двадцать
+    // обращений в секунду ради строки, которая держится шесть секунд, — пустая
+    // работа. Со звуком позицию задаёт он, без звука — часы экрана.
+    val narrationPosition = remember { mutableLongStateOf(0L) }
+    LaunchedEffect(narration, spec.narration) {
+        while (true) {
+            // Без звука пауза должна останавливать и субтитры: часы-то идут.
+            if (isPlaying || narration != null) {
+                narrationPosition.longValue = narrationPositionMillis(
+                    audioPositionMillis = narration?.positionMillis,
+                    clockMillis = clock.longValue,
+                    startedAtMillis = narrationStartedAt,
+                )
+            }
+            // Рассказ дослушан — проводник замолкает. Иначе он «говорит» в
+            // тишину до самого выхода с точки.
+            val finished = narration?.isFinished
+                ?: (narrationDuration > 0 && narrationPosition.longValue >= narrationDuration)
+            if (isPlaying && finished) isPlaying = false
+            delay(NARRATION_POLL_MILLIS)
         }
+    }
+
+    val subtitlePosition by remember(spec.narration) {
+        derivedStateOf { spec.narration.subtitles.stablePositionAt(narrationPosition.longValue) }
     }
     val actionState = remember(trickClip, isSpeaking) {
         derivedStateOf {
@@ -234,9 +274,28 @@ fun ArHost(
             discoveryMessage = discovery,
             actions = ArScreenActions(
                 onClose = { onFinish(ArResult.Dismissed(spec.pointId)) },
-                onToggleMute = { isMuted = !isMuted },
+                onToggleMute = {
+                    isMuted = !isMuted
+                    // Звук глушим, рассказ идёт: субтитры продолжают, и человек
+                    // не теряет место, где остановился.
+                    narration?.setMuted(isMuted)
+                },
+                onTogglePlay = {
+                    if (isPlaying) {
+                        pausedPosition = narrationPosition.longValue
+                        narration?.pause()
+                    } else {
+                        // Часы экрана идут всегда, поэтому «продолжить» — это
+                        // сдвинуть начало рассказа, а не запустить их заново.
+                        narrationStartedAt = clock.longValue - pausedPosition
+                        narration?.play()
+                    }
+                    isPlaying = !isPlaying
+                },
                 onReplay = {
                     narrationStartedAt = clock.longValue
+                    pausedPosition = 0L
+                    narration?.replay()
                     isPlaying = true
                 },
                 onAim = { discovery = spec.target?.label?.let { "Наведитесь на «$it»" } },
