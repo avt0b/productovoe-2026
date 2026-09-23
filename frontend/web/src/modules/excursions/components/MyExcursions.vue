@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from 'vue'
 import { useAuthSession } from '@modules/auth'
 import ExcursionChecklistModal from './ExcursionChecklistModal.vue'
 import ExcursionMapModal from './ExcursionMapModal.vue'
+import GuideRatingModal from './GuideRatingModal.vue'
 import * as excursionsApi from '../api.js'
 
 const { session } = useAuthSession()
@@ -74,6 +75,14 @@ function openMap(ex) {
   mapExcursion.value = ex
   mapOpen.value = true
 }
+
+const ratingOpen = ref(false)
+const ratingExcursion = ref(null)
+
+function openRating(ex) {
+  ratingExcursion.value = ex
+  ratingOpen.value = true
+}
 </script>
 
 <template>
@@ -133,6 +142,15 @@ function openMap(ex) {
               Что взять
             </button>
             <button
+              v-if="ex.status === 'finished' && ex.viewer?.checked_in_at"
+              type="button"
+              class="px-3 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container font-label-sm text-label-sm font-bold flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+              @click="openRating(ex)"
+            >
+              <span class="material-symbols-outlined text-[16px]">star</span>
+              Оценить гида
+            </button>
+            <button
               v-if="ex.status === 'scheduled'"
               type="button"
               class="px-3 py-1.5 rounded-full bg-error-container text-on-error-container font-label-sm text-label-sm font-bold flex items-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-50"
@@ -175,5 +193,6 @@ function openMap(ex) {
 
     <ExcursionChecklistModal v-model="checklistOpen" :excursion="checklistExcursion" />
     <ExcursionMapModal v-model="mapOpen" :excursion="mapExcursion" />
+    <GuideRatingModal v-model="ratingOpen" :excursion="ratingExcursion" />
   </div>
 </template>

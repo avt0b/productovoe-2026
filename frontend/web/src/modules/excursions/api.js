@@ -37,3 +37,11 @@ export function getMyExcursions(token) {
 export function cancelRegistration(token, excursionId) {
   return http.delete(`${BASE}/excursions/${excursionId}/registrations/me`, { token })
 }
+
+// Оценить может только тот, кто реально пришёл (RatingService.rate требует
+// participant.checked_in_at) и только когда экскурсия уже finished —
+// проверяем это на фронте по viewer.checked_in_at, чтобы не звать ручку
+// впустую и не путать человека абстрактным 403.
+export function rateExcursion(token, excursionId, { rating, comment = '' }) {
+  return http.post(`${BASE}/excursions/${excursionId}/rating`, { rating, comment }, { token })
+}
