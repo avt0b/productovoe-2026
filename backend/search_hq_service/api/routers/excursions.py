@@ -4,11 +4,13 @@ from fastapi import APIRouter, Query, status
 
 from api.deps import (
     BumpServiceDep,
+    ChatServiceDep,
     CurrentPrincipal,
     ExcursionServiceDep,
     OptionalPrincipal,
     RatingServiceDep,
 )
+from api.schemas.chat import ChatMessageCreate, ChatMessageOut
 from api.schemas.excursion import (
     BumpIn,
     BumpOut,
@@ -185,3 +187,32 @@ def rate_excursion(
 @router.get("/{excursion_id}/rating", response_model=list[GuideRatingOut])
 def excursion_ratings(excursion_id: str, service: RatingServiceDep) -> list[GuideRatingOut]:
     return [GuideRatingOut.model_validate(r) for r in service.for_excursion(excursion_id)]
+
+
+# --- чат сбора ---
+
+
+@router.get("/{excursion_id}/messages", response_model=list[ChatMessageOut])
+def list_excursion_messages(
+    excursion_id: str,
+    principal: CurrentPrincipal,
+    service: ChatServiceDep,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[ChatMessageOut]:
+    rows = service.excursion_messages(principal, excursion_id, limit=limit, offset=offset)
+    return [ChatMessageOut.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/{excursion_id}/messages", response_model=ChatMessageOut, status_code=status.HTTP_201_CREATED
+)
+def post_excursion_message(
+    excursion_id: str,
+    payload: ChatMessageCreate,
+    principal: CurrentPrincipal,
+    service: ChatServiceDep,
+) -> ChatMessageOut:
+    return ChatMessageOut.model_validate(
+        service.post_excursion_message(principal, excursion_id, payload.body)
+    )
