@@ -15,30 +15,29 @@ const canOpenHq = computed(() => router.hasRoute('hq'))
 </script>
 
 <template>
-  <div class="relative flex flex-col gap-space-sm overflow-hidden rounded-lg bg-secondary-container p-space-md text-on-secondary-container shadow-sm">
-    <div class="flex items-center gap-space-xs">
-      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-on-secondary shadow-sm">
-        <MsIcon name="backpack" :size="18" />
-      </div>
-      <div class="min-w-0">
-        <span class="block font-label-sm text-label-sm font-bold uppercase tracking-wider text-secondary">
-          {{ trip ? 'Ближайший выезд' : 'Выходные с поисковиком' }}
-        </span>
-        <h3 class="font-label-lg text-label-lg font-bold leading-tight text-on-secondary-fixed">
-          {{ trip ? trip.title : 'Вы пока не записаны ни на один выезд' }}
-        </h3>
-      </div>
+  <section class="flex items-start gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
+    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container" aria-hidden="true">
+      <MsIcon name="backpack" :size="20" />
+    </span>
+    <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+      <p class="font-archival text-archival uppercase text-on-surface-variant">
+        {{ trip ? 'Ближайший выезд' : 'Выходные с поисковиком' }}
+      </p>
+      <h2 class="font-headline-sm text-headline-sm text-on-surface">
+        {{ trip ? trip.title : 'Вы пока не записаны ни на один выезд' }}
+      </h2>
+      <p v-if="trip" class="flex items-center gap-1 font-body-sm text-body-sm text-on-surface-variant">
+        <MsIcon name="calendar_month" :size="15" class="shrink-0 text-secondary" />
+        {{ formatDate(trip.starts_on) }}<template v-if="trip.location"> · {{ trip.location }}</template>
+      </p>
+      <RouterLink
+        v-if="canOpenHq"
+        :to="{ name: 'hq', query: { tab: 'trips' } }"
+        class="mt-space-xs flex items-center gap-space-xs self-start rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+      >
+        {{ trip ? 'Чек-лист и детали' : 'Выбрать выезд' }}
+        <MsIcon name="arrow_forward" :size="18" />
+      </RouterLink>
     </div>
-    <p v-if="trip" class="flex items-center gap-1.5 font-body-sm text-body-sm">
-      <MsIcon name="calendar_month" :size="16" />
-      {{ formatDate(trip.starts_on) }}<template v-if="trip.location"> • {{ trip.location }}</template>
-    </p>
-    <RouterLink
-      v-if="canOpenHq"
-      :to="{ name: 'hq' }"
-      class="self-start rounded-full bg-secondary px-space-md py-2 font-label-md text-label-md text-on-secondary active:scale-95"
-    >
-      {{ trip ? 'Чек-лист и детали' : 'Выбрать выезд' }}
-    </RouterLink>
-  </div>
+  </section>
 </template>
