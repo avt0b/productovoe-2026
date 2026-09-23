@@ -5,7 +5,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 
-from api.deps import DbSession, NotificationServiceDep, ProfileServiceDep
+from api.deps import AchievementServiceDep, DbSession, NotificationServiceDep, ProfileServiceDep
+from api.schemas.achievement import AwardOut, AwardRequest
 from api.schemas.notification import BroadcastNearbyOut, BroadcastNearbyRequest
 from api.schemas.profile import ProfileOut
 from core.internal import InternalActor, require_internal_key
@@ -120,3 +121,13 @@ def broadcast_nearby(
         payload=payload.payload,
     )
     return BroadcastNearbyOut(notified=count)
+
+
+@router.post("/achievements/award", response_model=AwardOut)
+def award_achievement(payload: AwardRequest, service: AchievementServiceDep) -> AwardOut:
+    """Вызывается сервисами-источниками события (route_service на завершении
+    маршрута, archive_service на верификации, search_hq_service на выезде/
+    донате). Идемпотентно — повторный вызов с тем же (user_id, code) не
+    создаёт дубликат и не шлёт уведомление повторно."""
+    _, awarded = service.award(user_id=payload.user_id, code=payload.code)
+    return AwardOut(code=payload.code, awarded=awarded)

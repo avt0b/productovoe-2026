@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.schemas.achievement import AchievementOut
+
 
 class ProfileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -18,6 +20,11 @@ class ProfileOut(BaseModel):
     alert_radius_km: int
     home_lat: float | None
     home_lon: float | None
+    # Значки видны на любом профиле, включая чужой (GET /profiles/{id} и так
+    # уже отдаёт профиль целиком кому угодно — см. README, «не проверяет
+    # владение»). Дефолт [] — на месте, где achievements не подгружали явно
+    # (PUT/verify/список), model_validate(profile) просто оставит пусто.
+    achievements: list[AchievementOut] = []
     created_at: datetime
 
 

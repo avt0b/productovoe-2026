@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from core.db import get_db
 from core.security import Principal, decode_access_token, principal_from_payload
+from services.achievement_service import AchievementService
 from services.notification_service import NotificationService
 from services.profile_service import ProfileService
 
@@ -48,5 +49,10 @@ def get_notification_service(db: DbSession) -> NotificationService:
     return NotificationService(db)
 
 
+def get_achievement_service(db: DbSession) -> AchievementService:
+    return AchievementService(db)
+
+
 ProfileServiceDep = Annotated[ProfileService, Depends(get_profile_service)]
 NotificationServiceDep = Annotated[NotificationService, Depends(get_notification_service)]
+AchievementServiceDep = Annotated[AchievementService, Depends(get_achievement_service)]

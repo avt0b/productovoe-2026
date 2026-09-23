@@ -56,6 +56,7 @@ main.py        # сборка FastAPI
 | GET | `/profiles` `?role&limit&offset` | только `is_root` |
 | GET | `/profiles/{id}` | любой авторизованный |
 | PATCH | `/profiles/{id}/verify` | `local_historian` / `mentor` / `moderator` / root |
+| GET | `/achievements/me` | любой авторизованный — свои значки (`code`, `earned_at`) |
 
 **`GET /profiles/{id}` не проверяет владение** — любой обладатель валидного
 токена может прочитать чужой профиль целиком (`city`, `bio`,
@@ -73,6 +74,37 @@ main.py        # сборка FastAPI
 и обязательный `typ=access`). Из токена берутся `sub` (id пользователя = id
 профиля), `role`, `is_root`.
 
+## Достижения
+
+`UserAchievement` (`user_id`, `code`, `earned_at`, уникален по `(user_id,
+code)`) — значки за активность (геймификация из ТЗ). `code` — свободная
+строка, а не Enum в БД, по тому же принципу, что `Notification.kind`: новый
+повод для ачивки заводит сервис-источник события, `user_service` под это не
+редеплоится. Человекочитаемые заголовки для текста уведомления — словарь
+`ACHIEVEMENT_TITLES` в `core/models/achievement.py`; для неизвестного кода
+просто показываем сам код.
+
+Выдаёт `POST /internal/achievements/award` (`X-Internal-Key`, вызывается
+напрямую сервисами-источниками события — по тому же принципу, что
+`broadcast-nearby`, не только `admin_service`). Идемпотентно: повторный
+`award` тем же `(user_id, code)` не создаёт дубликат и не шлёт уведомление
+ещё раз, так что вызывающий сервис может дёргать её на каждое подходящее
+действие, не проверяя заранее, было ли оно первым. Успешная выдача создаёт
+обычное `Notification` (`kind="achievement"`) в уже существующей ленте.
+
+Сейчас выдаются:
+
+| Код | Кто выдаёт | Когда |
+| --- | --- | --- |
+| `first_route_completed` | route_service | маршрут пройден целиком (`completed_at` выставлен) |
+| `archive_helper` | archive_service | любой `verify`/`reject` записи архива |
+| `trip_volunteer` | search_hq_service | регистрация на «Выходные с поисковиком» |
+| `donor` | search_hq_service | донат стал `succeeded` (сразу или после вебхука ЮKassa) |
+
+Видны и на своём, и на чужом профиле: `ProfileOut.achievements` заполняется
+и в `GET /profiles/me`, и в `GET /profiles/{id}` — тем же «не проверяет
+владение», что и остальные поля профиля (см. выше).
+
 ## Как ходит admin_service
 
 `/internal/*`: `GET /internal/stats` (сводка для дашборда, включая разбивку
@@ -86,6 +118,4 @@ main.py        # сборка FastAPI
 
 ## Дальше
 
-- Достижения и прогресс по маршрутам (геймификация) — сейчас только
-  декоративные данные на фронте, здесь этого нет.
 - Поле-атрибуция для верификации через `/internal/*`.
