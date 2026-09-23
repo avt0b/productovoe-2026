@@ -1,10 +1,9 @@
 <script setup>
 import SmartImage from '@shared/components/SmartImage.vue'
 
-// name/role/squad/avatarUrl — реальные поля user_service (ProfileOut). Всё
-// остальное на этой карточке (ID жетона, стаж, ранг, «Вахта Памяти») в
-// бэкенде не хранится нигде — явно помечено как демо, а не выдаётся за
-// настоящие данные пользователя.
+// name/role/squad/avatarUrl — реальные поля user_service (ProfileOut). Ранг,
+// очки, жетон и т.п. убраны совсем: такого нет ни в одном сервисе, и вместо
+// демо-заглушек в шапке профиля остаются только настоящие данные.
 defineProps({
   name: { type: String, default: '' },
   role: { type: String, default: '' },
@@ -40,32 +39,6 @@ defineProps({
           </div>
           <p v-if="squad" class="font-body-md text-body-md text-secondary-fixed-dim mb-3">{{ squad }}</p>
         </div>
-      </div>
-
-      <div
-        class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 bg-on-secondary-fixed/30 p-4 rounded-DEFAULT backdrop-blur-md self-stretch xl:self-auto"
-      >
-        <div class="flex items-center gap-3 pr-4">
-          <div class="w-12 h-12 rounded-lg bg-surface-container-lowest p-1.5 flex items-center justify-center shrink-0 shadow-sm">
-            <span class="material-symbols-outlined text-on-surface text-[28px]">qr_code_2</span>
-          </div>
-          <div class="flex flex-col">
-            <span class="font-label-sm text-label-sm text-secondary-fixed-dim uppercase flex items-center gap-1.5">
-              Полевой жетон
-              <span class="px-1.5 py-0.5 rounded-full bg-on-secondary-fixed/30 text-[10px] font-bold normal-case">демо</span>
-            </span>
-            <span class="font-label-md text-label-md font-bold text-on-secondary">В user_service такого поля нет</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="mt-8 pt-6 bg-on-secondary-fixed/20 -mx-8 -mb-8 px-8 py-5">
-      <div class="flex items-center gap-2">
-        <span class="font-label-md text-label-md font-bold text-secondary-fixed">Ранг и очки следопыта</span>
-        <span class="px-2 py-0.5 rounded-full bg-on-secondary-fixed/25 text-[11px] font-bold uppercase">
-          демо — user_service не хранит стаж/ранг
-        </span>
       </div>
     </div>
   </section>
