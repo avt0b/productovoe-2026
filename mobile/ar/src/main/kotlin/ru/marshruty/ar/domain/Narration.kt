@@ -1,5 +1,7 @@
 package ru.marshruty.ar.domain
 
+import ru.marshruty.ar.SubtitleLine
+
 /**
  * Где лежит озвучка точки.
  *
@@ -57,3 +59,35 @@ fun narrationPositionMillis(
     clockMillis: Long,
     startedAtMillis: Long,
 ): Long = audioPositionMillis ?: (clockMillis - startedAtMillis).coerceAtLeast(0L)
+
+/**
+ * Субтитры, растянутые под длительность записи.
+ *
+ * Нужно там, где таймкодов не было и хост нарезал текст на глаз — поровну на
+ * предложение. С настоящим голосом такая нарезка разъезжается сразу: «Давай
+ * найдём след окопа!» читается за секунду, а фраза на три строки — за десять.
+ * Здесь время делится пропорционально длине текста, и последняя строка
+ * кончается ровно на конце записи.
+ *
+ * Строки идут подряд, без пауз: пауза в оценке — такая же выдумка, как и её
+ * тайминги.
+ */
+fun List<SubtitleLine>.fittedTo(durationMillis: Long): List<SubtitleLine> {
+    if (isEmpty() || durationMillis <= 0) return this
+    // Меньше миллисекунды на строку — не растягиваем: такой записи не бывает,
+    // а `SubtitleLine` с нулевой длиной не построится.
+    if (durationMillis < size) return this
+
+    val weights = map { it.text.trim().length.coerceAtLeast(1).toLong() }
+    val total = weights.sum()
+
+    var cursor = 0L
+    return mapIndexed { index, line ->
+        // Последняя строка кончается на конце записи: иначе накопленное
+        // округление съедает у длинного рассказа последние полсекунды.
+        val end = if (index == lastIndex) durationMillis else cursor + durationMillis * weights[index] / total
+        val fitted = line.copy(fromMillis = cursor, toMillis = end.coerceAtLeast(cursor + 1))
+        cursor = fitted.toMillis
+        fitted
+    }
+}
