@@ -56,11 +56,12 @@ def author_header():
 
 @pytest.fixture(autouse=True)
 def no_real_achievement_calls(monkeypatch):
-    """По умолчанию не ходим в сеть за user_service — тесты не про ачивки
-    делают это на каждом complete-waypoint."""
+    """По умолчанию не ходим в сеть за user_service — тесты не про ачивки/
+    статистику делают это на каждом complete-waypoint."""
     import services.progress_service as progress_service_module
 
     monkeypatch.setattr(progress_service_module, "award_achievement", lambda **kw: None)
+    monkeypatch.setattr(progress_service_module, "increment_stat", lambda **kw: None)
 
 
 def pytest_sessionfinish(session, exitstatus):
