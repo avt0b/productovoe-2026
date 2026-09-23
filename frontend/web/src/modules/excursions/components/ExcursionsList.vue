@@ -24,9 +24,12 @@ async function load() {
   }
 }
 onMounted(load)
-watch(() => session.status, (s) => {
-  if (s === 'authenticated') load()
-})
+// Следим именно за токеном, а не только за session.status: смена аккаунта
+// (выйти → войти другим) меняет accessToken, а статус может на мгновение
+// остаться 'authenticated' (или даже не поменяться, если выход/вход прошёл
+// без промежуточного 'idle') — и вкладка тогда не перезапросит viewer для
+// нового пользователя.
+watch(() => session.accessToken, load)
 
 // search_hq_service не отдаёт отдельный справочник гидов — собираем его из
 // guide_id на загруженных экскурсиях (см. GuideRatingList.vue).
