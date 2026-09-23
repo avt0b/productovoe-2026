@@ -24,14 +24,18 @@ watch(
 )
 
 // user_service ещё не хранит стаж/ранг/семейное древо — это остаётся демо-
-// данными компонентов, пока эти поля не появятся на бэкенде. Значки
-// (AwardsBadges) и экскурсии (MyExcursions) уже реальные — свои API.
+// данными компонентов (явно помечены как демо внутри самих компонентов),
+// пока эти поля не появятся на бэкенде. Значки (AwardsBadges) и экскурсии
+// (MyExcursions) уже реальные — свои API. Пока profile.data не загружен,
+// heroProps пуст — ProfileHero сам показывает нейтральные заглушки, а не
+// чьё-то чужое имя.
 const heroProps = computed(() => {
   if (!profile.data) return {}
   return {
     name: profile.data.display_name || session.user?.email || 'Без имени',
     role: roleLabel(profile.data.role),
-    squad: profile.data.city ? `${profile.data.city}` : 'Город не указан',
+    squad: profile.data.city || '',
+    avatarUrl: profile.data.avatar_url || '',
   }
 })
 </script>
