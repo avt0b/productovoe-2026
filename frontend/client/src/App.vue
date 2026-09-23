@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import BareLayout from '@/app/layouts/BareLayout.vue'
 import DetailLayout from '@/app/layouts/DetailLayout.vue'
 import TabsLayout from '@/app/layouts/TabsLayout.vue'
+import { NotificationBanner } from '@/features/notifications'
 
 const route = useRoute()
 
@@ -17,4 +18,6 @@ const layout = computed(() => layouts[route.meta.layout ?? 'tabs'])
   <component :is="layout">
     <RouterView />
   </component>
+  <!-- Поверх любого экрана: сбор начинается, пока человек смотрит карту, а не экскурсию. -->
+  <NotificationBanner />
 </template>
