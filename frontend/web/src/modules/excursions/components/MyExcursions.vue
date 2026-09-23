@@ -31,9 +31,9 @@ async function load() {
 }
 
 onMounted(load)
-watch(() => session.status, (s) => {
-  if (s === 'authenticated') load()
-})
+// accessToken, а не просто status: смена аккаунта (выйти → войти другим)
+// меняет токен даже когда status остаётся 'authenticated' всё время.
+watch(() => session.accessToken, load)
 
 function formatDate(iso) {
   return new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
