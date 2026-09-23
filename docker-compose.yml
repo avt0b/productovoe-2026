@@ -227,6 +227,27 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL}
+      RENDER_WORKER_TOKEN: ${RENDER_WORKER_TOKEN}
+
+  media_render_worker:
+    <<: *backend-common
+    container_name: marshruty_media_render_worker
+    build:
+      context: ./backend/media_render_worker
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV}
+      MEDIA_SERVICE_URL: http://media_service:8007
+      RENDER_WORKER_TOKEN: ${RENDER_WORKER_TOKEN}
+      YANDEX_API_KEY: ${YANDEX_API_KEY}
+      YANDEX_FOLDER_ID: ${YANDEX_FOLDER_ID}
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN}
+      REPLICATE_MODEL_VERSION: ${REPLICATE_MODEL_VERSION}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL}
+      MINIO_BUCKET: media
 
   admin_service:
     <<: *backend-common
