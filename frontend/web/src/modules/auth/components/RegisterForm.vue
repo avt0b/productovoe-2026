@@ -2,10 +2,11 @@
 import { reactive, ref } from 'vue'
 import { useAuthSession } from '../session.js'
 import { ROLE_LABELS } from '../roles.js'
+import { updateMyProfile } from '@modules/profile'
 
 const emit = defineEmits(['success'])
 
-const { register } = useAuthSession()
+const { session, register } = useAuthSession()
 
 // moderator намеренно не предлагается при самостоятельной регистрации — эта
 // роль выдаётся из админки для модерации «народного архива».
@@ -45,6 +46,17 @@ async function submit() {
   status.value = 'pending'
   try {
     await register({ email: form.email, password: form.password, role: form.role })
+    // ФИО — поле user_service (display_name), а не auth_service, поэтому
+    // отдельным запросом сразу после того, как появился access-токен.
+    // Если это упадёт — не откатываем сам факт регистрации, просто человек
+    // дозаполнит имя в профиле позже.
+    if (form.name.trim()) {
+      try {
+        await updateMyProfile(session.accessToken, { display_name: form.name.trim() })
+      } catch {
+        // best-effort — аккаунт уже создан, имя можно поправить в профиле
+      }
+    }
     status.value = 'done'
     emit('success')
   } catch (err) {
