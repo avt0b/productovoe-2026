@@ -2,15 +2,25 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from api.deps import CurrentPrincipal, ProfileServiceDep, require_root
+from api.deps import AchievementServiceDep, CurrentPrincipal, ProfileServiceDep, require_root
+from api.schemas.achievement import AchievementOut
 from api.schemas.profile import ProfileOut, ProfileUpdate, VerifyRequest
+from core.models import Profile
+from services.achievement_service import AchievementService
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 
+def _with_achievements(profile: Profile, service: AchievementService) -> ProfileOut:
+    achievements = [AchievementOut.model_validate(a) for a in service.list_for(profile.id)]
+    return ProfileOut.model_validate(profile).model_copy(update={"achievements": achievements})
+
+
 @router.get("/me", response_model=ProfileOut)
-def get_my_profile(principal: CurrentPrincipal, service: ProfileServiceDep) -> ProfileOut:
-    return ProfileOut.model_validate(service.get_or_create_own(principal))
+def get_my_profile(
+    principal: CurrentPrincipal, service: ProfileServiceDep, achievements: AchievementServiceDep
+) -> ProfileOut:
+    return _with_achievements(service.get_or_create_own(principal), achievements)
 
 
 @router.put("/me", response_model=ProfileOut)
@@ -33,9 +43,12 @@ def list_profiles(
 
 @router.get("/{profile_id}", response_model=ProfileOut)
 def get_profile(
-    profile_id: str, _: CurrentPrincipal, service: ProfileServiceDep
+    profile_id: str,
+    _: CurrentPrincipal,
+    service: ProfileServiceDep,
+    achievements: AchievementServiceDep,
 ) -> ProfileOut:
-    return ProfileOut.model_validate(service.get(profile_id))
+    return _with_achievements(service.get(profile_id), achievements)
 
 
 @router.patch("/{profile_id}/verify", response_model=ProfileOut)

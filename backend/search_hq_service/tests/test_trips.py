@@ -49,6 +49,21 @@ def test_registration_capacity_and_cancel(client, leader_header):
     assert client.post(f"/trips/{trip['id']}/registrations", headers=c).status_code == 201
 
 
+def test_registration_awards_volunteer_achievement(client, leader_header, monkeypatch):
+    import services.trip_service as trip_service_module
+
+    calls = []
+    monkeypatch.setattr(
+        trip_service_module, "award_achievement", lambda **kw: calls.append(kw)
+    )
+
+    squad = make_squad(client, leader_header)
+    trip = make_trip(client, leader_header, squad["id"]).json()
+
+    client.post(f"/trips/{trip['id']}/registrations", headers=auth_header(user_id="vol-a"))
+    assert calls == [{"user_id": "vol-a", "code": "trip_volunteer"}]
+
+
 def test_update_rejects_capacity_below_registered(client, leader_header):
     squad = make_squad(client, leader_header)
     trip = make_trip(client, leader_header, squad["id"], capacity=2).json()
@@ -69,9 +84,12 @@ def test_registrations_list_manager_only(client, leader_header):
     trip = make_trip(client, leader_header, squad["id"]).json()
     client.post(f"/trips/{trip['id']}/registrations", headers=auth_header(user_id="vol-a"))
 
-    assert client.get(
-        f"/trips/{trip['id']}/registrations", headers=auth_header(user_id="vol-a")
-    ).status_code == 403
+    assert (
+        client.get(
+            f"/trips/{trip['id']}/registrations", headers=auth_header(user_id="vol-a")
+        ).status_code
+        == 403
+    )
     r = client.get(f"/trips/{trip['id']}/registrations", headers=leader_header)
     assert r.status_code == 200
     assert len(r.json()) == 1
@@ -87,3 +105,28 @@ def test_trips_feed_upcoming_only(client, leader_header):
     assert [t["title"] for t in feed] == ["будущий"]
     all_ = client.get("/trips", params={"upcoming_only": False}).json()
     assert {t["title"] for t in all_} == {"прошедший", "будущий"}
+
+
+def test_my_trips_lists_only_active_registrations(client, leader_header):
+    squad = make_squad(client, leader_header)
+    first = make_trip(client, leader_header, squad["id"], title="Разведка").json()
+    second = make_trip(client, leader_header, squad["id"], title="Раскопки").json()
+    past = make_trip(
+        client, leader_header, squad["id"], title="Прошлый", starts_on=(TODAY - timedelta(days=3)).isoformat()
+    ).json()
+
+    me = auth_header(user_id="vol-me")
+    for trip in (first, second, past):
+        assert client.post(f"/trips/{trip['id']}/registrations", headers=me).status_code == 201
+    assert client.delete(f"/trips/{second['id']}/registrations/me", headers=me).status_code == 204
+    # Чужая запись в «мои выезды» не попадает.
+    client.post(f"/trips/{second['id']}/registrations", headers=auth_header(user_id="vol-other"))
+
+    upcoming = client.get("/trips/mine", headers=me)
+    assert upcoming.status_code == 200
+    assert [t["title"] for t in upcoming.json()] == ["Разведка"]
+
+    everything = client.get("/trips/mine", headers=me, params={"upcoming_only": False}).json()
+    assert {t["title"] for t in everything} == {"Разведка", "Прошлый"}
+
+    assert client.get("/trips/mine").status_code == 401

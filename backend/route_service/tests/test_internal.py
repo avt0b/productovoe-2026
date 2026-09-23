@@ -86,7 +86,9 @@ def test_stats_shape(client, author_header):
 def test_stats_completion_rate(client, author_header):
     route = make_route(client, author_header).json()
     wp = add_wp(client, author_header, route["id"]).json()
-    client.post(f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True})
+    client.post(
+        f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True}
+    )
 
     family = auth_header(user_id="family-1", role="family")
     client.post(
@@ -174,7 +176,9 @@ def test_internal_publish_without_waypoints_is_409(client, author_header):
 def test_internal_unpublish(client, author_header):
     route = make_route(client, author_header).json()
     add_wp(client, author_header, route["id"])
-    client.post(f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True})
+    client.post(
+        f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True}
+    )
 
     r = client.post(
         f"/internal/routes/{route['id']}/publish",

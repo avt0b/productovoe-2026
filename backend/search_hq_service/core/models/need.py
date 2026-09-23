@@ -19,6 +19,14 @@ class NeedStatus(str, enum.Enum):
     closed = "closed"
 
 
+class DonationStatus(str, enum.Enum):
+    """Без платёжного шлюза донат сразу succeeded. С ЮKassa — висит pending до вебхука."""
+
+    succeeded = "succeeded"
+    pending = "pending"
+    canceled = "canceled"
+
+
 class SquadNeed(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Потребность отряда: «нужны 5 землекопов», «собрать 50 000 на ГСМ»."""
 
@@ -62,5 +70,15 @@ class Donation(UUIDPrimaryKeyMixin, Base):
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     comment: Mapped[str] = mapped_column(String(500), default="", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    status: Mapped[DonationStatus] = mapped_column(
+        Enum(DonationStatus, name="donation_status", native_enum=False, length=16),
+        default=DonationStatus.succeeded,
+        nullable=False,
+        index=True,
+    )
+    # id платежа в ЮKassa — только когда донат шёл через шлюз.
+    payment_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    confirmation_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     need: Mapped[SquadNeed] = relationship(back_populates="donations")

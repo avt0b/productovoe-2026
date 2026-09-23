@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # Внутренний служебный ключ: по нему admin_service ходит в /internal/*.
     internal_api_key: str = "dev-internal-key-change-me"
 
+    # --- достижение за помощь в верификации записи (геймификация) ---
+    user_service_url: str = "http://127.0.0.1:8002"
+    upstream_timeout_seconds: float = 3.0
+
     # Клиентское приложение ходит в сервис напрямую: dev-сервер Vite и APK
     # (Capacitor на Android отдаёт приложение с https://localhost).
     cors_origins: list[str] = [
@@ -22,6 +26,15 @@ class Settings(BaseSettings):
         "https://localhost",
         "capacitor://localhost",
     ]
+
+    # --- файлы (фото к записям архива) в MinIO, S3-совместимое хранилище ---
+    minio_endpoint: str = "http://127.0.0.1:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "archive"
+    # Публично доступный извне адрес того же MinIO (браузер должен уметь его открыть).
+    # Локально порт MinIO проброшен на хост — endpoint и так подходит.
+    minio_public_base_url: str | None = None
 
 
 settings = Settings()

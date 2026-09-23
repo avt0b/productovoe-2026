@@ -1,7 +1,10 @@
-"""Гео-хелперы без PostGIS. Для MVP хватает bbox-фильтра + haversine.
+"""Python-фолбэк геопоиска: bbox-фильтр + haversine.
 
-Прод-апгрейд: PostgreSQL + PostGIS, колонка geography(Point), GiST-индекс,
-ST_DWithin для радиуса.
+На Postgres реальный радиус-поиск идёт через PostGIS (geography(Point),
+GiST-индекс, ST_DWithin) — см. core/db._ensure_postgis и
+repositories/*.nearby_postgis. Этот модуль остаётся рабочим путём для sqlite
+(весь тестовый набор) и любой БД без PostGIS — сервисы сами выбирают, куда
+идти, по core.db.engine.dialect.name.
 """
 
 import math

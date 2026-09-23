@@ -1,19 +1,74 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
-import { plural } from '@/core/format'
+import { errorText, plural } from '@/core/format'
 import { distanceKm, formatDistance, geolocationProblem, useGeolocation, type GeoMarker } from '@/core/geo'
+import { can, useSessionStore } from '@/core/session'
+import AccountRequired from '@/ui/AccountRequired.vue'
 import DemoDataBadge from '@/ui/DemoDataBadge.vue'
 import GeoMap from '@/ui/geo/GeoMap.vue'
+import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
+import SheetDialog from '@/ui/SheetDialog.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
+import AddPointSheet from './components/AddPointSheet.vue'
+import EvidenceSheet from './components/EvidenceSheet.vue'
 import RecordCard from './components/RecordCard.vue'
 import StatusFilters from './components/StatusFilters.vue'
-import { STATUS_STYLE, fetchLastStand, type FindStatus } from './data'
+import { STATUS_LABELS, STATUS_STYLE, fetchLastStand, setPointStatus, type FindRecord, type FindStatus } from './data'
 
+type Sheet = { kind: 'add' } | { kind: 'evidence'; record: FindRecord } | { kind: 'account'; text: string }
+
+const router = useRouter()
+const session = useSessionStore()
 const { data, loading, error, retry } = useAsync(fetchLastStand)
+
+const sheet = ref<Sheet | null>(null)
+const notice = ref<{ tone: 'success' | 'error'; text: string } | null>(null)
+const statusBusy = ref(false)
+
+/** Кто отмечает места: поисковик, краевед, наставник, модератор. Семье кнопку не показываем. */
+const canAdd = computed(() => session.hasAccount && can.addLastStand(session.user))
+const canModerate = computed(() => session.hasAccount && can.moderate(session.user))
+/** «Готов помочь» ведёт к выездам отрядов — если окно «Штаб» подключено. */
+const canVolunteer = computed(() => router.hasRoute('hq'))
+
+/** Перечитать места, не пряча карту за спиннером. */
+async function refresh(): Promise<void> {
+  try {
+    data.value = await fetchLastStand()
+  } catch (reason) {
+    notice.value = { tone: 'error', text: errorText(reason) }
+  }
+}
+
+async function pointAdded(): Promise<void> {
+  sheet.value = null
+  notice.value = { tone: 'success', text: 'Место отмечено со статусом «Обнаружено» — модератор проверит его по архиву' }
+  await refresh()
+}
+
+function openEvidence(record: FindRecord): void {
+  sheet.value = session.hasAccount
+    ? { kind: 'evidence', record }
+    : { kind: 'account', text: 'Дополнить сведения о месте можно с аккаунтом' }
+}
+
+async function changeStatus(record: FindRecord, status: FindStatus): Promise<void> {
+  statusBusy.value = true
+  try {
+    await setPointStatus(record.id, status)
+    notice.value = { tone: 'success', text: `${record.title}: ${STATUS_LABELS[status].toLowerCase()}` }
+    await refresh()
+  } catch (reason) {
+    notice.value = { tone: 'error', text: errorText(reason) }
+  } finally {
+    statusBusy.value = false
+  }
+}
 const { position: userPosition, status: geoStatus, start: startLocating } = useGeolocation()
 
 /** Какие стадии находок показывать на карте. По умолчанию — все. */
@@ -88,6 +143,18 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
         </div>
       </div>
 
+      <button
+        v-if="canAdd"
+        type="button"
+        class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+        @click="sheet = { kind: 'add' }"
+      >
+        <MsIcon name="add_location_alt" :size="20" />
+        Отметить место гибели
+      </button>
+
+      <InlineNotice v-if="notice" :tone="notice.tone">{{ notice.text }}</InlineNotice>
+
       <StatusFilters v-model="visibleStatuses" />
 
       <GeoMap
@@ -109,7 +176,17 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
         {{ geoProblem }}
       </p>
 
-      <RecordCard v-if="selectedRecord" :key="selectedRecord.id" :record="selectedRecord" />
+      <RecordCard
+        v-if="selectedRecord"
+        :key="selectedRecord.id"
+        :record="selectedRecord"
+        :can-volunteer="canVolunteer"
+        :can-moderate="canModerate"
+        :busy="statusBusy"
+        @volunteer="router.push({ name: 'hq' })"
+        @add-data="openEvidence(selectedRecord)"
+        @set-status="(status) => selectedRecord && changeStatus(selectedRecord, status)"
+      />
       <StateBlock
         v-else
         :loading="false"
@@ -119,5 +196,11 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
         empty-text="Под выбранные фильтры находок нет"
       />
     </template>
+
+    <AddPointSheet v-if="sheet?.kind === 'add'" @created="pointAdded" @close="sheet = null" />
+    <EvidenceSheet v-else-if="sheet?.kind === 'evidence'" :record="sheet.record" @close="sheet = null" />
+    <SheetDialog v-else-if="sheet?.kind === 'account'" title="Нужен аккаунт" @close="sheet = null">
+      <AccountRequired :text="sheet.text" />
+    </SheetDialog>
   </div>
 </template>

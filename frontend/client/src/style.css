@@ -38,6 +38,20 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  /*
+   * Шапка и нижняя панель висят поверх контента, поэтому их высоту экран
+   * отступает сам. Высота считается вместе с системными полосами: на телефоне
+   * шапка занимает полосу статуса плюс 4rem, иначе первый блок экрана
+   * оказывается под ней и до него не домотать.
+   */
+  .pt-header {
+    padding-top: calc(4rem + env(safe-area-inset-top, 0px));
+  }
+  /* Панель вкладок: 4rem самой панели, 1.25rem зазора снизу и системная полоса. */
+  .pb-nav {
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
   .no-scrollbar {
     scrollbar-width: none;
   }

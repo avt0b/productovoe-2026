@@ -8,6 +8,7 @@ import QuickActions from './components/QuickActions.vue'
 import FamilyRelics from './components/FamilyRelics.vue'
 import CommunityArchive from './components/CommunityArchive.vue'
 import LiveMemorialStudio from './components/LiveMemorialStudio.vue'
+import MemorialGallery from './components/MemorialGallery.vue'
 </script>
 
 <template>
@@ -27,6 +28,7 @@ import LiveMemorialStudio from './components/LiveMemorialStudio.vue'
         <FamilyRelics />
         <CommunityArchive />
         <LiveMemorialStudio />
+        <MemorialGallery />
       </div>
     </div>
   </div>

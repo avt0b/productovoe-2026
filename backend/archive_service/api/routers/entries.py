@@ -3,7 +3,14 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from api.deps import CurrentPrincipal, EntryServiceDep, OptionalPrincipal
-from api.schemas.entry import EntryCreate, EntryOut, EntryPublicOut, EntryUpdate, ReviewRequest
+from api.schemas.entry import (
+    EntryCreate,
+    EntryNearbyOut,
+    EntryOut,
+    EntryPublicOut,
+    EntryUpdate,
+    ReviewRequest,
+)
 from core.models import EntryKind, EntryStatus
 from services.entry_service import VERIFIER_ROLES
 
@@ -23,6 +30,22 @@ def list_entries(
     return [EntryPublicOut.model_validate(e) for e in rows]
 
 
+@router.get("/nearby-pending", response_model=list[EntryNearbyOut])
+def nearby_pending_entries(
+    service: EntryServiceDep,
+    min_lat: Annotated[float, Query(ge=-90, le=90)],
+    min_lon: Annotated[float, Query(ge=-180, le=180)],
+    max_lat: Annotated[float, Query(ge=-90, le=90)],
+    max_lon: Annotated[float, Query(ge=-180, le=180)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+) -> list[EntryNearbyOut]:
+    """Неподтверждённые записи в прямоугольнике — витрина для подсказки «рядом есть
+    неподтверждённая заметка, помоги проверить» в семейном навигаторе (route_service).
+    Без авторизации и без прав верификатора: только id/kind/title/координаты."""
+    rows = service.search_nearby_pending(bbox=(min_lat, min_lon, max_lat, max_lon), limit=limit)
+    return [EntryNearbyOut.model_validate(e) for e in rows]
+
+
 @router.get("/moderation", response_model=list[EntryOut])
 def moderation_queue(
     principal: CurrentPrincipal,
@@ -31,9 +54,7 @@ def moderation_queue(
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[EntryOut]:
-    rows = service.search_moderation(
-        principal, status=status_, limit=limit, offset=offset
-    )
+    rows = service.search_moderation(principal, status=status_, limit=limit, offset=offset)
     return [EntryOut.model_validate(e) for e in rows]
 
 
@@ -76,9 +97,7 @@ def update_entry(
     principal: CurrentPrincipal,
     service: EntryServiceDep,
 ) -> EntryOut:
-    return EntryOut.model_validate(
-        service.update(principal, entry_id, payload.to_update_dict())
-    )
+    return EntryOut.model_validate(service.update(principal, entry_id, payload.to_update_dict()))
 
 
 @router.post("/{entry_id}/verify", response_model=EntryOut)
@@ -102,7 +121,5 @@ def reject_entry(
 
 
 @router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_entry(
-    entry_id: str, principal: CurrentPrincipal, service: EntryServiceDep
-) -> None:
+def delete_entry(entry_id: str, principal: CurrentPrincipal, service: EntryServiceDep) -> None:
     service.delete(principal, entry_id)

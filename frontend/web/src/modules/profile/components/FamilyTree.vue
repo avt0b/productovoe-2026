@@ -1,6 +1,8 @@
 <script setup>
 import SmartImage from '@shared/components/SmartImage.vue'
 
+// Ни в одном сервисе нет сущности «семейное древо» — демо-заглушка целиком,
+// имена и фото ниже вымышленные, не подставляются из данных пользователя.
 const heroes = [
   {
     name: 'Сержант Воронов А. Г.',
@@ -33,8 +35,13 @@ const heroes = [
           <span class="material-symbols-outlined text-[20px]">diversity_3</span>
         </div>
         <div class="flex flex-col">
-          <h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Семейное древо и герои рода</h2>
-          <span class="font-body-sm text-body-sm text-on-surface-variant">2 бойца занесены в интерактивную летопись</span>
+          <h2 class="font-headline-sm text-headline-sm font-bold text-on-surface flex items-center gap-2 flex-wrap">
+            Семейное древо и герои рода
+            <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-bold normal-case">
+              демо — такой сущности нет ни в одном сервисе
+            </span>
+          </h2>
+          <span class="font-body-sm text-body-sm text-on-surface-variant">Пример того, как это могло бы выглядеть</span>
         </div>
       </div>
       <button

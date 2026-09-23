@@ -66,6 +66,9 @@ class MemorialClip(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # Необязательная связь с карточкой бойца в archive_service.
     archive_entry_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    # Необязательная связь с точкой слоя «ВОВ» в map_service — памятником или
+    # братской могилой, у которой предложено «оживить» фото неизвестного бойца.
+    poi_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
 
     shares: Mapped[list["ClipShare"]] = relationship(
         back_populates="clip", cascade="all, delete-orphan"

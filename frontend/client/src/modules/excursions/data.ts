@@ -6,7 +6,7 @@ import type { UserRole } from '@/core/session'
  * Данные окна «Экскурсии» — `search_hq_service` (`/excursions`).
  *
  * Типы повторяют схемы сервиса (`api/schemas/excursion.py`), поля в snake_case,
- * как в ответе. Демо-набора нет намеренно: запись и бамп без сервера ничего не
+ * как в ответе. Сама встряска — модуль `features/bump`. Демо-набора нет намеренно: запись и бамп без сервера ничего не
  * значат, экран честно показывает ошибку.
  */
 
@@ -55,15 +55,6 @@ export interface Gathering {
   /** Кто пришёл — только у краеведа. */
   checked_in: { user_id: string; checked_in_at: string }[]
   my_checked_in_at: string | null
-}
-
-export type BumpOutcome = 'matched' | 'no_pair' | 'already_checked_in'
-
-export interface BumpResult {
-  result: BumpOutcome
-  matched_user_ids: string[]
-  checked_in_at: string | null
-  checked_in_count: number
 }
 
 export interface Position {
@@ -135,16 +126,4 @@ export function finishGathering(excursionId: string): Promise<Gathering> {
 
 export function fetchGathering(excursionId: string): Promise<Gathering> {
   return apiRequest('GET', 'hq', path(excursionId, '/gathering'), { auth: true })
-}
-
-/**
- * Встряска телефона. Время встряски сервер считает сам: телефон сообщает
- * только, сколько миллисекунд назад тряхнули, — часы телефонов расходятся.
- * Ответ приходит, когда нашлась встряска второй стороны, или через ~2 с.
- */
-export function sendBump(excursionId: string, position: Position, shakenMsAgo: number): Promise<BumpResult> {
-  return apiRequest('POST', 'hq', path(excursionId, '/bumps'), {
-    body: { ...position, shaken_ms_ago: shakenMsAgo },
-    auth: true,
-  })
 }

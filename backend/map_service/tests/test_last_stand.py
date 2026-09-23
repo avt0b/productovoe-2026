@@ -31,11 +31,14 @@ def test_default_status_is_discovered(client):
 def test_status_change_moderator_only(client):
     point = make_point(client, auth_header(role="searcher")).json()
 
-    assert client.patch(
-        f"/last-stand/{point['id']}/status",
-        headers=auth_header(role="searcher"),
-        json={"status": "archive_confirmed"},
-    ).status_code == 403
+    assert (
+        client.patch(
+            f"/last-stand/{point['id']}/status",
+            headers=auth_header(role="searcher"),
+            json={"status": "archive_confirmed"},
+        ).status_code
+        == 403
+    )
 
     r = client.patch(
         f"/last-stand/{point['id']}/status",

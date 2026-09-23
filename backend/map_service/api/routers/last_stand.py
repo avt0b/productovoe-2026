@@ -82,13 +82,9 @@ def set_point_status(
     principal: CurrentPrincipal,
     service: LastStandServiceDep,
 ) -> LastStandOut:
-    return LastStandOut.model_validate(
-        service.set_status(principal, point_id, payload.status)
-    )
+    return LastStandOut.model_validate(service.set_status(principal, point_id, payload.status))
 
 
 @router.delete("/{point_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_point(
-    point_id: str, principal: CurrentPrincipal, service: LastStandServiceDep
-) -> None:
+def delete_point(point_id: str, principal: CurrentPrincipal, service: LastStandServiceDep) -> None:
     service.delete(principal, point_id)

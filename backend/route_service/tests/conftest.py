@@ -54,6 +54,15 @@ def author_header():
     return auth_header(user_id="author-1", role="local_historian")
 
 
+@pytest.fixture(autouse=True)
+def no_real_achievement_calls(monkeypatch):
+    """По умолчанию не ходим в сеть за user_service — тесты не про ачивки
+    делают это на каждом complete-waypoint."""
+    import services.progress_service as progress_service_module
+
+    monkeypatch.setattr(progress_service_module, "award_achievement", lambda **kw: None)
+
+
 def pytest_sessionfinish(session, exitstatus):
     try:
         os.unlink(_db_path)

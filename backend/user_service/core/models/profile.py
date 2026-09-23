@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Integer, String, Text
+from sqlalchemy import Boolean, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.models.base import Base, TimestampMixin
@@ -23,6 +23,9 @@ class Profile(TimestampMixin, Base):
     # Верификация краеведа/наставника (ставит модератор).
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    # Настройки уведомлений «Последний бой».
+    # Настройки уведомлений «Последний бой»: подписка, радиус и точка отсчёта
+    # (без home_lat/home_lon радиус не от чего считать — подписка тогда неактивна).
     subscribed_to_search: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     alert_radius_km: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
+    home_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    home_lon: Mapped[float | None] = mapped_column(Float, nullable=True)

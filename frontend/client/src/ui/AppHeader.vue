@@ -1,10 +1,18 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import MsIcon from './MsIcon.vue'
 import UserAvatar from './UserAvatar.vue'
 
 const route = useRoute()
+const router = useRouter()
+
+/**
+ * Вход в экран NFC-меток, пока он ни к чему не прикручен. Модуль убрали —
+ * кнопка пропала сама.
+ */
+const hasNfc = computed(() => router.hasRoute('nfc'))
 </script>
 
 <template>
@@ -27,6 +35,14 @@ const route = useRoute()
       </div>
 
       <div class="flex items-center gap-space-xs">
+        <RouterLink
+          v-if="hasNfc"
+          :to="{ name: 'nfc' }"
+          aria-label="NFC-метка"
+          class="flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:text-on-surface"
+        >
+          <MsIcon name="nfc" :size="22" />
+        </RouterLink>
         <button
           type="button"
           aria-label="Поиск"

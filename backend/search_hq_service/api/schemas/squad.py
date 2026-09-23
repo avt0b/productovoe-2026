@@ -1,6 +1,10 @@
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
+
+Lat = Annotated[float, Field(ge=-90, le=90)]
+Lon = Annotated[float, Field(ge=-180, le=180)]
 
 
 class SquadCreate(BaseModel):
@@ -8,6 +12,8 @@ class SquadCreate(BaseModel):
     region: str = Field(default="", max_length=120)
     description: str = ""
     contact: str = Field(default="", max_length=300)
+    lat: Lat | None = None
+    lon: Lon | None = None
 
 
 class SquadUpdate(BaseModel):
@@ -15,6 +21,8 @@ class SquadUpdate(BaseModel):
     region: str | None = Field(default=None, max_length=120)
     description: str | None = None
     contact: str | None = Field(default=None, max_length=300)
+    lat: Lat | None = None
+    lon: Lon | None = None
 
     def to_update_dict(self) -> dict:
         return self.model_dump(exclude_unset=True)
@@ -29,4 +37,6 @@ class SquadOut(BaseModel):
     description: str
     contact: str
     leader_id: str
+    lat: float | None
+    lon: float | None
     created_at: datetime

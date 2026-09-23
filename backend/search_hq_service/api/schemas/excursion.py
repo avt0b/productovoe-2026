@@ -97,12 +97,23 @@ class MyExcursionsOut(BaseModel):
     joined: list[ExcursionOut]
 
 
+class RegistrationCreate(BaseModel):
+    """Тело запроса необязательно: по умолчанию — обычная запись одного человека.
+    Школа/клуб указывает organization_name и group_size — коллективная заявка
+    (модуль 5 ТЗ) держится одной строкой-регистрацией на всю группу."""
+
+    organization_name: str = Field(default="", max_length=255)
+    group_size: int = Field(default=1, ge=1, le=300)
+
+
 class ParticipantOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     excursion_id: str
     user_id: str
+    organization_name: str
+    group_size: int
     status: RegistrationStatus
     checked_in_at: UtcDatetime | None
     created_at: UtcDatetime

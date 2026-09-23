@@ -32,7 +32,9 @@ def test_seed_points_are_found_nearby(client):
         seed(db)
 
     # Площадь Мира: в радиусе километра — братская могила, Вечный огонь, танк, памятник освободителям.
-    nearby = client.get("/poi/nearby", params={"lat": 52.96822, "lon": 36.07936, "radius_km": 1}).json()
+    nearby = client.get(
+        "/poi/nearby", params={"lat": 52.96822, "lon": 36.07936, "radius_km": 1}
+    ).json()
     ids = {p["id"] for p in nearby}
     for key in ("orel-mass-grave", "orel-eternal-flame", "orel-t34", "orel-liberators"):
         assert seed_id("poi", key) in ids

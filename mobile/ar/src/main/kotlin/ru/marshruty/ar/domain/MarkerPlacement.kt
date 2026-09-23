@@ -183,6 +183,15 @@ private const val HEIGHT_PER_MARKER_WIDTH = 1.1f
 /** Рост, пока табличка не найдена и мерить нечего, — ребёнку по колено, в кадре не теряется. */
 const val DEFAULT_COMPANION_HEIGHT_METERS = 0.35f
 
+/**
+ * Рост, когда проводник встал перед человеком, а таблички не было.
+ *
+ * Мерить нечего, и прежние 35 см в такой постановке читались как пропажа:
+ * фигурка по колено стоит на расстоянии вытянутой руки, теряется в кадре и
+ * прячется за первым же столом. Ростом с ребёнка её видно сразу.
+ */
+const val IN_FRONT_COMPANION_HEIGHT_METERS = 1.2f
+
 /** Измерение ARCore меньше двух сантиметров — это ещё не оценка, а шум первых кадров. */
 private const val MIN_MEASURED_WIDTH_METERS = 0.02f
 
@@ -190,13 +199,17 @@ private const val MIN_MEASURED_WIDTH_METERS = 0.02f
  * Рост проводника в метрах.
  *
  * Приоритет: явно заданный рост, затем от известной ширины таблички, затем от
- * ширины, которую измерил ARCore, и только потом значение по умолчанию.
+ * ширины, которую измерил ARCore, и только потом значение по умолчанию. Когда
+ * таблички не было вовсе и проводник встал прямо перед человеком, умолчание
+ * другое: мерить нечего, а фигурка по колено на таком расстоянии теряется.
  */
 fun companionHeightFor(
     explicitMeters: Float?,
     knownWidthMeters: Float?,
     measuredWidthMeters: Float?,
+    placedInFront: Boolean = false,
 ): Float {
     val width = knownWidthMeters ?: measuredWidthMeters?.takeIf { it >= MIN_MEASURED_WIDTH_METERS }
-    return explicitMeters ?: width?.times(HEIGHT_PER_MARKER_WIDTH) ?: DEFAULT_COMPANION_HEIGHT_METERS
+    val fallback = if (placedInFront) IN_FRONT_COMPANION_HEIGHT_METERS else DEFAULT_COMPANION_HEIGHT_METERS
+    return explicitMeters ?: width?.times(HEIGHT_PER_MARKER_WIDTH) ?: fallback
 }

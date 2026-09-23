@@ -55,6 +55,17 @@ def leader_header():
     return auth_header(user_id="leader-1", role="searcher")
 
 
+@pytest.fixture(autouse=True)
+def no_real_achievement_calls(monkeypatch):
+    """По умолчанию не ходим в сеть за user_service — тесты не про ачивки
+    делают это на каждой регистрации на выезд/донате."""
+    import services.need_service as need_service_module
+    import services.trip_service as trip_service_module
+
+    monkeypatch.setattr(trip_service_module, "award_achievement", lambda **kw: None)
+    monkeypatch.setattr(need_service_module, "award_achievement", lambda **kw: None)
+
+
 def pytest_sessionfinish(session, exitstatus):
     try:
         os.unlink(_db_path)

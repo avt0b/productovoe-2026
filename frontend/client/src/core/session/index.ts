@@ -1,3 +1,14 @@
+export {
+  clearPendingLogin,
+  closeExternalBrowser,
+  completeExternalLogin,
+  listProviders,
+  readPendingLogin,
+  startExternalLogin,
+  type ExternalProvider,
+  type PendingLogin,
+  type ProviderInfo,
+} from './externalAuth'
 export { can } from './roles'
 export { useSessionStore } from './store'
 export type {
