@@ -2,14 +2,18 @@ import { withLatency } from '@/core/mock'
 
 import type { AuthProvider, SessionUser } from './types'
 
-/** Демо-исследователь из макета профиля. */
+/**
+ * Тот, кто зашёл осмотреться без учётной записи.
+ *
+ * Имя и подпись честно говорят, что это демо: выдуманный «Константин Смирнов
+ * из отряда „Высота“» выглядел как чужие настоящие данные. Аватара нет —
+ * показывается силуэт.
+ */
 const DEMO_USER: SessionUser = {
-  id: 'MP-84920',
-  name: 'Константин Смирнов',
-  headline: 'Волонтер-исследователь • Отряд «Высота»',
-  city: 'г. Орёл',
-  avatarUrl:
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuDV9_gqL9ecHjRz29Dj4SSQ535RUFfZasr-q0dw7hF6zSx1gWA87IOqCMWwB4IlJameflSYk9WA1NWr0leTOZk6dGJEVSx-ZDnyn1w38eTDjHSbI8bRfeMqRhKYZ70yDZXqrnm7iJSaaPb2oB9oIQaSztAGxZhgLTgXuaxfbnUyupuruyMxqnZrjynEbGONb-N4EmSRl3zZwR2HcmrHrUr-fEhV0AJNW2_f6XE9znZs07HpTSoWCzOB',
+  id: 'demo',
+  name: 'Тест',
+  headline: 'Демо-режим без учётной записи',
+  city: '',
 }
 
 /**
