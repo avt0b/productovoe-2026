@@ -8,6 +8,7 @@ from core.models import DevicePlatform, Notification, NotificationDevice
 from core.models.base import utcnow
 from core.security import Principal
 from repositories.notification_repository import NotificationRepository
+from services import push_service
 
 
 class NotificationService:
@@ -36,7 +37,7 @@ class NotificationService:
             self.db.refresh(notification)
         return notification
 
-    # --- устройства (задел под FCM) ---
+    # --- устройства (реальная push-доставка — см. services/fcm_client.py) ---
 
     def register_device(
         self, principal: Principal, *, platform: DevicePlatform, token: str
@@ -78,7 +79,7 @@ class NotificationService:
             # title/body могут нести плейсхолдер "{distance_km}" — подставляем
             # реальное расстояние до конкретного подписчика (кейс: «в 5 км от вас»).
             distance_label = str(max(1, round(distance_km)))
-            self.repo.add(
+            notification = self.repo.add(
                 Notification(
                     user_id=profile.id,
                     kind=kind,
@@ -87,6 +88,7 @@ class NotificationService:
                     payload={**(payload or {}), "distance_km": round(distance_km, 2)},
                 )
             )
+            push_service.deliver(self.db, notification)
             created += 1
         if created:
             self.db.commit()

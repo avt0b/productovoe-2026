@@ -57,6 +57,10 @@ main.py        # сборка FastAPI
 | GET | `/profiles/{id}` | любой авторизованный |
 | PATCH | `/profiles/{id}/verify` | `local_historian` / `mentor` / `moderator` / root |
 | GET | `/achievements/me` | любой авторизованный — свои значки (`code`, `earned_at`) |
+| GET | `/notifications` `?unread_only&limit&offset` | владелец — своя лента |
+| POST | `/notifications/{id}/read` | владелец |
+| POST | `/notifications/devices` | любой авторизованный — регистрирует токен устройства (upsert по `token`) |
+| DELETE | `/notifications/devices/{token}` | владелец токена |
 
 **`GET /profiles/{id}` не проверяет владение** — любой обладатель валидного
 токена может прочитать чужой профиль целиком (`city`, `bio`,
@@ -104,6 +108,30 @@ code)`) — значки за активность (геймификация и�
 Видны и на своём, и на чужом профиле: `ProfileOut.achievements` заполняется
 и в `GET /profiles/me`, и в `GET /profiles/{id}` — тем же «не проверяет
 владение», что и остальные поля профиля (см. выше).
+
+## Push-доставка
+
+`Notification` создаётся в двух местах (`broadcast_nearby` для «Последнего
+боя», `AchievementService.award` для значков) — оба после коммита зовут
+`services/push_service.py`, который шлёт push на все устройства владельца
+через `services/fcm_client.py` (FCM HTTP v1). Один API покрывает Android,
+iOS (FCM сам разносит на APNs) и веб (Web Push) — платформа в
+`NotificationDevice.platform` на формат запроса не влияет.
+
+Не настроено (`FCM_PROJECT_ID`/ключ сервисного аккаунта не заданы) —
+`push_service.deliver` выходит первой же проверкой, ничего не пытаясь
+сделать: push — не блокирующая зависимость, лента и ачивки работают как
+раньше. Настроено, но FCM ответил `UNREGISTERED`/`404` на конкретный токен —
+устройство удаляется из `NotificationDevice` (протухший токен, не временная
+ошибка). Любая другая ошибка/недоступность FCM — просто `warning` в лог,
+доставка этого уведомления не повторяется (retry-очереди нет, как и у
+остальных внутрисервисных вызовов в проекте).
+
+Отдельно нет своего микросервиса `notification_service` из `backend/README.md`
+— решили не заводить: токены устройств и так уже в этой БД
+(`NotificationDevice`), а доставка не хранит собственное состояние между
+запросами (кроме кэша OAuth2-токена в памяти процесса), так что отдельная
+БД/деплой ради неё не нужны.
 
 ## Как ходит admin_service
 

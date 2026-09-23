@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from core.models import ACHIEVEMENT_TITLES, Notification, UserAchievement
 from repositories.achievement_repository import AchievementRepository
 from repositories.notification_repository import NotificationRepository
+from services import push_service
 
 
 class AchievementService:
@@ -24,7 +25,7 @@ class AchievementService:
 
         achievement = self.repo.add(UserAchievement(user_id=user_id, code=code))
         title = ACHIEVEMENT_TITLES.get(code, code)
-        self.notifications.add(
+        notification = self.notifications.add(
             Notification(
                 user_id=user_id,
                 kind="achievement",
@@ -35,6 +36,7 @@ class AchievementService:
         )
         self.db.commit()
         self.db.refresh(achievement)
+        push_service.deliver(self.db, notification)
         return achievement, True
 
     def list_for(self, user_id: str) -> Sequence[UserAchievement]:
