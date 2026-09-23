@@ -7,8 +7,11 @@ const props = defineProps({
 
 // Ни в одном сервисе нет сущности «отзыв о точке» — демо-заглушка целиком,
 // хранится только в этом браузере, отдельно на каждую точку (по её id).
+// Общий компонент для всех карт (слой «ВОВ», «Последний бой», экскурсии) —
+// id точек в разных сервисах не пересекаются (разные UUID-таблицы), общий
+// префикс ключа этого не портит.
 function storageKey(pointId) {
-  return `marshruty.last-stand-reviews.${pointId}`
+  return `marshruty.point-reviews.${pointId}`
 }
 
 const reviews = reactive({ items: [] })
