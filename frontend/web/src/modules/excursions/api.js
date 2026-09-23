@@ -31,3 +31,9 @@ export function getGuideRating(guideId) {
 export function getMyExcursions(token) {
   return http.get(`${BASE}/excursions/mine`, { token })
 }
+
+// После начала сбора отписаться нельзя (ExcursionService.cancel_registration) —
+// бэкенд сам отклонит с 409, если статус экскурсии уже не scheduled.
+export function cancelRegistration(token, excursionId) {
+  return http.delete(`${BASE}/excursions/${excursionId}/registrations/me`, { token })
+}
