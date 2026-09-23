@@ -10,6 +10,11 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // AR тянет нативные библиотеки Filament под четыре ABI и раздувает APK
+        // до ~40 МБ. Оставляем реальные телефоны и эмулятор.
+        ndk {
+            abiFilters "arm64-v8a", "x86_64"
+        }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
@@ -24,14 +29,34 @@ android {
     }
 }
 
+// AR-модуль подключается готовым AAR: он собран на AGP 9, Capacitor — на AGP 8,
+// а две версии AGP в одной сборке Gradle не уживаются. Собрать AAR —
+// `npm run android:ar` (он же запускает сборку в mobile/).
+def arRepo = file("${rootDir}/../../../mobile/ar/build/repo")
+def arReady = arRepo.exists()
+
 repositories {
     flatDir{
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
+    if (arReady) {
+        maven { url arRepo }
+    }
+}
+
+// Мост в AR лежит отдельно: нет AAR — нет и моста, приложение собирается
+// и работает, только кнопка «Запустить AR-поиск» честно говорит, что AR нет.
+if (arReady) {
+    android.sourceSets.main.java.srcDirs += 'src/ar/java'
+} else {
+    logger.lifecycle("AR-модуль не найден в ${arRepo} — APK собирается без AR (`npm run android:ar`)")
 }
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    if (arReady) {
+        implementation 'ru.marshruty:ar:0.1.0'
+    }
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"

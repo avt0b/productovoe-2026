@@ -1,5 +1,6 @@
 ext {
-    minSdkVersion = 24
+    // 26 — требование AR-модуля (mobile/ar): Android 8.0 и новее.
+    minSdkVersion = 26
     compileSdkVersion = 36
     targetSdkVersion = 36
     androidxActivityVersion = '1.11.0'

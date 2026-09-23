@@ -103,6 +103,7 @@ Tailwind почти один в один.
 ```bash
 cd frontend/client
 cp .env.example .env.android.local   # адреса сервисов — IP компьютера в локальной сети
+npm run android:ar                   # собрать AR-модуль из mobile/ (можно пропустить)
 npm run android:sync                 # сборка с .env.android.local и копирование в android/
 cd android
 ./gradlew assembleDebug              # app/build/outputs/apk/debug/app-debug.apk
@@ -127,8 +128,16 @@ cd android
 - **Геолокация** — разрешения `ACCESS_FINE_LOCATION` и
   `ACCESS_COARSE_LOCATION` в манифесте; система спрашивает их по кнопке
   «Где я».
-- **AR** в APK пока не встроен: нативный модуль из `mobile/` подключается
-  отдельным шагом.
+- **AR** — нативный модуль из [`mobile/`](../../mobile/): камера, компас,
+  ARCore. `npm run android:ar` собирает его в AAR
+  (`mobile/ar/build/repo`), дальше APK подключает готовый AAR. Отдельной
+  сборкой — потому что AR собран на AGP 9, а шаблон Capacitor на AGP 8:
+  двух версий AGP в одной сборке Gradle не бывает. Не собрали AAR — APK
+  соберётся без AR, а кнопка «Запустить AR-поиск» скажет об этом.
+  С AR приложение весит ~33 МБ (ARCore и Filament) и требует Android 8.0.
+- **Модель проводника** в репозиторий не кладём (чужая лицензия). Положите
+  свою в `mobile/ar/src/main/assets/companion/` — мост возьмёт первую
+  найденную `.glb`. Нет модели — экран работает без проводника.
 - **NFC** — разрешение `NFC` и `uses-feature` с `required="false"`: на
   телефонах без NFC приложение ставится и работает. Метка с нашей ссылкой
   (`marshruty://nfc…`) открывает приложение и когда оно закрыто.

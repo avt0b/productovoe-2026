@@ -8,6 +8,7 @@ import { formatDistance } from '@/core/geo'
 import { completeWaypoint, getMyProgress, type RouteProgress } from '@/core/services/routes'
 import { useSessionStore } from '@/core/session'
 import { shareCurrentPage } from '@/core/share'
+import { ArHintCard, buildSubtitles, isArAvailable, openAr } from '@/features/ar'
 import DemoDataBadge from '@/ui/DemoDataBadge.vue'
 import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
@@ -30,11 +31,25 @@ const routeId = computed(() => (typeof currentRoute.query.route === 'string' ? c
 const { data: point, loading, error, retry } = useAsync(() => fetchRoutePoint(props.pointId, routeId.value))
 
 const bookmarked = ref(false)
-const arNotice = ref(false)
+/** Что ответил AR-экран в прошлый раз. `null` — ещё не запускали. */
+const arNote = ref<string | null>(null)
+const arBusy = ref(false)
+
+/** AR живёт в APK вместе с нативным модулем; в браузере его нет. */
+const arReady = isArAvailable()
+
+/** Табличка точки: печатается из `mobile/tools/make_marker.py`. Пока одна, демонстрационная. */
+const AR_MARKER = 'markers/wp-2.png'
+
+const AR_PROBLEMS: Record<string, string> = {
+  CAMERA_PERMISSION_DENIED: 'Без доступа к камере AR не работает — разрешите камеру в настройках телефона.',
+  NO_CAMERA: 'На этом устройстве нет камеры — пройдите точку по карточке.',
+  NO_ORIENTATION_SENSOR: 'На этом устройстве нет компаса — AR наводить не на что.',
+}
 
 // «Дальше» открывает тот же экран с другой точкой: компонент переиспользуется, данные надо перезагрузить.
 watch([() => props.pointId, routeId], () => {
-  arNotice.value = false
+  arNote.value = null
   progressError.value = null
   void retry()
 })
@@ -93,6 +108,47 @@ function openNext(): void {
 
 function openMap(): void {
   if (canOpenMap.value) void router.push({ name: 'routes' })
+}
+
+/**
+ * AR-поиск: нативный экран из `mobile/ar` наводит на точку по компасу, а у
+ * печатной таблички ставит проводника прямо на неё. Нашли — точка засчитана.
+ */
+async function launchAr(): Promise<void> {
+  const current = point.value
+  if (!current || arBusy.value) return
+  if (!arReady) {
+    arNote.value = 'AR-поиск работает в мобильном приложении: нужны камера и компас телефона.'
+    return
+  }
+
+  arBusy.value = true
+  arNote.value = null
+  try {
+    const result = await openAr({
+      pointId: current.id,
+      title: current.title,
+      stepIndex: current.step,
+      stepTotal: current.totalSteps,
+      target: { ...current.location, label: current.arHint ?? current.title },
+      // У братской могилы и мемориала проводника-маскота не показываем.
+      companion: current.solemn
+        ? null
+        : { name: 'Проводник маршрута', subtitle: current.routeTitle, asset: 'companion/verny.glb' },
+      narration: { audioUrl: current.audioUrl, subtitles: buildSubtitles(current.story ?? current.title) },
+      marker: { asset: AR_MARKER, fallbackAfterMs: 4000 },
+    })
+    if (result.outcome === 'completed') {
+      arNote.value = 'Метку нашли — точка засчитана.'
+      await markDone()
+    } else if (result.outcome === 'unavailable') {
+      arNote.value = AR_PROBLEMS[result.reason ?? ''] ?? 'AR на этом устройстве недоступен — пройдите точку по карточке.'
+    }
+  } catch (reason) {
+    arNote.value = errorText(reason)
+  } finally {
+    arBusy.value = false
+  }
 }
 </script>
 
@@ -242,23 +298,14 @@ function openMap(): void {
         <button
           v-if="point.arHint"
           type="button"
-          class="flex w-full items-center justify-center gap-2 rounded-full bg-surface-container-lowest py-3 font-label-lg text-label-lg text-secondary shadow-sm transition-all hover:bg-surface-container-low active:scale-[0.99]"
-          @click="arNotice = true"
+          class="flex w-full items-center justify-center gap-2 rounded-full bg-surface-container-lowest py-3 font-label-lg text-label-lg text-secondary shadow-sm transition-all hover:bg-surface-container-low active:scale-[0.99] disabled:opacity-60"
+          :disabled="arBusy"
+          @click="launchAr"
         >
-          <MsIcon name="view_in_ar" :size="20" />
+          <MsIcon :name="arBusy ? 'progress_activity' : 'view_in_ar'" :size="20" :class="{ 'animate-spin': arBusy }" />
           <span>Запустить AR-поиск</span>
         </button>
-        <div
-          v-if="arNotice && point.arHint"
-          class="flex items-start gap-2 rounded-DEFAULT bg-tertiary-fixed/40 px-3 py-2 font-body-sm text-body-sm text-on-tertiary-fixed-variant"
-          role="status"
-        >
-          <MsIcon name="smartphone" :size="18" class="mt-0.5 shrink-0" />
-          <p>
-            {{ point.arHint }}
-            <span class="block pt-1 opacity-80">AR-поиск работает в мобильном приложении с камерой и компасом телефона.</span>
-          </p>
-        </div>
+        <ArHintCard v-if="point.arHint" :hint="point.arHint" :note="arNote" />
       </div>
     </template>
   </div>

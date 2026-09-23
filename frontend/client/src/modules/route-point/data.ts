@@ -1,5 +1,6 @@
 import type { DataSource } from '@/core/api'
-import { distanceKm } from '@/core/geo'
+import { distanceKm, type LatLon } from '@/core/geo'
+import { listPoi } from '@/core/services/map'
 import { getRoute } from '@/core/services/routes'
 
 /**
@@ -48,6 +49,16 @@ export interface RoutePoint {
   next: { id: string; title: string; distanceKm: number } | null
   /** Подсказка для AR-поиска. Нет — AR на этой точке не предлагаем (например, у братской могилы). */
   arHint: string | null
+  /** Где точка на земле — AR наводит на неё. */
+  location: LatLon
+  /** Аудио рассказа, если автор точки его записал. */
+  audioUrl: string | null
+  /**
+   * Место траурное — братская могила или мемориал. Проводника-маскота там не
+   * показываем: у могилы он читается как неуважение. Не знаем, что за место, —
+   * считаем траурным.
+   */
+  solemn: boolean
   source: DataSource
 }
 
@@ -92,6 +103,24 @@ export async function fetchRoutePoint(pointId: string, routeId: string | null): 
     story: stop.story || undefined,
     next: next ? { id: next.id, title: next.title, distanceKm: distanceKm(stop, next) } : null,
     arHint: stop.ar_hint || null,
+    location: { lat: stop.lat, lon: stop.lon },
+    audioUrl: stop.audio_url,
+    solemn: await isSolemn(stop.poi_id),
     source,
+  }
+}
+
+/** Типы мест слоя «ВОВ», где маскоту не место. */
+const SOLEMN_KINDS = new Set(['grave', 'monument'])
+
+async function isSolemn(poiId: string | null): Promise<boolean> {
+  if (!poiId) return false
+  try {
+    const { data } = await listPoi()
+    const poi = data.find((item) => item.id === poiId)
+    // Место неизвестно — считаем траурным: лучше не показать проводника, чем показать его у могилы.
+    return poi === undefined || SOLEMN_KINDS.has(poi.kind)
+  } catch {
+    return true
   }
 }
