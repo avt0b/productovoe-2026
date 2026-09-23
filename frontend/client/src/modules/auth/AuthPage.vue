@@ -14,12 +14,10 @@ import {
   useSessionStore,
   type ExternalProvider,
   type PendingLogin,
-  type SignInMethod,
 } from '@/core/session'
 import MsIcon from '@/ui/MsIcon.vue'
 import ToggleSwitch from '@/ui/ToggleSwitch.vue'
 
-import AuthBanner from './components/AuthBanner.vue'
 import AuthField from './components/AuthField.vue'
 import SsoButtons from './components/SsoButtons.vue'
 
@@ -38,8 +36,7 @@ const passwordVisible = ref(false)
 /** Регистрируется краевед или наставник — он сможет водить экскурсии и собирать группу бампом. */
 const isGuide = ref(false)
 const signInError = ref<string | null>(null)
-/** Какой способ входа сейчас в работе — чтобы крутилка была на нажатой кнопке, а не на всех. */
-const activeMethod = ref<SignInMethod | null>(null)
+const submitting = ref(false)
 
 /** VK ID, MAX, Госуслуги: что включено на сервере. Не ответил — кнопки неактивны. */
 const providers = useAsync(async () => {
@@ -72,13 +69,14 @@ function nextPath(): string | null {
   return typeof next === 'string' && next.startsWith('/') && !next.startsWith('//') ? next : null
 }
 
-async function enter(method: SignInMethod): Promise<void> {
-  if (session.pending) return
-  activeMethod.value = method
+/** Вход по почте и регистрация. Удачный исход ведёт в профиль исследователя. */
+async function submit(): Promise<void> {
+  if (submitting.value) return
+  submitting.value = true
   signInError.value = null
   try {
     await session.signIn({
-      method,
+      method: mode.value === 'login' ? 'password' : 'register',
       contact: contact.value,
       password: password.value,
       name: mode.value === 'register' ? name.value : undefined,
@@ -88,12 +86,8 @@ async function enter(method: SignInMethod): Promise<void> {
   } catch (reason) {
     signInError.value = errorText(reason)
   } finally {
-    activeMethod.value = null
+    submitting.value = false
   }
-}
-
-function submit(): void {
-  void enter(mode.value === 'login' ? 'password' : 'register')
 }
 
 async function enterExternal(provider: ExternalProvider): Promise<void> {
@@ -149,40 +143,69 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
 </script>
 
 <template>
-  <div class="flex w-full flex-col px-margin pb-space-xl">
-    <!-- Эмблема и название -->
-    <div class="mb-space-md mt-space-sm flex flex-col items-center text-center">
-      <div class="relative mb-space-sm flex items-center justify-center">
-        <div class="flex h-20 w-20 items-center justify-center rounded-full bg-secondary-container p-1 shadow-md">
-          <img src="/logo.svg" alt="Эмблема «Маршруты победы»" class="h-full w-full rounded-full object-contain" />
-        </div>
-        <div
-          class="absolute -bottom-1 -right-1 flex items-center justify-center rounded-full bg-primary p-1 text-on-primary shadow-sm"
-        >
-          <MsIcon name="explore" :size="13" />
-        </div>
-      </div>
-      <h1 class="font-headline-xl-mobile text-headline-xl-mobile tracking-tight text-on-surface">Маршруты победы</h1>
-      <p class="mt-space-xs max-w-xs font-body-sm text-body-sm text-on-surface-variant">
-        Живая история, семейные маршруты и поиск защитников Отечества
-      </p>
+  <!--
+    Контент прижат к верху, а не центрирован. При переключении «Вход» ⇄
+    «Регистрация» форма становится на поле выше, и при центрировании весь
+    экран, включая шапку и вкладки, дёргался бы вверх-вниз. Сверху же
+    неподвижно стоит всё до нового поля, а ниже него блок плавно съезжает.
+  -->
+  <div
+    class="relative isolate flex w-full flex-1 flex-col overflow-hidden px-margin pb-space-sm short:pb-space-xs"
+  >
+    <!--
+      Фотография вечного огня во весь экран. Лежит локально в `public/`:
+      в APK сети может не быть, и внешняя картинка там просто не загрузится.
+      Поверх — затемнение, без него белый текст на пламени не прочитать.
+    -->
+    <div class="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+      <img src="/auth-eternal-flame.jpg" alt="" class="h-full w-full object-cover" />
+      <div class="absolute inset-0 bg-night/45" />
+      <!-- Снизу тень гуще: там лежат мелкий текст и кнопки входа через сервисы -->
+      <div class="absolute inset-0 bg-gradient-to-b from-night/20 via-transparent to-night/70" />
     </div>
 
     <RouterLink
       v-if="canPickServer"
       :to="{ name: 'server' }"
-      class="mb-space-md flex items-center gap-space-sm rounded-full bg-surface-container-low px-space-md py-2 text-on-surface-variant transition-colors hover:bg-surface-container"
+      class="mb-space-sm flex items-center gap-space-sm self-stretch rounded-full border border-white/20 bg-white/10 px-space-md py-2 text-white backdrop-blur-sm transition-colors hover:border-white/40 hover:bg-white/20"
     >
-      <MsIcon name="dns" :size="18" class="shrink-0 text-secondary" />
+      <MsIcon name="dns" :size="18" class="shrink-0" />
       <span class="min-w-0 flex-1 truncate font-label-md text-label-md">Сервер: {{ server }}</span>
-      <span class="shrink-0 font-label-md text-label-md text-primary">Изменить</span>
+      <span class="shrink-0 font-label-md text-label-md text-white/75">Изменить</span>
     </RouterLink>
 
-    <AuthBanner class="mb-space-lg" />
+    <header class="mb-space-sm mt-space-2xl flex flex-col items-center text-center short:mb-space-xs short:mt-space-md">
+      <h1
+        class="ribbon-shimmer font-headline-xl text-headline-xl tracking-tight text-white drop-shadow-lg short:text-headline-xl-mobile"
+      >
+        Маршруты победы
+      </h1>
+      <p
+        class="ribbon-shimmer mt-space-xs max-w-[32ch] font-body-md text-body-md text-white opacity-75 [animation-delay:700ms] short:text-body-sm"
+      >
+        Живая история, семейные маршруты и поиск защитников Отечества
+      </p>
+    </header>
 
-    <div class="flex w-full flex-col rounded-2xl bg-surface-container-lowest p-space-md shadow-sm">
-      <!-- Вход / Регистрация -->
-      <div class="mb-space-lg grid grid-cols-2 rounded-full bg-surface-container-low p-1 text-center" role="tablist">
+    <!--
+      Стеклянная карточка: держит форму читаемой поверх фотографии.
+      `mt-auto` работает только когда маскот скрыт (низкий экран) — тогда
+      форма всё равно остаётся у нижнего края, а не взлетает под шапку.
+    -->
+    <div
+      class="mt-auto flex w-full flex-col rounded-2xl border border-white/15 bg-night/45 p-space-md shadow-sheet backdrop-blur-md"
+    >
+      <!--
+        Вход / Регистрация. Подложка активной вкладки — отдельный элемент,
+        который переезжает трансформацией: перекраска фона у двух кнопок
+        переключалась бы рывком, здесь же видно, куда именно уехал выбор.
+      -->
+      <div class="relative mb-space-md grid grid-cols-2 rounded-xl border border-white/10 bg-white/10 p-1 text-center" role="tablist">
+        <span
+          class="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-lg bg-white shadow-float transition-transform duration-300 ease-out"
+          :class="mode === 'register' ? 'translate-x-full' : 'translate-x-0'"
+          aria-hidden="true"
+        />
         <button
           v-for="tab in [
             { value: 'login', title: 'Вход' },
@@ -192,30 +215,43 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
           type="button"
           role="tab"
           :aria-selected="mode === tab.value"
-          class="rounded-full py-2 font-label-lg text-label-lg transition-all duration-200"
-          :class="
-            mode === tab.value
-              ? 'bg-surface-container-lowest text-on-surface shadow-sm'
-              : 'text-on-surface-variant hover:text-on-surface'
-          "
+          class="relative z-10 rounded-lg py-2 font-label-lg text-label-lg transition-colors duration-200"
+          :class="mode === tab.value ? 'text-night' : 'text-white/70 hover:text-white'"
           @click="mode = tab.value"
         >
           {{ tab.title }}
         </button>
       </div>
 
-      <form class="flex flex-col space-y-space-md" @submit.prevent="submit">
-        <AuthField
-          v-if="mode === 'register'"
-          v-model="name"
-          label="Как к вам обращаться"
-          icon="person"
-          placeholder="Имя и фамилия"
-          autocomplete="name"
-        />
+      <form class="flex flex-col" @submit.prevent="submit">
+        <!-- Обёртка-грид нужна анимации высоты: см. `.field-*` в style.css -->
+        <!--
+          Графа имени не снимается с разметки, а схлопывается: высота едет
+          через `grid-template-rows: 0fr → 1fr` обычным CSS-переходом. С
+          `<Transition>` элемент снимался по событию анимации и залипал
+          раскрытым, если окно в этот момент не отрисовывалось. Скрытая графа
+          помечена `inert` — в неё не попасть ни табом, ни скринридером.
+        -->
+        <div
+          class="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+          :class="mode === 'register' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+          :inert="mode !== 'register'"
+        >
+          <div class="overflow-hidden">
+            <AuthField
+              v-model="name"
+              class="mb-space-sm"
+              label="Как к вам обращаться"
+              icon="person"
+              placeholder="Имя и фамилия"
+              autocomplete="name"
+            />
+          </div>
+        </div>
 
         <AuthField
           v-model="contact"
+          class="mb-space-sm"
           label="Почта"
           icon="mail"
           type="email"
@@ -225,21 +261,17 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
 
         <AuthField
           v-model="password"
+          class="mb-space-md"
           label="Пароль"
           icon="lock"
           :type="passwordVisible ? 'text' : 'password'"
           :placeholder="mode === 'login' ? 'Введите ваш пароль' : 'Не короче 8 символов'"
           :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
         >
-          <template v-if="mode === 'login'" #label-action>
-            <button type="button" class="font-label-sm text-label-sm text-primary transition-colors hover:text-primary-container">
-              Забыли пароль?
-            </button>
-          </template>
           <template #trailing>
             <button
               type="button"
-              class="flex shrink-0 items-center p-1 text-outline hover:text-on-surface"
+              class="flex shrink-0 items-center p-1 text-white/60 transition-colors hover:text-white"
               :aria-label="passwordVisible ? 'Скрыть пароль' : 'Показать пароль'"
               @click="passwordVisible = !passwordVisible"
             >
@@ -249,28 +281,33 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
         </AuthField>
 
         <!-- Краевед при регистрации: сможет водить экскурсии и собирать группу бампом -->
-        <div v-if="mode === 'register'" class="flex items-center justify-between rounded-xl bg-surface-container-low p-space-sm">
+        <div
+          v-if="mode === 'register'"
+          class="mb-space-sm flex items-center justify-between rounded-xl border border-white/15 bg-white/10 p-space-sm backdrop-blur-sm"
+        >
           <div class="flex items-center space-x-space-sm">
-            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary-fixed text-secondary">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/90 text-secondary">
               <MsIcon name="record_voice_over" :size="15" />
             </div>
             <div class="flex flex-col">
-              <span class="font-label-md text-label-md text-on-surface">Я краевед или наставник</span>
-              <span class="font-label-sm text-label-sm text-on-surface-variant">Буду водить экскурсии и собирать группы</span>
+              <span class="font-label-md text-label-md text-white">Я краевед или наставник</span>
+              <span class="font-label-sm text-label-sm text-white/75">Буду водить экскурсии и собирать группы</span>
             </div>
           </div>
           <ToggleSwitch v-model="isGuide" label="Я краевед или наставник" class="ml-2" />
         </div>
 
         <!-- Семейный режим -->
-        <div class="flex items-center justify-between rounded-xl bg-surface-container-low p-space-sm">
+        <div
+          class="mb-space-md flex items-center justify-between rounded-xl border border-white/15 bg-white/10 p-space-sm backdrop-blur-sm"
+        >
           <div class="flex items-center space-x-space-sm">
-            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tertiary-fixed text-on-tertiary-fixed">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/90 text-tertiary">
               <MsIcon name="family_restroom" :size="15" filled />
             </div>
             <div class="flex flex-col">
-              <span class="font-label-md text-label-md text-on-surface">Семейный / детский режим</span>
-              <span class="font-label-sm text-label-sm text-on-surface-variant">Адаптированные детские квесты и аудиогид</span>
+              <span class="font-label-md text-label-md text-white">Семейный / детский режим</span>
+              <span class="font-label-sm text-label-sm text-white/75">Адаптированные детские квесты и аудиогид</span>
             </div>
           </div>
           <ToggleSwitch v-model="preferences.familyMode" label="Семейный режим" class="ml-2" />
@@ -278,35 +315,34 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
 
         <button
           type="submit"
-          class="flex w-full items-center justify-center space-x-space-sm rounded-full bg-primary py-4 font-label-lg text-label-lg text-on-primary shadow-md transition-all hover:bg-primary-container active:scale-[0.99] disabled:opacity-70"
-          :disabled="session.pending"
+          class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-70 short:py-2.5"
+          :disabled="submitting"
         >
           <MsIcon
-            :name="activeMethod === 'password' || activeMethod === 'register' ? 'progress_activity' : 'military_tech'"
+            :name="submitting ? 'progress_activity' : 'military_tech'"
             :size="18"
-            :class="{ 'animate-spin': activeMethod === 'password' || activeMethod === 'register' }"
+            :class="{ 'animate-spin': submitting }"
           />
-          <span>{{ submitLabel }}</span>
+          <span class="ribbon-shimmer [animation-delay:1400ms]">{{ submitLabel }}</span>
         </button>
 
         <p
           v-if="signInError"
-          class="rounded-xl bg-error-container px-space-sm py-2 text-center font-body-sm text-body-sm text-on-error-container"
+          class="mt-space-sm rounded-xl bg-error/90 px-space-sm py-2 text-center font-body-sm text-body-sm text-white"
           role="alert"
         >
           {{ signInError }}
         </p>
 
-        <p class="text-center font-label-sm text-label-sm text-outline">
-          Оставьте поля пустыми, чтобы войти в демо-режиме без аккаунта: смотреть можно всё, записываться и
-          отмечать — нет.
+        <p class="mt-space-sm text-center font-label-sm text-label-sm text-white/75">
+          Пустые поля — вход в демо-режиме: смотреть можно всё, записываться и отмечать — нет.
         </p>
       </form>
 
-      <div class="relative flex items-center justify-center py-space-md">
-        <div class="h-px flex-grow bg-surface-variant" />
-        <span class="mx-space-sm shrink-0 font-label-sm text-label-sm text-outline">Или войти через</span>
-        <div class="h-px flex-grow bg-surface-variant" />
+      <div class="relative flex items-center justify-center py-space-sm short:py-0.5">
+        <div class="h-px flex-grow bg-white/20" />
+        <span class="mx-space-sm shrink-0 font-archival text-archival uppercase text-white/70">Или войти через</span>
+        <div class="h-px flex-grow bg-white/20" />
       </div>
 
       <SsoButtons
@@ -316,45 +352,42 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
         class="mb-space-sm"
         @select="enterExternal"
       />
-      <p v-if="!providers.loading.value && !providers.data.value" class="text-center font-label-sm text-label-sm text-outline">
+      <p
+        v-if="!providers.loading.value && !providers.data.value"
+        class="text-center font-label-sm text-label-sm text-white/75"
+      >
         Сервер входа не ответил — входить через VK ID, MAX и Госуслуги пока нельзя
       </p>
 
-      <div v-if="waiting" class="mt-space-sm flex items-start gap-space-sm rounded-xl bg-secondary-container/50 p-space-sm" role="status">
-        <MsIcon name="progress_activity" :size="20" class="mt-0.5 shrink-0 animate-spin text-secondary" />
+      <div
+        v-if="waiting"
+        class="mt-space-sm flex items-start gap-space-sm rounded-xl border border-white/15 bg-night/40 p-space-sm backdrop-blur-sm"
+        role="status"
+      >
+        <MsIcon name="progress_activity" :size="20" class="mt-0.5 shrink-0 animate-spin text-white" />
         <div class="min-w-0 flex-1">
-          <p class="font-label-md text-label-md text-on-surface">Подтвердите вход в {{ PROVIDER_TITLES[waiting.provider] }}</p>
-          <p class="font-body-sm text-body-sm text-on-surface-variant">
+          <p class="font-label-md text-label-md text-white">Подтвердите вход в {{ PROVIDER_TITLES[waiting.provider] }}</p>
+          <p class="font-body-sm text-body-sm text-white/75">
             {{ waiting.kind === 'bot' ? 'Откройте бота и нажмите «Начать» — приложение войдёт само.' : 'После подтверждения браузер вернёт вас в приложение.' }}
           </p>
         </div>
-        <button type="button" class="shrink-0 font-label-md text-label-md text-primary" @click="cancelExternal">Отмена</button>
+        <button type="button" class="shrink-0 font-label-md text-label-md text-white underline" @click="cancelExternal">
+          Отмена
+        </button>
       </div>
     </div>
 
-    <!-- Архивная полоска -->
-    <div class="mt-space-lg flex items-center space-x-space-sm rounded-xl bg-surface-container-low p-space-sm">
-      <div class="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-surface-dim">
-        <img
-          class="h-full w-full object-cover"
-          alt=""
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHhZ45eCVlfWovdLW6mY6zekfNfLjW7ajfrwPq5RHq9QANzd5Q4UwMDLkSAK-uRY1NcXfys9MarUjZo1yAO6ajFraO2WMNkWuKAGKSpJ_JhuwJ3INnwx24y8nosH3hUKZ0Go7OXsJMhNql6bZCwLhXYgIWYr2Y-IwW4y5gN8wFP5KKUbs925lJDgQ8ANBanWxuPT684JefTt454Ib1AFPQ_MagPSVEfrSm3evqHE8DgfCvq0Hs9xoA"
-        />
-      </div>
-      <div class="flex min-w-0 flex-1 flex-col">
-        <span class="font-label-md text-label-md text-on-surface">Более 14 000 архивных карточек</span>
-        <span class="truncate font-body-sm text-body-sm text-on-surface-variant">
-          Оцифрованные маршруты боевого пути и наградные листы
-        </span>
-      </div>
-    </div>
-
-    <div class="mt-space-lg px-space-sm text-center">
-      <p class="font-label-sm text-label-sm text-outline">
-        Нажимая «Войти», вы соглашаетесь с
-        <a class="underline transition-colors hover:text-on-surface" href="#">Политикой памяти</a>
-        и правилами обработки персональных данных.
-      </p>
-    </div>
+    <p class="mt-space-sm px-space-sm text-center font-label-sm text-label-sm text-white/75">
+      Нажимая «Войти», вы соглашаетесь с
+      <!-- Закон «Об увековечении памяти погибших при защите Отечества» на сайте Кремля -->
+      <a
+        class="underline transition-colors hover:text-white"
+        href="http://www.kremlin.ru/acts/bank/7640"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Политикой памяти</a
+      >
+      и правилами обработки персональных данных.
+    </p>
   </div>
 </template>

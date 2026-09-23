@@ -14,10 +14,11 @@ const props = defineProps<{
 
 defineEmits<{ select: [provider: ExternalProvider] }>()
 
+/** Кнопки стоят на фоновом снимке, поэтому плашки белые, а не по поверхности темы. */
 const LOOK: readonly { provider: ExternalProvider; title: string; icon: string; tone: string }[] = [
-  { provider: 'gosuslugi', title: 'Госуслуги', icon: 'account_balance', tone: 'bg-primary/10 text-primary' },
-  { provider: 'vk', title: 'VK ID', icon: 'share', tone: 'bg-secondary/15 text-secondary' },
-  { provider: 'max', title: 'MAX', icon: 'chat', tone: 'bg-secondary-fixed text-on-secondary-fixed' },
+  { provider: 'gosuslugi', title: 'Госуслуги', icon: 'account_balance', tone: 'bg-white/90 text-primary' },
+  { provider: 'vk', title: 'VK ID', icon: 'share', tone: 'bg-white/90 text-secondary' },
+  { provider: 'max', title: 'MAX', icon: 'chat', tone: 'bg-white/90 text-tertiary' },
 ]
 
 /** Кнопки в своём порядке; доступность и «тест» — от сервера. */
@@ -32,10 +33,10 @@ const buttons = computed(() =>
 <template>
   <div class="grid grid-cols-3 gap-space-sm">
     <button
-      v-for="button in buttons"
+      v-for="(button, index) in buttons"
       :key="button.provider"
       type="button"
-      class="relative flex flex-col items-center justify-center rounded-xl bg-surface-container-low px-1 py-2.5 transition-colors hover:bg-surface-container disabled:opacity-50"
+      class="relative flex flex-col items-center justify-center rounded-lg border border-white/20 bg-white/10 px-1 py-2.5 backdrop-blur-sm transition-colors hover:border-white/40 hover:bg-white/20 disabled:opacity-60 short:py-2"
       :disabled="disabled || !button.enabled"
       :title="button.enabled ? undefined : 'Этот способ входа на сервере не настроен'"
       @click="$emit('select', button.provider)"
@@ -53,7 +54,11 @@ const buttons = computed(() =>
           :class="{ 'animate-spin': active === button.provider }"
         />
       </div>
-      <span class="truncate font-label-sm text-label-sm text-on-surface">{{ button.title }}</span>
+      <span
+        class="ribbon-shimmer truncate font-label-sm text-label-sm text-white"
+        :style="{ animationDelay: `${2000 + index * 260}ms` }"
+        >{{ button.title }}</span
+      >
     </button>
   </div>
 </template>

@@ -47,7 +47,7 @@ export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
 export interface RequestOptions {
   query?: QueryParams
-  /** Тело запроса — уходит JSON. */
+  /** Тело запроса. Объект уходит JSON, `FormData` — как multipart. */
   body?: unknown
   /** Запрос от имени человека: подставить токен сессии, при 401 — обновить токен и повторить. */
   auth?: boolean
@@ -103,7 +103,10 @@ async function send(method: HttpMethod, service: ServiceName, path: string, opti
   }
 
   const headers: Record<string, string> = { Accept: 'application/json' }
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json'
+  // FormData уходит как есть: заголовок с `boundary` проставляет сам браузер,
+  // а заданный вручную `Content-Type` сломал бы разбор на сервере.
+  const multipart = options.body instanceof FormData
+  if (options.body !== undefined && !multipart) headers['Content-Type'] = 'application/json'
 
   const token = options.token ?? (options.auth ? authHandlers?.accessToken() : null)
   if (options.auth && !token) throw new ApiError(401, 'Нужно войти по почте и паролю')
@@ -115,7 +118,7 @@ async function send(method: HttpMethod, service: ServiceName, path: string, opti
     return await fetch(url, {
       method,
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: options.body === undefined ? undefined : multipart ? (options.body as FormData) : JSON.stringify(options.body),
       signal: controller.signal,
     })
   } catch (reason) {

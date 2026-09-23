@@ -12,7 +12,7 @@ interface ImportMetaEnv {
   readonly VITE_AUTH_API_URL?: string
   /** Адрес `search_hq_service`: штаб, сборы, выезды, экскурсии и бамп. По умолчанию — http://127.0.0.1:8004. */
   readonly VITE_HQ_API_URL?: string
-  /** Адрес `user_service`: профиль. По умолчанию — http://127.0.0.1:8002. */
+  /** Адрес `user_service`: профиль и достижения. По умолчанию — http://127.0.0.1:8002. */
   readonly VITE_USER_API_URL?: string
   /** Адрес `archive_service`: народный архив. По умолчанию — http://127.0.0.1:8005. */
   readonly VITE_ARCHIVE_API_URL?: string
