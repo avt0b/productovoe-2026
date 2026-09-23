@@ -38,12 +38,16 @@ const saving = ref(false)
 const error = ref<string | null>(null)
 
 const squadOptions = computed(() => props.squads.map((squad) => ({ value: squad.id, title: squad.name })))
-const valid = computed(
-  () => squadId.value !== '' && title.value.trim().length > 0 && startsOn.value !== '' && (capacity.value ?? 0) >= 1,
-)
+const missing = computed(() => {
+  if (!squadId.value) return 'Выберите отряд'
+  if (!title.value.trim()) return 'Напишите, что будем делать'
+  if (!startsOn.value) return 'Выберите день выезда'
+  if ((capacity.value ?? 0) < 1) return 'Сколько человек нужно — хотя бы одно место'
+  return null
+})
 
 async function submit(): Promise<void> {
-  if (!valid.value || saving.value) return
+  if (missing.value || saving.value) return
   saving.value = true
   error.value = null
   try {
@@ -75,17 +79,18 @@ async function submit(): Promise<void> {
         <FormInput v-model="capacity" label="Мест" type="number" inputmode="numeric" :min="1" :max="1000" required />
       </div>
       <FormTextarea v-model="description" label="Что ждёт волонтёров" :rows="2" />
-      <FormTextarea v-model="checklist" label="Чек-лист новичка" :rows="4" hint="Каждый пункт — с новой строки" />
+      <FormTextarea v-model="checklist" label="Чек-лист подготовки" :rows="4" hint="Каждый пункт — с новой строки. Волонтёр отметит, что уже собрал" />
 
       <InlineNotice v-if="error" tone="error">{{ error }}</InlineNotice>
+      <p v-else-if="missing" class="text-center font-body-sm text-body-sm text-on-surface-variant">{{ missing }}</p>
 
       <button
         type="submit"
-        class="flex w-full items-center justify-center gap-2 rounded-full bg-field py-3.5 font-label-lg text-label-lg text-on-secondary shadow-md active:scale-[0.99] disabled:opacity-60"
-        :disabled="!valid || saving"
+        class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-70 short:py-2.5"
+        :disabled="missing !== null || saving"
       >
-        <MsIcon :name="saving ? 'progress_activity' : 'campaign'" :size="20" :class="{ 'animate-spin': saving }" />
-        Объявить набор
+        <MsIcon :name="saving ? 'progress_activity' : 'campaign'" :size="18" :class="{ 'animate-spin': saving }" />
+        <span>Объявить набор</span>
       </button>
     </form>
   </SheetDialog>
