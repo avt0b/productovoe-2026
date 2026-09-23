@@ -5,7 +5,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 
-from api.deps import AchievementServiceDep, DbSession, NotificationServiceDep, ProfileServiceDep
+from api.deps import (
+    AchievementServiceDep,
+    DbSession,
+    NotificationServiceDep,
+    ProfileServiceDep,
+    StatsServiceDep,
+)
 from api.schemas.achievement import AwardOut, AwardRequest
 from api.schemas.notification import (
     BroadcastNearbyOut,
@@ -14,6 +20,7 @@ from api.schemas.notification import (
     NotifyUsersRequest,
 )
 from api.schemas.profile import ProfileOut
+from api.schemas.stats import StatIncrementOut, StatIncrementRequest
 from core.internal import InternalActor, require_internal_key
 from core.models import Profile
 
@@ -152,3 +159,13 @@ def award_achievement(payload: AwardRequest, service: AchievementServiceDep) -> 
     создаёт дубликат и не шлёт уведомление повторно."""
     _, awarded = service.award(user_id=payload.user_id, code=payload.code)
     return AwardOut(code=payload.code, awarded=awarded)
+
+
+@router.post("/stats/increment", response_model=StatIncrementOut)
+def increment_stat(payload: StatIncrementRequest, service: StatsServiceDep) -> StatIncrementOut:
+    """Вызывается сервисами-источниками события (route_service на завершении
+    маршрута, search_hq_service на завершении экскурсии, map_service/
+    archive_service на новой находке). В отличие от ачивок — не идемпотентно,
+    каждый вызов реально прибавляет 1."""
+    stat = service.increment(user_id=payload.user_id, metric=payload.metric)
+    return StatIncrementOut(metric=stat.metric, value=stat.value)

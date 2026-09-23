@@ -69,8 +69,11 @@ AR-подсказками. `poi_id` точек совпадает с id тех �
 Завершение маршрута (`completed_at` выставляется на последней `complete-waypoint`)
 шлёт `user_service` `POST /internal/achievements/award` с кодом
 `first_route_completed` (`services/achievement_client.py`) — см.
-[user_service/README.md](../user_service/README.md#достижения). Недоступность
-user_service не мешает пройти маршрут — ачивка просто не выдастся.
+[user_service/README.md](../user_service/README.md#достижения), и туда же
+`POST /internal/stats/increment` с `routes_completed`
+(`services/stats_client.py`) — см. [user_service/README.md](../user_service/README.md#статистика-профиля).
+Недоступность user_service не мешает пройти маршрут — ни ачивка, ни счётчик
+просто не обновятся.
 
 ### Автогенерация маршрута
 

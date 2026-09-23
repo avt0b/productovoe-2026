@@ -25,11 +25,29 @@ const emit = defineEmits<{ close: [] }>()
 /** Пробелы — неразрывные: иначе у буквы-спана с пробелом нет ширины. */
 const letters = computed(() => [...props.title].map((char) => (char === ' ' ? ' ' : char)))
 
+/**
+ * Сколько длится уход, мс.
+ *
+ * Окно появлялось с разлётом колец и подскоком букв, а исчезало мгновенно —
+ * будто экран моргнул. Уход зеркальный: телефоны расходятся, буквы опадают,
+ * фон гаснет. Короче появления: прощаться дольше, чем здороваться, незачем.
+ */
+const LEAVE_MS = 420
+
 const closeButton = ref<HTMLButtonElement | null>(null)
+const leaving = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
 
+/** Закрытие через анимацию ухода. Повторные нажатия её не перезапускают. */
+function requestClose(): void {
+  if (leaving.value) return
+  leaving.value = true
+  clearTimeout(timer)
+  timer = setTimeout(() => emit('close'), LEAVE_MS)
+}
+
 onMounted(() => {
-  timer = setTimeout(() => emit('close'), props.durationMs)
+  timer = setTimeout(requestClose, props.durationMs)
   // Короткая дробь вибрацией: «тук-тук — вместе». На iPhone и компьютере её нет — не страшно.
   navigator.vibrate?.([60, 50, 60, 50, 180])
   closeButton.value?.focus()
@@ -40,7 +58,14 @@ onBeforeUnmount(() => clearTimeout(timer))
 
 <template>
   <Teleport to="body">
-    <div class="together" role="alertdialog" aria-modal="true" :aria-label="`${title} ${subtitle}`" @click="emit('close')">
+    <div
+      class="together"
+      :class="{ 'together--leaving': leaving }"
+      role="alertdialog"
+      aria-modal="true"
+      :aria-label="`${title} ${subtitle}`"
+      @click="requestClose"
+    >
       <div class="together__rings" aria-hidden="true">
         <span />
         <span />
@@ -68,7 +93,7 @@ onBeforeUnmount(() => clearTimeout(timer))
 
       <p v-if="subtitle" class="together__subtitle">{{ subtitle }}</p>
 
-      <button ref="closeButton" type="button" class="together__close" @click.stop="emit('close')">
+      <button ref="closeButton" type="button" class="together__close" @click.stop="requestClose">
         Нажмите, чтобы закрыть
       </button>
     </div>
@@ -190,12 +215,92 @@ onBeforeUnmount(() => clearTimeout(timer))
   opacity: 0.6;
 }
 
+/*
+ * Уход — зеркало появления. Задержки появления обнуляются: иначе буквы,
+ * до которых каскад ещё не дошёл, сначала выпрыгнули бы, а потом упали.
+ */
+.together--leaving {
+  animation: together-fade-out 420ms ease-in both;
+}
+
+.together--leaving .together__phone--left {
+  animation: together-phone-left-out 420ms cubic-bezier(0.36, 0, 0.66, -0.56) both;
+}
+
+.together--leaving .together__phone--right {
+  animation: together-phone-right-out 420ms cubic-bezier(0.36, 0, 0.66, -0.56) both;
+}
+
+.together--leaving .together__letter {
+  animation: together-letter-out 320ms ease-in both;
+  animation-delay: 0ms !important;
+}
+
+.together--leaving .together__subtitle,
+.together--leaving .together__close {
+  animation: together-fade-out 200ms ease-in both;
+}
+
+.together--leaving .together__rings span {
+  animation: together-fade-out 200ms ease-in both;
+}
+
 @keyframes together-fade-in {
   from {
     opacity: 0;
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes together-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes together-phone-left-out {
+  0% {
+    transform: translateX(26px) rotate(0);
+  }
+  30% {
+    transform: translateX(34px) rotate(8deg);
+  }
+  100% {
+    transform: translateX(-140px) rotate(-20deg);
+    opacity: 0;
+  }
+}
+
+@keyframes together-phone-right-out {
+  0% {
+    transform: translateX(-26px) rotate(0);
+  }
+  30% {
+    transform: translateX(-34px) rotate(-8deg);
+  }
+  100% {
+    transform: translateX(140px) rotate(20deg);
+    opacity: 0;
+  }
+}
+
+@keyframes together-letter-out {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: translateY(-6px) scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(40px) scale(0.3);
+    opacity: 0;
   }
 }
 
@@ -261,6 +366,12 @@ onBeforeUnmount(() => clearTimeout(timer))
 
   .together__rings {
     display: none;
+  }
+
+  /* И уход без полётов: окно просто гаснет целиком. */
+  .together--leaving .together__phone,
+  .together--leaving .together__letter {
+    animation: none;
   }
 }
 </style>

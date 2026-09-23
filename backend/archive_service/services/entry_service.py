@@ -9,12 +9,14 @@ from core.models import ArchiveEntry, EntryStatus
 from core.security import Principal
 from repositories.entry_repository import EntryRepository
 from services.achievement_client import award_achievement
+from services.stats_client import increment_stat
 
 logger = logging.getLogger(__name__)
 
 # Кто может верифицировать записи (поисковик / краевед / наставник / модератор).
 VERIFIER_ROLES = {"searcher", "local_historian", "mentor", "moderator"}
 ACHIEVEMENT_ARCHIVE_HELPER = "archive_helper"
+STAT_FINDS_COUNT = "finds_count"
 
 
 def _can_verify(principal: Principal) -> bool:
@@ -141,4 +143,6 @@ class EntryService:
         self.db.commit()
         self.db.refresh(entry)
         award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_ARCHIVE_HELPER)
+        if status is EntryStatus.verified:
+            increment_stat(user_id=entry.submitted_by, metric=STAT_FINDS_COUNT)
         return entry

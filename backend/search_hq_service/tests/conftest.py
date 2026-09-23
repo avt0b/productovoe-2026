@@ -57,13 +57,15 @@ def leader_header():
 
 @pytest.fixture(autouse=True)
 def no_real_achievement_calls(monkeypatch):
-    """По умолчанию не ходим в сеть за user_service — тесты не про ачивки
-    делают это на каждой регистрации на выезд/донате."""
+    """По умолчанию не ходим в сеть за user_service — тесты не про ачивки/
+    статистику делают это на каждой регистрации на выезд/донате/экскурсии."""
     import services.need_service as need_service_module
+    import services.stats_client as stats_client_module
     import services.trip_service as trip_service_module
 
     monkeypatch.setattr(trip_service_module, "award_achievement", lambda **kw: None)
     monkeypatch.setattr(need_service_module, "award_achievement", lambda **kw: None)
+    monkeypatch.setattr(stats_client_module, "increment_stat", lambda **kw: None)
 
 
 @pytest.fixture(autouse=True)

@@ -147,6 +147,39 @@ def test_completing_route_awards_achievement_once(client, author_header, monkeyp
     assert len(calls) == 1
 
 
+def test_completing_route_increments_stat_once(client, author_header, monkeypatch):
+    import services.progress_service as progress_service_module
+
+    calls = []
+    monkeypatch.setattr(
+        progress_service_module, "increment_stat", lambda **kw: calls.append(kw)
+    )
+
+    route_id, wp_ids = published_route_with_waypoints(client, author_header, n=2)
+    fam = auth_header(user_id="mama-1")
+
+    client.post(
+        f"/routes/{route_id}/progress/complete-waypoint",
+        headers=fam,
+        json={"waypoint_id": wp_ids[0]},
+    )
+    assert calls == []
+
+    client.post(
+        f"/routes/{route_id}/progress/complete-waypoint",
+        headers=fam,
+        json={"waypoint_id": wp_ids[1]},
+    )
+    assert calls == [{"user_id": "mama-1", "metric": "routes_completed"}]
+
+    client.post(
+        f"/routes/{route_id}/progress/complete-waypoint",
+        headers=fam,
+        json={"waypoint_id": wp_ids[1]},
+    )
+    assert len(calls) == 1
+
+
 def test_waypoint_without_expected_answer_has_no_answer_flag(client, author_header):
     route_id, wp_ids = published_route_with_waypoints(client, author_header, n=1)
     wps = client.get(f"/routes/{route_id}/waypoints").json()

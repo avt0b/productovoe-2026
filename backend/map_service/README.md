@@ -104,6 +104,10 @@ uv run python -m scripts.seed_orel
 подписчиков «Последнего боя» в их собственном `alert_radius_km` от домашних
 координат и кладёт им уведомление в ленту. Подробности — README `user_service`.
 
+Тем же best-effort образом (`services/stats_client.py`) шлёт туда `finds_count`
+— новая точка засчитывается в статистику профиля автора (`created_by`). См.
+[user_service/README.md](../user_service/README.md#статистика-профиля).
+
 ## Дальше
 
 - Импорт синтетики жюри (`mock_graves.csv`, `mock_battles.json`).
