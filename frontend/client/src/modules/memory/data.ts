@@ -1,49 +1,151 @@
-import { withLatency } from '@/core/mock'
+import { apiRequest } from '@/core/api'
 
 /**
  * Данные окна «Память».
  *
- * Пока заглушка из макета: герой и его карточка вымышлены для демонстрации.
- * Когда подключим `media_service` и `archive_service`, поменяется только тело
- * `fetchPortrait` — живой портрет будет собираться из фотографии, которую
- * загрузила сама семья.
+ * - **Народный архив** — `archive_service` (`/entries`): каждый может
+ *   предложить событие, карточку бойца, воспоминание; краевед, наставник или
+ *   модератор подтверждает, и запись появляется в общей ленте.
+ * - **Живое фото** — `media_service` (`/clips`): заявка на оживление фото
+ *   бойца, её статус и общий мемориал. Саму генерацию делает отдельный
+ *   воркер; пока его нет, заявки стоят в очереди — экран говорит об этом.
+ *
+ * Типы повторяют схемы сервисов, поля в snake_case.
  */
 
-export interface HeroPortrait {
+export type EntryKind = 'event' | 'soldier_card' | 'memory' | 'photo_story'
+export type EntryStatus = 'pending' | 'verified' | 'rejected'
+
+export interface ArchiveEntry {
   id: string
-  name: string
-  years: string
-  unit: string
-  homeland: string
-  portraitImage: string
-  /**
-   * Реплика реконструированного голоса. Это не цитата героя — поэтому на экране
-   * рядом всегда стоит пометка о реконструкции.
-   */
-  reconstructedLine: string
+  kind: EntryKind
+  title: string
+  body: string
+  lat: number | null
+  lon: number | null
+  event_date: string | null
+  date_text: string
+  media_url: string | null
+  submitted_by: string
+  status: EntryStatus
+  verified_by: string | null
+  reviewed_at: string | null
+  /** Заметка проверяющего — только автору и проверяющим. */
+  review_note?: string
+  created_at: string
 }
 
-export interface MemoryOverview {
-  hero: HeroPortrait
-  archiveFolder: string
-  mapHint: string
+export interface EntryDraft {
+  kind: EntryKind
+  title: string
+  body: string
+  lat: number | null
+  lon: number | null
+  date_text: string
+  media_url: string | null
 }
 
-const OVERVIEW: MemoryOverview = {
-  hero: {
-    id: 'voronov-ag',
-    name: 'Сержант Алексей Григорьевич Воронов',
-    years: '1920 — 1942',
-    unit: 'Командир стрелкового отделения, 137-я сд',
-    homeland: 'Орловская губ., призван Елецким РВК',
-    portraitImage:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuD2xyruqLOLailgDwisn_NnihcRFmdBlieraiQdmaqn0ppj6dkFlzXw6_Y7Y9K2rD4LRgGr9jB_ECv19-YEihit12h2WdRqODXXZE1czSNUvLTgTBbkRRzZ1i5Fm-3Poe33DEoMquYIhjDRZDedEY8deprL23qFYSthoaRgnLYbHYwjFMbG8uoeyFs-J7TLDluluY3_MUsv1VLoerDvDCfV-HfFNmiLSv5YZ19HHgFUY_1Ye3yNWfFK',
-    reconstructedLine: '«Я сделал это, чтобы ты жил и видел мирное небо. Помни меня.»',
-  },
-  archiveFolder: 'Папка «Герои семьи Вороновых»',
-  mapHint: 'Координаты боевого пути 1941–1942',
+export const ENTRY_KINDS: Record<EntryKind, { title: string; icon: string }> = {
+  event: { title: 'Событие', icon: 'history_edu' },
+  soldier_card: { title: 'Карточка бойца', icon: 'military_tech' },
+  memory: { title: 'Воспоминание', icon: 'record_voice_over' },
+  photo_story: { title: 'Фото и история', icon: 'photo_camera' },
 }
 
-export function fetchPortrait(): Promise<MemoryOverview> {
-  return withLatency(OVERVIEW)
+export const ENTRY_STATUS: Record<EntryStatus, { title: string; icon: string; class: string }> = {
+  pending: { title: 'На проверке', icon: 'hourglass_top', class: 'bg-tertiary-fixed text-on-tertiary-fixed' },
+  verified: { title: 'Подтверждено', icon: 'verified', class: 'bg-secondary-container text-on-secondary-container' },
+  rejected: { title: 'Не подтверждено', icon: 'cancel', class: 'bg-error-container text-on-error-container' },
+}
+
+export type ClipStatus = 'queued' | 'processing' | 'ready' | 'failed'
+export type VoiceStyle = 'era_male' | 'era_female' | 'neutral'
+
+export interface Clip {
+  id: string
+  soldier_name: string
+  source_photo_url: string
+  narration_text: string
+  voice_style: VoiceStyle
+  submitted_by: string
+  consent_memorial_use: boolean
+  is_public: boolean
+  status: ClipStatus
+  video_url: string | null
+  error: string
+  rendered_at: string | null
+  archive_entry_id: string | null
+  created_at: string
+}
+
+export interface ClipDraft {
+  soldier_name: string
+  source_photo_url: string
+  narration_text: string
+  voice_style: VoiceStyle
+  is_public: boolean
+  consent_memorial_use: boolean
+}
+
+export const VOICES: Record<VoiceStyle, string> = {
+  era_male: 'Мужской голос эпохи',
+  era_female: 'Женский голос эпохи',
+  neutral: 'Нейтральный голос',
+}
+
+export const CLIP_STATUS: Record<ClipStatus, { title: string; icon: string; class: string }> = {
+  queued: { title: 'В очереди', icon: 'schedule', class: 'bg-surface-container-high text-on-surface-variant' },
+  processing: { title: 'Оживляем', icon: 'progress_activity', class: 'bg-tertiary-fixed text-on-tertiary-fixed' },
+  ready: { title: 'Готово', icon: 'check_circle', class: 'bg-secondary-container text-on-secondary-container' },
+  failed: { title: 'Не получилось', icon: 'error', class: 'bg-error-container text-on-error-container' },
+}
+
+/** Текст по умолчанию — из кейса, тот же, что у `media_service`. */
+export const DEFAULT_NARRATION = 'Я сделал это, чтобы ты жил и видел голубое небо. Помни меня.'
+
+// --- народный архив ---
+
+/** Подтверждённые записи — видны всем, аккаунт не нужен. */
+export function fetchPublicEntries(kind: EntryKind | null): Promise<ArchiveEntry[]> {
+  return apiRequest('GET', 'archive', '/entries', { query: { kind, limit: 200 } })
+}
+
+export function fetchMyEntries(): Promise<ArchiveEntry[]> {
+  return apiRequest('GET', 'archive', '/entries/mine', { auth: true })
+}
+
+/** Очередь проверки — краеведу, наставнику, модератору. */
+export function fetchModerationQueue(): Promise<ArchiveEntry[]> {
+  return apiRequest('GET', 'archive', '/entries/moderation', { auth: true })
+}
+
+export function proposeEntry(draft: EntryDraft): Promise<ArchiveEntry> {
+  return apiRequest('POST', 'archive', '/entries', { body: draft, auth: true })
+}
+
+export function reviewEntry(entryId: string, verdict: 'verify' | 'reject', note: string): Promise<ArchiveEntry> {
+  return apiRequest('POST', 'archive', `/entries/${encodeURIComponent(entryId)}/${verdict}`, { body: { note }, auth: true })
+}
+
+// --- живое фото ---
+
+/** Общий мемориал: только готовые клипы, которые семьи разрешили показывать. */
+export function fetchMemorial(): Promise<Clip[]> {
+  return apiRequest('GET', 'media', '/clips', { query: { limit: 50 } })
+}
+
+export function fetchMyClips(): Promise<Clip[]> {
+  return apiRequest('GET', 'media', '/clips/mine', { auth: true })
+}
+
+export function requestClip(draft: ClipDraft): Promise<Clip> {
+  return apiRequest('POST', 'media', '/clips', { body: draft, auth: true })
+}
+
+export function retryClip(clipId: string): Promise<Clip> {
+  return apiRequest('POST', 'media', `/clips/${encodeURIComponent(clipId)}/retry`, { auth: true })
+}
+
+export function shareClip(clipId: string, recipient: string, note: string): Promise<unknown> {
+  return apiRequest('POST', 'media', `/clips/${encodeURIComponent(clipId)}/shares`, { body: { recipient, note }, auth: true })
 }
