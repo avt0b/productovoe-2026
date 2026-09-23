@@ -22,3 +22,9 @@ export function registerForExcursion(token, excursionId, { organizationName = ''
 export function getGuideRating(guideId) {
   return http.get(`${BASE}/guides/${guideId}/rating`)
 }
+
+// { guiding: Excursion[], joined: Excursion[] } — экскурсии, которые я веду
+// как гид, и те, на которые я записан (сам или через свою школу/клуб).
+export function getMyExcursions(token) {
+  return http.get(`${BASE}/excursions/mine`, { token })
+}

@@ -7,6 +7,7 @@ import AwardsBadges from './components/AwardsBadges.vue'
 import ResearcherDataForm from './components/ResearcherDataForm.vue'
 import ExpeditionSettings from './components/ExpeditionSettings.vue'
 import { useAuthSession, roleLabel } from '@modules/auth'
+import { MyExcursions } from '@modules/excursions'
 import { useProfileStore } from './profileStore.js'
 
 const { session } = useAuthSession()
@@ -22,8 +23,9 @@ watch(
   },
 )
 
-// user_service ещё не хранит стаж/ранг/значки/семейное древо — это остаётся
-// демо-данными компонентов, пока эти поля не появятся на бэкенде.
+// user_service ещё не хранит стаж/ранг/семейное древо — это остаётся демо-
+// данными компонентов, пока эти поля не появятся на бэкенде. Значки
+// (AwardsBadges) и экскурсии (MyExcursions) уже реальные — свои API.
 const heroProps = computed(() => {
   if (!profile.data) return {}
   return {
@@ -54,6 +56,7 @@ const heroProps = computed(() => {
       </div>
 
       <div class="lg:col-span-5 flex flex-col gap-8">
+        <MyExcursions />
         <ResearcherDataForm />
         <ExpeditionSettings />
       </div>
