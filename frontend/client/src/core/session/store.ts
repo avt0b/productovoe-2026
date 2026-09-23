@@ -4,7 +4,7 @@ import { computed, ref } from 'vue'
 import { setAuthHandlers } from '@/core/api'
 
 import { serviceAuthProvider } from './serviceAuthProvider'
-import type { AuthProvider, SessionTokens, SessionUser, SignInRequest } from './types'
+import type { AuthProvider, SessionTokens, SessionUser, SignInRequest, SignInResult } from './types'
 
 /** Источник сессии. Здесь, и только здесь, выбирается, откуда берётся вход. */
 const provider: AuthProvider = serviceAuthProvider
@@ -72,6 +72,13 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /** Принять готовую сессию — после входа через VK ID, MAX или Госуслуги. */
+  function adopt(result: SignInResult): void {
+    user.value = result.user
+    tokens.value = result.tokens
+    persist()
+  }
+
   let refreshing: Promise<boolean> | null = null
 
   /** Обновить токены. Несколько запросов, упавших с 401 одновременно, делят одно обновление. */
@@ -117,5 +124,5 @@ export const useSessionStore = defineStore('session', () => {
 
   setAuthHandlers({ accessToken: () => tokens.value?.accessToken ?? null, refresh })
 
-  return { user, tokens, pending, isAuthenticated, hasAccount, signIn, signOut, refresh, updateUser }
+  return { user, tokens, pending, isAuthenticated, hasAccount, signIn, adopt, signOut, refresh, updateUser }
 })

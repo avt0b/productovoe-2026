@@ -41,6 +41,14 @@
                 <data android:scheme="marshruty" android:host="nfc" />
             </intent-filter>
 
+            <!-- Возврат из браузера после входа через VK ID или Госуслуги: marshruty://auth/external?result_code=… -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="marshruty" android:host="auth" />
+            </intent-filter>
+
         </activity>
 
         <provider
