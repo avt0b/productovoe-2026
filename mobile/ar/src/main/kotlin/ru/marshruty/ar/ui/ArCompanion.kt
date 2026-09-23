@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.marshruty.ar.CompanionSpec
 
@@ -130,6 +133,7 @@ internal fun DialoguePanel(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
+                modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -139,11 +143,22 @@ internal fun DialoguePanel(
                         .clip(CircleShape)
                         .background(ArColors.TertiaryFixedDim),
                 )
-                Text(spec.name, style = ArType.HeadlineSm, color = ArColors.TertiaryFixed)
                 Text(
-                    spec.subtitle,
+                    text = spec.name,
+                    style = ArType.HeadlineSm,
+                    color = ArColors.TertiaryFixed,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                // Название маршрута — во вторую очередь: длинное («Тропа памяти:
+                // центр Орла») переносилось на вторую строку и раздвигало шапку.
+                Text(
+                    text = spec.subtitle,
                     style = ArType.LabelArchiveCode,
                     color = ArColors.SurfaceContainerHighest,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
             }
             if (isSpeaking) SoundWave()
@@ -155,73 +170,112 @@ internal fun DialoguePanel(
             color = ArColors.SurfaceBright,
         )
 
+        // Второстепенные действия — ряд компактных кнопок, главное — строкой ниже
+        // во всю ширину. В один ряд четыре кнопки не влезали: «Навести на цель»
+        // ужималась до столбика из четырёх слогов и ломала всю панель.
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Только глиф: четыре подписи в ряд не помещаются на узком экране.
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(ArColors.SurfaceContainerHighest.copy(alpha = 0.2f))
-                    .clickable(onClick = onTogglePlay)
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                    .semantics {
-                        contentDescription = if (isPlaying) "Поставить рассказ на паузу" else "Продолжить рассказ"
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (isPlaying) "⏸" else "▶",
-                    style = ArType.LabelAction,
-                    color = ArColors.TertiaryFixed,
+            PanelIconButton(
+                icon = if (isPlaying) ArIcon.PAUSE else ArIcon.PLAY,
+                contentDescription = if (isPlaying) "Поставить рассказ на паузу" else "Продолжить рассказ",
+                onClick = onTogglePlay,
+            )
+            PanelButton(
+                icon = ArIcon.REPLAY,
+                label = "Повторить",
+                onClick = onReplay,
+                modifier = Modifier.weight(1f),
+            )
+            if (onTrick != null) {
+                PanelButton(
+                    icon = ArIcon.FLIP,
+                    label = "Сальто",
+                    onClick = onTrick,
+                    modifier = Modifier.weight(1f),
                 )
             }
+        }
 
+        if (aimLabel != null) {
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(ArColors.SurfaceContainerHighest.copy(alpha = 0.2f))
-                    .clickable(onClick = onReplay)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .fillMaxWidth()
+                    .heightIn(min = ACTION_HEIGHT)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(ArColors.TertiaryContainer)
+                    .clickable(onClick = onAim)
+                    .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.Center,
             ) {
-                Text("↻", style = ArType.LabelAction, color = ArColors.TertiaryFixed)
-                Text("Повторить", style = ArType.LabelAction, color = ArColors.SurfaceBright)
-            }
-
-            if (onTrick != null) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(ArColors.SurfaceContainerHighest.copy(alpha = 0.2f))
-                        .clickable(onClick = onTrick)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text("↻", style = ArType.LabelAction, color = ArColors.TertiaryFixedDim)
-                    Text("Сальто", style = ArType.LabelAction, color = ArColors.SurfaceBright)
-                }
-            }
-
-            if (aimLabel != null) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(ArColors.TertiaryContainer)
-                        .clickable(onClick = onAim)
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Text(aimLabel, style = ArType.LabelAction, color = ArColors.OnTertiary)
-                }
+                ArIconGlyph(ArIcon.TARGET, modifier = Modifier.size(18.dp), tint = ArColors.OnTertiary)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = aimLabel,
+                    style = ArType.LabelAction,
+                    color = ArColors.OnTertiary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
+    }
+}
+
+/** Высота кнопок панели: одинаковая у всех, иначе ряд выглядит рваным. */
+private val ACTION_HEIGHT = 44.dp
+
+/** Кнопка панели с подписью: значок и текст в одну строку. */
+@Composable
+private fun PanelButton(
+    icon: ArIcon,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .heightIn(min = ACTION_HEIGHT)
+            .clip(RoundedCornerShape(12.dp))
+            .background(ArColors.SurfaceContainerHighest.copy(alpha = 0.2f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        ArIconGlyph(icon, modifier = Modifier.size(16.dp), tint = ArColors.TertiaryFixed)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = label,
+            style = ArType.LabelAction,
+            color = ArColors.SurfaceBright,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** Кнопка панели без подписи — для действия, понятного по значку. */
+@Composable
+private fun PanelIconButton(
+    icon: ArIcon,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(ACTION_HEIGHT)
+            .clip(RoundedCornerShape(12.dp))
+            .background(ArColors.SurfaceContainerHighest.copy(alpha = 0.2f))
+            .clickable(onClick = onClick)
+            .semantics { this.contentDescription = contentDescription },
+        contentAlignment = Alignment.Center,
+    ) {
+        ArIconGlyph(icon, modifier = Modifier.size(18.dp), tint = ArColors.TertiaryFixed)
     }
 }
 

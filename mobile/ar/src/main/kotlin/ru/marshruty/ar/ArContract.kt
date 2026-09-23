@@ -129,7 +129,7 @@ data class ArTarget(
  *
  * Нужен ARCore. Если его на телефоне нет, экран работает как раньше — на компасе.
  */
-data class MarkerSpec(
+data class MarkerSpec @JvmOverloads constructor(
     /** Картинка внутри `assets`, например `markers/wp-2.png`. */
     val assetPath: String,
     /**
@@ -151,6 +151,20 @@ data class MarkerSpec(
      * Найдётся табличка позже — проводник перейдёт на неё.
      */
     val fallbackInFrontAfterMillis: Long? = null,
+    /**
+     * QR-код в кадре выводит проводника сразу, не дожидаясь картинки.
+     *
+     * Картинка даёт точную позу, но ей нужен свет, ровная поверхность и пара
+     * секунд движения камерой. QR читается почти мгновенно — с экрана, с мятой
+     * бумаги, под углом, — поэтому служит запасным ключом: на защите и в зале
+     * проводник обязан выйти, а не остаться «в поиске».
+     */
+    val companionOnQr: Boolean = true,
+    /**
+     * Какой код считать своим. `null` — любой: пустой экран хуже, чем
+     * проводник, вызванный чужим кодом.
+     */
+    val qrPayload: String? = null,
 ) : java.io.Serializable {
     init {
         require(physicalWidthMeters == null || physicalWidthMeters > 0f) { "Ширина маркера должна быть положительной" }
