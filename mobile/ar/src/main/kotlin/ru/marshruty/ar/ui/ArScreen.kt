@@ -95,12 +95,19 @@ fun ArScreen(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                HudIconButton("✕", "Закрыть AR-режим", actions.onClose)
-                StepChip(spec.stepIndex, spec.stepTotal, spec.title)
+                HudIconButton(ArIcon.CLOSE, "Закрыть AR-режим", actions.onClose)
+                // Чип забирает остаток строки и ужимается сам. Раньше он рос по
+                // длине названия и выдавливал кнопку звука за край экрана.
+                StepChip(
+                    stepIndex = spec.stepIndex,
+                    stepTotal = spec.stepTotal,
+                    title = spec.title,
+                    modifier = Modifier.weight(1f),
+                )
                 HudIconButton(
-                    glyph = if (playback.isMuted) "🔇" else "🔊",
+                    icon = if (playback.isMuted) ArIcon.SOUND_OFF else ArIcon.SOUND_ON,
                     contentDescription = if (playback.isMuted) "Включить звук" else "Выключить звук",
                     onClick = actions.onToggleMute,
                 )

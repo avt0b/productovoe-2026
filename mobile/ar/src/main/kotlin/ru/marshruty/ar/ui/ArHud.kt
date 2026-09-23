@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.marshruty.ar.domain.DeviceOrientation
 import kotlin.math.roundToInt
@@ -60,7 +61,7 @@ internal fun StoryProgressBar(progress: Float, modifier: Modifier = Modifier) {
 /** Круглая кнопка поверх кадра: закрыть, звук. */
 @Composable
 internal fun HudIconButton(
-    glyph: String,
+    icon: ArIcon,
     contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -75,7 +76,7 @@ internal fun HudIconButton(
             .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
-        Text(glyph, style = ArType.HeadlineSm, color = tint)
+        ArIconGlyph(icon, modifier = Modifier.size(20.dp), tint = tint)
     }
 }
 
@@ -95,6 +96,10 @@ internal fun StepChip(stepIndex: Int, stepTotal: Int, title: String, modifier: M
             text = "Точка $stepIndex из $stepTotal · $title",
             style = ArType.LabelArchiveCode,
             color = ArColors.SurfaceBright,
+            // Длинное название («Военно-исторический музей») раздувало чип, и он
+            // выталкивал кнопку звука за край экрана — видна была половина.
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
