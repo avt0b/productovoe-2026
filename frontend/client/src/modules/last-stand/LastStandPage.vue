@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
@@ -17,10 +17,26 @@ import StateBlock from '@/ui/StateBlock.vue'
 import AddPointSheet from './components/AddPointSheet.vue'
 import EvidenceSheet from './components/EvidenceSheet.vue'
 import RecordCard from './components/RecordCard.vue'
+import RegistryList from './components/RegistryList.vue'
 import StatusFilters from './components/StatusFilters.vue'
-import { STATUS_LABELS, STATUS_STYLE, fetchLastStand, setPointStatus, type FindRecord, type FindStatus } from './data'
+import SubscriptionSheet from './components/SubscriptionSheet.vue'
+import {
+  STATUS_LABELS,
+  STATUS_STYLE,
+  fetchLastStand,
+  fetchSubscription,
+  setPointStatus,
+  type FindRecord,
+  type FindStatus,
+  type MapCircle,
+  type SearchSubscription,
+} from './data'
 
-type Sheet = { kind: 'add' } | { kind: 'evidence'; record: FindRecord } | { kind: 'account'; text: string }
+type Sheet =
+  | { kind: 'add' }
+  | { kind: 'evidence'; record: FindRecord }
+  | { kind: 'subscribe' }
+  | { kind: 'account'; text: string }
 
 const router = useRouter()
 const session = useSessionStore()
@@ -69,13 +85,65 @@ async function changeStatus(record: FindRecord, status: FindStatus): Promise<voi
     statusBusy.value = false
   }
 }
+
+// --- подписка на район ---
+
+const subscription = ref<SearchSubscription | null>(null)
+
+// Подписка — удобство, а не условие экрана: не загрузилась — карта и реестр
+// работают как работали, просто без круга района.
+onMounted(async () => {
+  if (!session.hasAccount) return
+  try {
+    subscription.value = await fetchSubscription()
+  } catch {
+    subscription.value = null
+  }
+})
+
+function openSubscription(): void {
+  sheet.value = session.hasAccount
+    ? { kind: 'subscribe' }
+    : { kind: 'account', text: 'Сообщать о находках рядом можем только тем, у кого есть аккаунт' }
+}
+
+function subscriptionSaved(saved: SearchSubscription): void {
+  subscription.value = saved
+  sheet.value = null
+  notice.value = saved.subscribed
+    ? { tone: 'success', text: `Сообщим о новых местах гибели в ${saved.radiusKm} км от выбранной точки` }
+    : { tone: 'success', text: 'Больше не будем сообщать о находках рядом' }
+}
+
+const subscriptionLabel = computed(() => {
+  const current = subscription.value
+  if (current?.subscribed && current.home) return `Сообщаем о находках в ${current.radiusKm} км — изменить`
+  return 'Сообщать о находках рядом'
+})
+
+/** Район подписки на карте: видно, какие места попадают в «рядом». */
+const circles = computed<MapCircle[]>(() => {
+  const current = subscription.value
+  if (!current?.subscribed || !current.home) return []
+  return [{ id: 'subscription', ...current.home, radiusMeters: current.radiusKm * 1000, tone: 'secondary' }]
+})
+
+// --- карта и выбор места ---
+
 const { position: userPosition, status: geoStatus, start: startLocating } = useGeolocation()
 
-/** Какие стадии находок показывать на карте. По умолчанию — все. */
+/** Какие стадии находок показывать. По умолчанию — все. */
 const visibleStatuses = ref<Set<FindStatus>>(new Set(['found', 'confirmed', 'raised']))
 const selectedId = ref<string | null>(null)
 
-const visibleRecords = computed(() => (data.value?.records ?? []).filter((record) => visibleStatuses.value.has(record.status)))
+const records = computed(() => data.value?.records ?? [])
+const visibleRecords = computed(() => records.value.filter((record) => visibleStatuses.value.has(record.status)))
+
+const counts = computed<Record<FindStatus, number>>(() => {
+  const result: Record<FindStatus, number> = { found: 0, confirmed: 0, raised: 0 }
+  for (const record of records.value) result[record.status] += 1
+  return result
+})
 
 const markers = computed<GeoMarker[]>(() =>
   visibleRecords.value.map((record) => ({
@@ -92,17 +160,27 @@ const markers = computed<GeoMarker[]>(() =>
 // фильтром — переключаемся на первую видимую, а не держим пустую карточку.
 watch(
   visibleRecords,
-  (records) => {
-    if (records.some((record) => record.id === selectedId.value)) return
-    selectedId.value = (records.find((record) => record.status === 'found') ?? records[0])?.id ?? null
+  (list) => {
+    if (list.some((record) => record.id === selectedId.value)) return
+    selectedId.value = (list.find((record) => record.status === 'found') ?? list[0])?.id ?? null
   },
   { immediate: true },
 )
 
 const selectedRecord = computed(() => visibleRecords.value.find((record) => record.id === selectedId.value) ?? null)
 
-/** Места, которым нужна проверка. */
-const needHelp = computed(() => (data.value?.records ?? []).filter((record) => record.status === 'found'))
+const recordCard = ref<HTMLElement | null>(null)
+
+/** Выбор из реестра: карточка места — над списком, её надо показать. */
+async function selectFromRegistry(id: string): Promise<void> {
+  selectedId.value = id
+  await nextTick()
+  recordCard.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+// --- «внимание поисковика» ---
+
+const needHelp = computed(() => records.value.filter((record) => record.status === 'found'))
 
 /** До ближайшего такого места — если известно, где человек. Это та самая строка «в 5 км от вас» из кейса. */
 const nearestNeedKm = computed(() => {
@@ -111,94 +189,127 @@ const nearestNeedKm = computed(() => {
   return Math.min(...needHelp.value.map((record) => distanceKm(user, record)))
 })
 
-const alertDistance = computed(() => (nearestNeedKm.value === null ? 'Орловская обл.' : `${formatDistance(nearestNeedKm.value)} от вас`))
+const alertDistance = computed(() =>
+  nearestNeedKm.value === null ? 'Орловская обл.' : `ближайшее в ${formatDistance(nearestNeedKm.value)}`,
+)
 
-const alertText = computed(() => {
+const alertTitle = computed(() => {
   const count = needHelp.value.length
-  if (count === 0) return 'Все отмеченные места проверены. Новые точки появятся здесь, как только их добавят поисковые отряды.'
-  const places = plural(count, ['место гибели ждёт', 'места гибели ждут', 'мест гибели ждут'])
-  return `${count} ${places} проверки. Помогите архивистам и поисковикам с верификацией.`
+  if (count === 0) return 'Все места проверены'
+  return `${count} ${plural(count, ['место ждёт', 'места ждут', 'мест ждут'])} проверки`
 })
+
+const alertText = computed(() =>
+  needHelp.value.length === 0
+    ? 'Новые точки появятся здесь, как только их отметят поисковые отряды.'
+    : 'Помогите архивистам и поисковикам: сверьте место с Книгой Памяти или расскажите, что знаете.',
+)
 
 const geoProblem = computed(() => geolocationProblem(geoStatus.value))
 </script>
 
 <template>
-  <div class="flex w-full flex-col space-y-space-md px-margin">
+  <div class="flex w-full flex-col gap-space-md px-margin short:gap-space-sm">
+    <header class="flex flex-col gap-space-xs">
+      <p class="font-archival text-archival uppercase text-on-surface-variant">Поисковый реестр · Орловская область</p>
+      <h1
+        class="ribbon-shimmer font-headline-lg text-headline-lg text-on-surface [--shimmer-base:theme(colors.ink.DEFAULT)] short:text-headline-lg-mobile"
+      >
+        Последний бой
+      </h1>
+      <p class="font-body-sm text-body-sm text-on-surface-variant">
+        Места гибели красноармейцев — от первой находки до захоронения
+      </p>
+    </header>
+
     <StateBlock v-if="loading || error" :loading="loading" :error="error" @retry="retry" />
 
     <template v-else-if="data">
       <DemoDataBadge v-if="data.source === 'demo'" />
 
-      <div class="flex items-start gap-space-sm rounded-lg bg-primary-fixed/40 p-space-md shadow-sm">
-        <div class="flex h-10 w-10 shrink-0 animate-pulse items-center justify-center rounded-full bg-primary text-on-primary shadow-sm">
-          <MsIcon name="radar" :size="22" />
-        </div>
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center justify-between gap-space-xs">
-            <h2 class="font-headline-sm text-headline-sm leading-tight text-on-primary-fixed">Внимание поисковика</h2>
-            <span class="shrink-0 font-label-sm text-label-sm uppercase tracking-wider text-primary">{{ alertDistance }}</span>
+      <section class="flex flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
+        <div class="flex items-start gap-space-sm">
+          <span
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container"
+            aria-hidden="true"
+          >
+            <MsIcon name="radar" :size="22" />
+          </span>
+          <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+            <div class="flex items-center justify-between gap-space-xs">
+              <p class="font-archival text-archival uppercase text-on-surface-variant">Внимание поисковика</p>
+              <span class="shrink-0 font-label-sm text-label-sm text-secondary">{{ alertDistance }}</span>
+            </div>
+            <p class="font-headline-sm text-headline-sm text-on-surface">{{ alertTitle }}</p>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">{{ alertText }}</p>
           </div>
-          <p class="mt-1 font-body-sm text-body-sm leading-snug text-on-surface-variant">{{ alertText }}</p>
         </div>
-      </div>
+        <button
+          type="button"
+          class="flex items-center justify-center gap-space-xs self-start rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+          @click="openSubscription"
+        >
+          <MsIcon :name="subscription?.subscribed ? 'notifications_active' : 'notifications'" :size="18" :filled="subscription?.subscribed" />
+          {{ subscriptionLabel }}
+        </button>
+      </section>
 
       <button
         v-if="canAdd"
         type="button"
-        class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+        class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] short:py-2.5"
         @click="sheet = { kind: 'add' }"
       >
-        <MsIcon name="add_location_alt" :size="20" />
-        Отметить место гибели
+        <MsIcon name="add_location_alt" :size="18" />
+        <span>Отметить место гибели</span>
       </button>
 
       <InlineNotice v-if="notice" :tone="notice.tone">{{ notice.text }}</InlineNotice>
 
-      <StatusFilters v-model="visibleStatuses" />
+      <StatusFilters v-model="visibleStatuses" :counts="counts" />
 
       <GeoMap
         v-model:selected="selectedId"
         :markers="markers"
+        :circles="circles"
         :user="userPosition"
         :locating="geoStatus === 'locating'"
         label="Орловская область"
-        class="h-80 w-full rounded-lg shadow-md"
+        class="h-80 w-full rounded-2xl shadow-document short:h-64"
         @locate="startLocating"
       />
 
-      <p
-        v-if="geoProblem"
-        class="flex items-start gap-2 rounded-DEFAULT bg-surface-container-high px-3 py-2 font-body-sm text-body-sm text-on-surface-variant"
-        role="status"
-      >
-        <MsIcon name="location_off" :size="18" class="mt-0.5 shrink-0" />
-        {{ geoProblem }}
-      </p>
+      <InlineNotice v-if="geoProblem" tone="info" icon="location_off">{{ geoProblem }}</InlineNotice>
 
-      <RecordCard
-        v-if="selectedRecord"
-        :key="selectedRecord.id"
-        :record="selectedRecord"
-        :can-volunteer="canVolunteer"
-        :can-moderate="canModerate"
-        :busy="statusBusy"
-        @volunteer="router.push({ name: 'hq' })"
-        @add-data="openEvidence(selectedRecord)"
-        @set-status="(status) => selectedRecord && changeStatus(selectedRecord, status)"
-      />
-      <StateBlock
-        v-else
-        :loading="false"
-        :error="null"
-        empty
-        empty-icon="filter_alt_off"
-        empty-text="Под выбранные фильтры находок нет"
-      />
+      <div ref="recordCard" class="scroll-mt-space-md">
+        <RecordCard
+          v-if="selectedRecord"
+          :key="selectedRecord.id"
+          :record="selectedRecord"
+          :can-volunteer="canVolunteer"
+          :volunteer-is-primary="!canAdd"
+          :can-moderate="canModerate"
+          :busy="statusBusy"
+          @volunteer="router.push({ name: 'hq', query: { tab: 'trips' } })"
+          @add-data="openEvidence(selectedRecord)"
+          @set-status="(status) => selectedRecord && changeStatus(selectedRecord, status)"
+        />
+        <StateBlock
+          v-else
+          :loading="false"
+          :error="null"
+          empty
+          empty-icon="filter_alt_off"
+          empty-text="Под выбранные фильтры мест нет — включите стадию выше"
+        />
+      </div>
+
+      <RegistryList :records="visibleRecords" :selected-id="selectedId" :from="userPosition" @select="selectFromRegistry" />
     </template>
 
     <AddPointSheet v-if="sheet?.kind === 'add'" @created="pointAdded" @close="sheet = null" />
     <EvidenceSheet v-else-if="sheet?.kind === 'evidence'" :record="sheet.record" @close="sheet = null" />
+    <SubscriptionSheet v-else-if="sheet?.kind === 'subscribe'" @saved="subscriptionSaved" @close="sheet = null" />
     <SheetDialog v-else-if="sheet?.kind === 'account'" title="Нужен аккаунт" @close="sheet = null">
       <AccountRequired :text="sheet.text" />
     </SheetDialog>

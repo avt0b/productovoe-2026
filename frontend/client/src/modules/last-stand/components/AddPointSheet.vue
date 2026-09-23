@@ -10,7 +10,8 @@ import SheetDialog from '@/ui/SheetDialog.vue'
 import FormInput from '@/ui/form/FormInput.vue'
 import FormTextarea from '@/ui/form/FormTextarea.vue'
 
-import { createPoint } from '../data'
+import { createPoint, emptySource, formatSource, type SourceDraft } from '../data'
+import SourcePicker from './SourcePicker.vue'
 
 /**
  * Новое место гибели — сценарий кейса: командир отряда «Высота» вносит
@@ -23,7 +24,7 @@ const soldierName = ref('')
 const unit = ref('')
 const circumstances = ref('')
 const dateText = ref('')
-const source = ref('')
+const source = ref<SourceDraft>(emptySource())
 const point = ref<LatLon | null>(null)
 const lat = ref<number | null>(null)
 const lon = ref<number | null>(null)
@@ -68,6 +69,13 @@ const markers = computed<GeoMarker[]>(() =>
 const geoProblem = computed(() => geolocationProblem(geoStatus.value))
 const valid = computed(() => point.value !== null && (soldierName.value.trim() || circumstances.value.trim()))
 
+/** Почему кнопка неактивна — вместо молча выключенной кнопки. */
+const missing = computed(() => {
+  if (!point.value) return 'Поставьте точку на карте или возьмите свои координаты'
+  if (!soldierName.value.trim() && !circumstances.value.trim()) return 'Напишите, кто погиб, или обстоятельства — хотя бы одно'
+  return null
+})
+
 async function submit(): Promise<void> {
   if (!valid.value || saving.value || !point.value) return
   saving.value = true
@@ -79,7 +87,7 @@ async function submit(): Promise<void> {
       unit: unit.value.trim(),
       circumstances: circumstances.value.trim(),
       date_text: dateText.value.trim(),
-      source: source.value.trim(),
+      source: formatSource(source.value),
     })
     emit('created')
   } catch (reason) {
@@ -92,52 +100,70 @@ async function submit(): Promise<void> {
 
 <template>
   <SheetDialog title="Отметить место гибели" subtitle="Появится со статусом «Обнаружено», проверит модератор" @close="emit('close')">
-    <form class="flex flex-col gap-space-md" @submit.prevent="submit">
+    <form class="flex flex-col gap-space-lg" @submit.prevent="submit">
       <fieldset class="flex flex-col gap-space-sm">
-        <legend class="mb-1 font-label-md text-label-md text-on-surface">Где</legend>
+        <legend class="mb-space-xs font-archival text-archival uppercase text-on-surface-variant">Где</legend>
         <GeoMap
           :selected="point ? 'new' : null"
           :markers="markers"
           :user="position"
           :locating="geoStatus === 'locating'"
           label="Нажмите на карту, чтобы поставить точку"
-          class="h-56 w-full rounded-lg shadow-sm"
+          class="h-56 w-full rounded-2xl shadow-document short:h-44"
           @pick="setPoint"
           @locate="useMyPosition"
         />
         <button
           type="button"
-          class="flex items-center justify-center gap-1.5 rounded-full bg-secondary-container py-2.5 font-label-md text-label-md text-on-secondary-container"
+          class="flex items-center justify-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
           @click="useMyPosition"
         >
-          <MsIcon :name="geoStatus === 'locating' ? 'progress_activity' : 'my_location'" :size="18" :class="{ 'animate-spin': geoStatus === 'locating' }" />
+          <MsIcon
+            :name="geoStatus === 'locating' ? 'progress_activity' : 'my_location'"
+            :size="18"
+            :class="{ 'animate-spin': geoStatus === 'locating' }"
+          />
           Я на месте — взять мои координаты
         </button>
-        <p v-if="geoProblem" class="font-body-sm text-body-sm text-error" role="alert">{{ geoProblem }}</p>
+        <InlineNotice v-if="geoProblem" tone="error" icon="location_off">{{ geoProblem }}</InlineNotice>
         <div class="grid grid-cols-2 gap-space-sm">
           <FormInput v-model="lat" label="Широта" type="number" inputmode="decimal" step="any" :min="-90" :max="90" />
           <FormInput v-model="lon" label="Долгота" type="number" inputmode="decimal" step="any" :min="-180" :max="180" />
         </div>
-        <p v-if="point" class="font-body-sm text-body-sm text-outline">{{ formatCoordinates(point) }}</p>
+        <p v-if="point" class="select-all font-label-md text-label-md text-on-surface-variant">{{ formatCoordinates(point) }}</p>
       </fieldset>
 
-      <FormInput v-model="soldierName" label="Кто погиб" :maxlength="255" placeholder="Три неизвестных десантника" hint="Если имя неизвестно — так и напишите" />
-      <FormInput v-model="unit" label="Часть" :maxlength="255" placeholder="9-я воздушно-десантная бригада, 5-й ВДК" />
-      <FormTextarea v-model="circumstances" label="Обстоятельства" :rows="3" placeholder="Что нашли, как привязано к местности" />
-      <FormInput v-model="dateText" label="Когда" :maxlength="120" placeholder="Октябрь 1941" />
-      <FormInput v-model="source" label="Источник" placeholder="Отчёт экспедиции, Книга Памяти, т. 4, рассказ жителей" />
+      <fieldset class="flex flex-col gap-space-sm">
+        <legend class="mb-space-xs font-archival text-archival uppercase text-on-surface-variant">Кто и когда</legend>
+        <FormInput
+          v-model="soldierName"
+          label="Кто погиб"
+          :maxlength="255"
+          placeholder="Три неизвестных десантника"
+          hint="Если имя неизвестно — так и напишите"
+        />
+        <FormInput v-model="unit" label="Часть" :maxlength="255" placeholder="9-я воздушно-десантная бригада, 5-й ВДК" />
+        <FormTextarea v-model="circumstances" label="Обстоятельства гибели" :rows="3" placeholder="Что нашли, как привязано к местности" />
+        <FormInput v-model="dateText" label="Когда" :maxlength="120" placeholder="Октябрь 1941" />
+      </fieldset>
 
+      <fieldset class="flex flex-col gap-space-sm">
+        <legend class="mb-space-xs font-archival text-archival uppercase text-on-surface-variant">Откуда известно</legend>
+        <SourcePicker v-model="source" />
+      </fieldset>
+
+      <!-- Ошибка занимает место подсказки, а не встаёт над ней. -->
       <InlineNotice v-if="error" tone="error">{{ error }}</InlineNotice>
+      <p v-else-if="missing" class="text-center font-body-sm text-body-sm text-on-surface-variant">{{ missing }}</p>
 
       <button
         type="submit"
-        class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99] disabled:opacity-60"
+        class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-70 short:py-2.5"
         :disabled="!valid || saving"
       >
-        <MsIcon :name="saving ? 'progress_activity' : 'add_location_alt'" :size="20" :class="{ 'animate-spin': saving }" />
-        Отметить место
+        <MsIcon :name="saving ? 'progress_activity' : 'add_location_alt'" :size="18" :class="{ 'animate-spin': saving }" />
+        <span>Отметить место</span>
       </button>
-      <p v-if="!point" class="text-center font-body-sm text-body-sm text-outline">Поставьте точку на карте или возьмите свои координаты.</p>
     </form>
   </SheetDialog>
 </template>
