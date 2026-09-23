@@ -6,13 +6,25 @@ import * as routesApi from '../api.js'
 const FALLBACK_CENTER = [52.9651, 36.0785] // Орёл
 
 const KIND_META = {
-  grave: { label: 'Захоронения', icon: 'flag', dot: 'bg-error' },
-  monument: { label: 'Памятники', icon: 'account_balance', dot: 'bg-secondary' },
-  battle: { label: 'Места боёв', icon: 'star', dot: 'bg-tertiary' },
-  hospital: { label: 'Госпитали', icon: 'medical_services', dot: 'bg-primary' },
-  trench: { label: 'Окопы', icon: 'sports_motorsports', dot: 'bg-outline' },
-  airfield: { label: 'Аэродромы', icon: 'flight', dot: 'bg-outline' },
-  other: { label: 'Другое', icon: 'push_pin', dot: 'bg-outline' },
+  grave: { label: 'Захоронения', icon: 'flag', dot: 'bg-error', badgeClass: 'bg-error', tailClass: 'border-t-error' },
+  monument: {
+    label: 'Памятники',
+    icon: 'account_balance',
+    dot: 'bg-secondary',
+    badgeClass: 'bg-secondary',
+    tailClass: 'border-t-secondary',
+  },
+  battle: { label: 'Места боёв', icon: 'star', dot: 'bg-tertiary', badgeClass: 'bg-tertiary', tailClass: 'border-t-tertiary' },
+  hospital: {
+    label: 'Госпитали',
+    icon: 'medical_services',
+    dot: 'bg-primary',
+    badgeClass: 'bg-primary',
+    tailClass: 'border-t-primary',
+  },
+  trench: { label: 'Окопы', icon: 'sports_motorsports', dot: 'bg-outline', badgeClass: 'bg-outline', tailClass: 'border-t-outline' },
+  airfield: { label: 'Аэродромы', icon: 'flight', dot: 'bg-outline', badgeClass: 'bg-outline', tailClass: 'border-t-outline' },
+  other: { label: 'Другое', icon: 'push_pin', dot: 'bg-outline', badgeClass: 'bg-outline', tailClass: 'border-t-outline' },
 }
 
 // По умолчанию — то, к чему семья реально может сходить пешком или доехать:
@@ -48,8 +60,13 @@ const markers = computed(() =>
     lng: p.lon,
     title: p.title,
     subtitle: KIND_META[p.kind]?.label,
+    icon: KIND_META[p.kind]?.icon ?? 'push_pin',
+    badgeClass: KIND_META[p.kind]?.badgeClass,
+    tailClass: KIND_META[p.kind]?.tailClass,
   })),
 )
+
+const mapRef = ref(null)
 
 const selected = computed(() => points.value.find((p) => p.id === selectedId.value) ?? null)
 
@@ -106,12 +123,30 @@ const kindsPresent = computed(() => {
         </span>
       </div>
       <template v-else>
-        <LeafletMap :center="FALLBACK_CENTER" :zoom="9" :markers="markers" @marker-click="selectedId = $event" />
+        <LeafletMap ref="mapRef" :center="FALLBACK_CENTER" :zoom="9" :markers="markers" @marker-click="selectedId = $event" />
         <p v-if="!visiblePoints.length" class="absolute inset-x-0 top-3 flex justify-center pointer-events-none">
           <span class="px-3 py-1.5 rounded-full bg-surface-container-lowest/90 backdrop-blur font-label-sm text-label-sm text-on-surface-variant">
             Включите хотя бы один слой выше
           </span>
         </p>
+        <div class="absolute top-3 right-3 flex flex-col gap-1.5 z-[1000]">
+          <button
+            type="button"
+            class="w-9 h-9 rounded-full bg-surface-container-lowest/95 backdrop-blur shadow-md hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors"
+            title="Приблизить"
+            @click="mapRef?.zoomIn()"
+          >
+            <span class="material-symbols-outlined text-[20px]">add</span>
+          </button>
+          <button
+            type="button"
+            class="w-9 h-9 rounded-full bg-surface-container-lowest/95 backdrop-blur shadow-md hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors"
+            title="Отдалить"
+            @click="mapRef?.zoomOut()"
+          >
+            <span class="material-symbols-outlined text-[20px]">remove</span>
+          </button>
+        </div>
       </template>
     </div>
 

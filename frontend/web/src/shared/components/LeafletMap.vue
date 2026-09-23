@@ -34,7 +34,26 @@ function render() {
 
   markerLayer.clearLayers()
   props.markers.forEach((m) => {
-    const marker = L.marker([m.lat, m.lng]).addTo(markerLayer)
+    // m.icon — необязательный: имя Material Symbol + цветовые классы Tailwind
+    // (badgeClass/tailClass) рисуют цветную метку-«пин» вместо стандартной
+    // капли Leaflet. Без m.icon поведение не меняется — обычный маркер.
+    const options = m.icon
+      ? {
+          icon: L.divIcon({
+            className: '',
+            html: `<div class="flex flex-col items-center drop-shadow-md">
+              <div class="w-8 h-8 rounded-full ${m.badgeClass ?? 'bg-primary'} ring-2 ring-surface-container-lowest flex items-center justify-center">
+                <span class="material-symbols-outlined text-white text-[16px]" style="font-variation-settings: 'FILL' 1">${m.icon}</span>
+              </div>
+              <div class="w-0 h-0 border-x-[5px] border-x-transparent border-t-[7px] ${m.tailClass ?? 'border-t-primary'} -mt-px"></div>
+            </div>`,
+            iconSize: [32, 40],
+            iconAnchor: [16, 40],
+            popupAnchor: [0, -36],
+          }),
+        }
+      : {}
+    const marker = L.marker([m.lat, m.lng], options).addTo(markerLayer)
     if (m.title) {
       marker.bindPopup(`<b>${m.title}</b>${m.subtitle ? `<br>${m.subtitle}` : ''}`)
     }
