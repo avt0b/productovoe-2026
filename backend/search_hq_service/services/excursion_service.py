@@ -11,6 +11,7 @@ from core.models import Excursion, ExcursionParticipant, ExcursionStatus, Regist
 from core.security import Principal
 from core.timeutil import as_utc, utcnow
 from repositories.excursion_repository import ExcursionRepository
+from services import stats_client
 from services.bump_matcher import bump_matcher
 from services.permissions import can_guide, is_staff
 
@@ -199,13 +200,17 @@ class ExcursionService:
     def finish_gathering(self, principal: Principal, excursion_id: str) -> GatheringState:
         excursion = self.get(excursion_id)
         self._ensure_guide(principal, excursion)
-        self._close_if_expired(excursion)
+        already_expired = self._close_if_expired(excursion)
+        just_finished = False
         if excursion.status is ExcursionStatus.gathering:
             excursion.status = ExcursionStatus.finished
             excursion.gathering_ends_at = utcnow()
+            just_finished = True
         elif excursion.status is not ExcursionStatus.finished:
             raise Conflict("Сбор группы ещё не начинался")
         self.db.commit()
+        if already_expired or just_finished:
+            self._credit_excursion_completion(excursion)
         bump_matcher.forget(excursion_id)
         return self.gathering_state(principal, excursion_id)
 
@@ -213,6 +218,7 @@ class ExcursionService:
         excursion = self.get(excursion_id)
         if self._close_if_expired(excursion):
             self.db.commit()
+            self._credit_excursion_completion(excursion)
 
         is_guide = excursion.guide_id == principal.user_id or is_staff(principal)
         me = self.repo.get_participant(excursion_id, principal.user_id)
@@ -235,6 +241,7 @@ class ExcursionService:
         excursion = self.get(excursion_id)
         if self._close_if_expired(excursion):
             self.db.commit()
+            self._credit_excursion_completion(excursion)
         if excursion.status is not ExcursionStatus.gathering:
             raise Conflict("Сбор группы сейчас не идёт")
         return excursion
@@ -264,6 +271,9 @@ class ExcursionService:
         closed = [self._close_if_expired(excursion) for excursion in excursions]
         if any(closed):
             self.db.commit()
+            for excursion, was_closed in zip(excursions, closed, strict=True):
+                if was_closed:
+                    self._credit_excursion_completion(excursion)
 
         ids = [excursion.id for excursion in excursions]
         counts = self.repo.counts(ids)
@@ -285,6 +295,14 @@ class ExcursionService:
                 )
             views.append(ExcursionView(excursion, registered_count, checked_in_count, viewer))
         return views
+
+    def _credit_excursion_completion(self, excursion: Excursion) -> None:
+        """Статистика профиля («сколько сборов завершил») — краевед и
+        отметившиеся бампом участники. Незарегистрированных пришедших не
+        считаем — бамп без записи не отмечает, см. README."""
+        stats_client.increment_stat(user_id=excursion.guide_id, metric="excursions_completed")
+        for participant in self.repo.checked_in_for(excursion.id):
+            stats_client.increment_stat(user_id=participant.user_id, metric="excursions_completed")
 
     @staticmethod
     def _close_if_expired(excursion: Excursion) -> bool:

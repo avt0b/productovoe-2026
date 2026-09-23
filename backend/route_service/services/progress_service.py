@@ -8,8 +8,10 @@ from core.security import Principal
 from repositories.progress_repository import ProgressRepository
 from repositories.route_repository import RouteRepository
 from services.achievement_client import award_achievement
+from services.stats_client import increment_stat
 
 ACHIEVEMENT_FIRST_ROUTE = "first_route_completed"
+STAT_ROUTES_COMPLETED = "routes_completed"
 
 
 class ProgressService:
@@ -64,5 +66,6 @@ class ProgressService:
 
         if just_finished:
             award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_FIRST_ROUTE)
+            increment_stat(user_id=principal.user_id, metric=STAT_ROUTES_COMPLETED)
 
         return progress
