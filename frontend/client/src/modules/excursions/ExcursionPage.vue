@@ -100,6 +100,10 @@ async function act(action: () => Promise<unknown>): Promise<void> {
 function openGathering(): void {
   void router.push({ name: 'excursion-gathering', params: { excursionId: props.excursionId } })
 }
+
+function openWalk(): void {
+  void router.push({ name: 'excursion-walk', params: { excursionId: props.excursionId } })
+}
 </script>
 
 <template>
@@ -158,6 +162,15 @@ function openGathering(): void {
             <MsIcon name="vibration" :size="20" />
             {{ excursion.status === 'gathering' ? 'Открыть сбор группы' : 'Я на месте — начать сбор' }}
           </button>
+          <button
+            v-if="excursion.status === 'walking'"
+            type="button"
+            class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+            @click="openWalk"
+          >
+            <MsIcon name="map" :size="20" />
+            Группа идёт — карта
+          </button>
           <template v-if="excursion.status === 'scheduled'">
             <button
               v-if="confirming !== 'cancel'"
@@ -196,6 +209,15 @@ function openGathering(): void {
           >
             <MsIcon name="vibration" :size="20" />
             Сбор идёт — отметиться
+          </button>
+          <button
+            v-else-if="excursion.status === 'walking' && excursion.viewer?.checked_in_at"
+            type="button"
+            class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+            @click="openWalk"
+          >
+            <MsIcon name="map" :size="20" />
+            Группа идёт — карта
           </button>
           <p v-else-if="excursion.status === 'scheduled'" class="font-body-sm text-body-sm text-on-surface-variant">
             Когда краевед на месте откроет сбор, встряхните телефон вместе с ним.

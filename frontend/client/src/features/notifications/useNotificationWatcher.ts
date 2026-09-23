@@ -30,17 +30,22 @@ export interface NotificationBannerItem {
   target: RouteLocationRaw
 }
 
+/** Куда ведёт уведомление каждого вида: подпись кнопки и экран. */
+const EXCURSION_TARGETS: Record<string, { actionLabel: string; route: string }> = {
+  excursion_gathering_started: { actionLabel: 'К сбору', route: 'excursion-gathering' },
+  // Краевед повёл группу: сразу на карту, где все свои и маршрут.
+  excursion_walk_started: { actionLabel: 'Открыть карту', route: 'excursion-walk' },
+}
+
 function toBanner(notification: AppNotification): NotificationBannerItem | null {
-  if (notification.kind === 'excursion_gathering_started') {
-    const excursionId = notification.payload?.excursion_id
-    if (typeof excursionId !== 'string') return null
-    return {
-      notification,
-      actionLabel: 'К сбору',
-      target: { name: 'excursion-gathering', params: { excursionId } },
-    }
+  const target = EXCURSION_TARGETS[notification.kind]
+  const excursionId = notification.payload?.excursion_id
+  if (!target || typeof excursionId !== 'string') return null
+  return {
+    notification,
+    actionLabel: target.actionLabel,
+    target: { name: target.route, params: { excursionId } },
   }
-  return null
 }
 
 /**

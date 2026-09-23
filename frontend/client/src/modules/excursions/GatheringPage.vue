@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
 import { errorText, plural } from '@/core/format'
@@ -10,7 +11,18 @@ import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
 import AccountRequired from './components/AccountRequired.vue'
-import { fetchExcursion, fetchGathering, finishGathering, startGathering, toPosition, type Gathering, type Position } from './data'
+import DestinationPicker from './components/DestinationPicker.vue'
+import {
+  fetchExcursion,
+  fetchGathering,
+  finishGathering,
+  leadWalk,
+  startGathering,
+  toPosition,
+  type Gathering,
+  type Position,
+  type WalkTarget,
+} from './data'
 import { formatTime, minutesLeft, participantLabel } from './format'
 
 const props = defineProps<{ excursionId: string }>()
@@ -25,6 +37,7 @@ const SENSOR_SILENCE_MS = 3000
 type Notice = { tone: 'info' | 'error' | 'success'; text: string }
 
 const session = useSessionStore()
+const router = useRouter()
 const { data: excursion, loading, error, retry } = useAsync(() => fetchExcursion(props.excursionId, true))
 const { position, status: geoStatus, start: startLocating } = useGeolocation()
 
@@ -160,6 +173,45 @@ async function finish(): Promise<void> {
   }
 }
 
+// --- группа выходит к памятному месту ---
+
+const picking = ref(false)
+const leading = ref(false)
+
+/** Карту группы видят краевед и те, кто отметился: остальных туда не пустит сервер. */
+const mayOpenMap = computed(() => isGuide.value || checkedInAt.value !== null)
+
+function openMap(): void {
+  void router.replace({ name: 'excursion-walk', params: { excursionId: props.excursionId } })
+}
+
+// Краевед повёл группу — у всех, кто на экране сбора, сама открывается карта.
+// Опрос сбора и так идёт каждые четыре секунды, отдельный не нужен.
+watch(
+  () => gathering.value?.status ?? excursion.value?.status,
+  (status) => {
+    if (status === 'walking' && mayOpenMap.value) openMap()
+  },
+)
+
+async function leadGroup(target: WalkTarget): Promise<void> {
+  if (leading.value) return
+  leading.value = true
+  try {
+    await leadWalk(props.excursionId, target)
+    picking.value = false
+    sensor.stop()
+    openMap()
+  } catch (reason) {
+    notice.value = { tone: 'error', text: errorText(reason) }
+  } finally {
+    leading.value = false
+  }
+}
+
+/** Откуда считать «ближайшие места»: где краевед сейчас, а без GPS — место сбора. */
+const pickFrom = computed(() => position.value ?? (excursion.value ? { lat: excursion.value.lat, lon: excursion.value.lon } : { lat: 52.9686, lon: 36.0694 }))
+
 const NOTICE_TONES: Record<Notice['tone'], string> = {
   info: 'bg-surface-container-high text-on-surface-variant',
   error: 'bg-error-container text-on-error-container',
@@ -283,6 +335,19 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
           </ul>
 
           <template v-if="gathering.is_open">
+            <!-- Главное действие после сбора: повести всех к памятному месту. -->
+            <button
+              type="button"
+              class="flex h-11 items-center justify-center gap-space-xs rounded-full bg-primary font-label-lg text-label-lg text-on-primary active:scale-[0.98] disabled:opacity-60"
+              :disabled="leading || gathering.checked_in_count === 0"
+              @click="picking = true"
+            >
+              <MsIcon name="directions_walk" :size="18" />
+              Повести группу
+            </button>
+            <p v-if="gathering.checked_in_count === 0" class="font-body-sm text-body-sm text-on-surface-variant">
+              Сначала отметьте хотя бы одного — встряхните телефоны вместе.
+            </p>
             <button
               v-if="!confirmingFinish"
               type="button"
@@ -305,5 +370,13 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
     </template>
 
     <TogetherOverlay v-if="together" :title="together.title" :subtitle="together.subtitle" @close="together = null" />
+
+    <DestinationPicker
+      v-if="picking"
+      :from="pickFrom"
+      :busy="leading"
+      @close="picking = false"
+      @pick="leadGroup"
+    />
   </div>
 </template>

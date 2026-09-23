@@ -3,6 +3,7 @@ import type { ExcursionStatus } from './data'
 export const STATUS_LABELS: Record<ExcursionStatus, string> = {
   scheduled: 'Идёт запись',
   gathering: 'Идёт сбор группы',
+  walking: 'Группа идёт',
   finished: 'Завершена',
   cancelled: 'Отменена',
 }

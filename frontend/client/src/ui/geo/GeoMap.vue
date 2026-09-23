@@ -28,8 +28,15 @@ const props = withDefaults(
     label?: string
     /** Куда смотреть, пока меток нет. */
     center?: LatLon
+    /**
+     * Режим навигации: человек идёт, и карта держит его в кадре. Пока он
+     * внутри видимой области, вид не двигается — можно разглядывать маршрут;
+     * подошёл к краю — карта подвинется. Сдвинул карту пальцем — следование
+     * выключается до «Где я»: отбирать у человека карту нельзя.
+     */
+    follow?: boolean
   }>(),
-  { paths: () => [], user: null, locating: false, label: undefined, center: () => OREL_CENTER },
+  { paths: () => [], user: null, locating: false, label: undefined, center: () => OREL_CENTER, follow: false },
 )
 
 const selected = defineModel<string | null>('selected', { default: null })
@@ -98,6 +105,8 @@ const markerById = new Map<string, L.Marker>()
 let framed = false
 /** Нажали «Где я»: как только придёт место — перелететь к нему. */
 let followUser = false
+/** Следование в режиме навигации включено: человек не сдвигал карту сам. */
+let navigating = props.follow
 
 function renderMarkers(): void {
   markerLayer.clearLayers()
@@ -162,6 +171,11 @@ function renderUser(): void {
   if (followUser && map) {
     followUser = false
     map.flyTo(point, Math.max(map.getZoom(), 15))
+    return
+  }
+  // Навигация: человек дошёл до края видимой области — подвинуть карту к нему.
+  if (props.follow && navigating && map && !map.getBounds().pad(-0.25).contains(point)) {
+    map.panTo(point)
   }
 }
 
@@ -191,6 +205,7 @@ function zoomOut(): void {
 
 function locate(): void {
   followUser = true
+  navigating = props.follow
   // Место уже известно — перелетаем сразу, не дожидаясь нового фикса.
   if (props.user) renderUser()
   emit('locate')
@@ -214,6 +229,8 @@ onMounted(() => {
   markerLayer.addTo(map)
   // Клик по метке до карты не доходит — сюда попадает только пустое место.
   map.on('click', (event: L.LeafletMouseEvent) => emit('pick', { lat: event.latlng.lat, lon: event.latlng.lng }))
+  // Сдвинул карту сам — значит, смотрит куда-то ещё: не тянуть вид обратно.
+  map.on('dragstart', () => (navigating = false))
 
   renderPaths()
   renderMarkers()

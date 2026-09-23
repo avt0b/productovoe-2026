@@ -37,5 +37,13 @@ export default defineModule({
       props: true,
       meta: { title: 'Сбор группы', layout: 'detail', tab: 'excursions' },
     },
+    {
+      // Полноэкранная карта: группа идёт, шапка и вкладки только мешали бы.
+      path: '/excursions/:excursionId/walk',
+      name: 'excursion-walk',
+      component: () => import('./WalkPage.vue'),
+      props: true,
+      meta: { title: 'Группа идёт', layout: 'bare', tab: 'excursions' },
+    },
   ],
 })
