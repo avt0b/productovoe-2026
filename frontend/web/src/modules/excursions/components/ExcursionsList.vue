@@ -1,21 +1,32 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useAuthSession } from '@modules/auth'
 import GuideRatingList from './GuideRatingList.vue'
 import ExcursionRegisterModal from './ExcursionRegisterModal.vue'
 import * as excursionsApi from '../api.js'
+
+const { session } = useAuthSession()
 
 const excursions = ref([])
 const loadStatus = ref('loading') // loading | loaded | error
 
 async function load() {
   try {
-    excursions.value = await excursionsApi.listUpcomingExcursions()
+    // С токеном каждая экскурсия вернётся с viewer.registered/viewer.is_guide
+    // (search_hq_service/api/schemas/excursion.py) — без этого нельзя честно
+    // отличить «уже записан» от «ещё нет» и кнопка звала бы register() снова
+    // и снова (бэкенд это не размножает, просто тихо перезаписывает вашу
+    // заявку — не то, что должен ожидать человек от повторного клика).
+    excursions.value = await excursionsApi.listUpcomingExcursions(session.accessToken)
     loadStatus.value = 'loaded'
   } catch {
     loadStatus.value = 'error'
   }
 }
 onMounted(load)
+watch(() => session.status, (s) => {
+  if (s === 'authenticated') load()
+})
 
 // search_hq_service не отдаёт отдельный справочник гидов — собираем его из
 // guide_id на загруженных экскурсиях (см. GuideRatingList.vue).
@@ -33,6 +44,29 @@ function formatDate(iso) {
 
 function freeSeats(ex) {
   return Math.max(0, ex.capacity - ex.registered_count)
+}
+
+// Кнопка недоступна, если мест нет, если это ваша собственная экскурсия
+// (бэкенд и так отклонит регистрацию гида на свою же — ExcursionService.
+// register: "Краевед не записывается на свою экскурсию"), или если вы уже
+// записаны: повторный register() бэкенд не размножает, а тихо перезаписывает
+// вашу же заявку — лучше явно показать «Вы записаны», чем звать это молча.
+function buttonState(ex) {
+  if (ex.viewer?.is_guide) return 'own'
+  if (ex.viewer?.registered) return 'registered'
+  if (freeSeats(ex) === 0) return 'full'
+  return 'open'
+}
+
+const BUTTON_META = {
+  open: { label: 'Записаться', icon: 'how_to_reg', class: 'bg-primary text-on-primary hover:opacity-95' },
+  registered: {
+    label: 'Вы записаны',
+    icon: 'check_circle',
+    class: 'bg-secondary-container text-on-secondary-container cursor-default',
+  },
+  own: { label: 'Ваша экскурсия', icon: 'person', class: 'bg-surface-container text-on-surface-variant cursor-not-allowed' },
+  full: { label: 'Мест нет', icon: 'block', class: 'bg-surface-container text-on-surface-variant cursor-not-allowed' },
 }
 
 const modalOpen = ref(false)
@@ -99,16 +133,12 @@ function onRegistered() {
           <button
             type="button"
             class="shrink-0 px-5 py-2.5 rounded-full font-label-md text-label-md font-bold shadow-sm flex items-center justify-center gap-2 transition-all"
-            :class="
-              freeSeats(ex) > 0
-                ? 'bg-primary text-on-primary hover:opacity-95'
-                : 'bg-surface-container text-on-surface-variant cursor-not-allowed'
-            "
-            :disabled="freeSeats(ex) === 0"
+            :class="BUTTON_META[buttonState(ex)].class"
+            :disabled="buttonState(ex) !== 'open'"
             @click="openRegister(ex)"
           >
-            <span class="material-symbols-outlined text-[18px]">how_to_reg</span>
-            {{ freeSeats(ex) > 0 ? 'Записаться' : 'Мест нет' }}
+            <span class="material-symbols-outlined text-[18px]">{{ BUTTON_META[buttonState(ex)].icon }}</span>
+            {{ BUTTON_META[buttonState(ex)].label }}
           </button>
         </div>
       </div>

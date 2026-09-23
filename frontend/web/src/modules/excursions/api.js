@@ -7,8 +7,11 @@ const BASE = '/api/search'
 // как один человек (organization_name пусто, group_size=1) или как группа
 // (школа/клуб указывает organization_name и group_size), см.
 // search_hq_service/api/routers/excursions.py.
-export function listUpcomingExcursions() {
-  return http.get(`${BASE}/excursions?upcoming_only=true&limit=100`)
+// Токен необязателен (GET /excursions принимает и анонимов), но если он
+// есть — каждая экскурсия вернётся с viewer.registered/viewer.is_guide,
+// без этого фронт не может честно показать «вы уже записаны».
+export function listUpcomingExcursions(token) {
+  return http.get(`${BASE}/excursions?upcoming_only=true&limit=100`, token ? { token } : undefined)
 }
 
 export function registerForExcursion(token, excursionId, { organizationName = '', groupSize = 1 } = {}) {
