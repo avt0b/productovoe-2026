@@ -3,15 +3,20 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from api.deps import (
+    ArchivePromptServiceDep,
     CurrentPrincipal,
+    MediaPromptServiceDep,
     OptionalPrincipal,
     ProgressServiceDep,
     RouteServiceDep,
 )
 from api.schemas.route import (
+    ArchivePromptOut,
     CompleteWaypointRequest,
+    MediaPromptOut,
     ProgressOut,
     PublishRequest,
+    RouteAutoGenerateRequest,
     RouteCreate,
     RouteDetailOut,
     RouteOut,
@@ -48,6 +53,17 @@ def create_route(
     return RouteOut.model_validate(service.create(principal, payload.model_dump()))
 
 
+@router.post("/auto-generate", response_model=RouteDetailOut, status_code=status.HTTP_201_CREATED)
+async def auto_generate_route(
+    payload: RouteAutoGenerateRequest, principal: CurrentPrincipal, service: RouteServiceDep
+) -> RouteDetailOut:
+    """Автосборка черновика маршрута из точек слоя «ВОВ» рядом с координатой —
+    «автоматически строить квест-маршруты» (модуль 2 ТЗ). Результат не
+    публикуется сам: контент (задания/аудио/AR) автор добавляет вручную."""
+    route = await service.auto_generate(principal, payload.model_dump())
+    return RouteDetailOut.model_validate(route)
+
+
 @router.get("/{route_id}", response_model=RouteDetailOut)
 def get_route(
     route_id: str, principal: OptionalPrincipal, service: RouteServiceDep
@@ -55,13 +71,32 @@ def get_route(
     return RouteDetailOut.model_validate(service.get_visible(principal, route_id))
 
 
+@router.get("/{route_id}/archive-prompts", response_model=list[ArchivePromptOut])
+async def archive_prompts(
+    route_id: str, principal: OptionalPrincipal, service: ArchivePromptServiceDep
+) -> list[ArchivePromptOut]:
+    """Неподтверждённые заметки «народного архива» рядом с точками маршрута —
+    подсказка «помоги проверить» из п.5 ТЗ. Вызывается отдельно от списка точек,
+    чтобы не тормозить обычный просмотр маршрута походом в archive_service."""
+    prompts = await service.prompts_for_route(principal, route_id)
+    return [ArchivePromptOut(**vars(p)) for p in prompts]
+
+
+@router.get("/{route_id}/media-prompts", response_model=list[MediaPromptOut])
+async def media_prompts(
+    route_id: str, principal: OptionalPrincipal, service: MediaPromptServiceDep
+) -> list[MediaPromptOut]:
+    """Точки маршрута без «живого фото» — подсказка «оживить фото бойца из
+    этого захоронения» (п.7 ТЗ, интеграция «Живого фото» с маршрутами)."""
+    prompts = await service.prompts_for_route(principal, route_id)
+    return [MediaPromptOut(**vars(p)) for p in prompts]
+
+
 @router.patch("/{route_id}", response_model=RouteOut)
 def update_route(
     route_id: str, payload: RouteUpdate, principal: CurrentPrincipal, service: RouteServiceDep
 ) -> RouteOut:
-    return RouteOut.model_validate(
-        service.update(principal, route_id, payload.to_update_dict())
-    )
+    return RouteOut.model_validate(service.update(principal, route_id, payload.to_update_dict()))
 
 
 @router.post("/{route_id}/publish", response_model=RouteOut)
@@ -71,9 +106,7 @@ def publish_route(
     principal: CurrentPrincipal,
     service: RouteServiceDep,
 ) -> RouteOut:
-    return RouteOut.model_validate(
-        service.set_published(principal, route_id, payload.is_published)
-    )
+    return RouteOut.model_validate(service.set_published(principal, route_id, payload.is_published))
 
 
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -82,6 +115,7 @@ def delete_route(route_id: str, principal: CurrentPrincipal, service: RouteServi
 
 
 # --- точки маршрута ---
+
 
 @router.get("/{route_id}/waypoints", response_model=list[WaypointOut])
 def list_waypoints(
@@ -106,6 +140,7 @@ def add_waypoint(
 
 # --- прогресс семьи ---
 
+
 @router.post("/{route_id}/progress/start", response_model=ProgressOut)
 def start_progress(
     route_id: str, principal: CurrentPrincipal, service: ProgressServiceDep
@@ -128,5 +163,5 @@ def complete_waypoint(
     service: ProgressServiceDep,
 ) -> ProgressOut:
     return ProgressOut.model_validate(
-        service.complete_waypoint(principal, route_id, payload.waypoint_id)
+        service.complete_waypoint(principal, route_id, payload.waypoint_id, payload.answer)
     )

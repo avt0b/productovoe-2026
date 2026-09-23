@@ -148,7 +148,9 @@ def test_stats_need_auto_closes_when_target_reached(client, leader_header):
 
 def test_list_squads_shape_and_query(client, leader_header):
     squad = make_squad(client, leader_header, name="Высота", region="Орёл")
-    make_squad(client, auth_header(role="searcher", user_id="other-leader"), name="Рубеж", region="Курск")
+    make_squad(
+        client, auth_header(role="searcher", user_id="other-leader"), name="Рубеж", region="Курск"
+    )
 
     r = client.get("/internal/squads", headers=INTERNAL_HEADER)
     assert r.status_code == 200
@@ -210,9 +212,12 @@ def test_internal_close_need_bypasses_permissions(client, leader_header):
     need = make_need(client, leader_header, squad["id"])
 
     # обычный посторонний не может закрыть чужую потребность
-    assert client.post(
-        f"/needs/{need['id']}/close", headers=auth_header(role="searcher", user_id="stranger")
-    ).status_code == 403
+    assert (
+        client.post(
+            f"/needs/{need['id']}/close", headers=auth_header(role="searcher", user_id="stranger")
+        ).status_code
+        == 403
+    )
 
     r = client.post(
         f"/internal/needs/{need['id']}/close",

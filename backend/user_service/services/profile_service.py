@@ -19,9 +19,7 @@ class ProfileService:
         """Профиль создаётся лениво при первом обращении, id = id пользователя."""
         profile = self.profiles.get(principal.user_id)
         if profile is None:
-            profile = self.profiles.add(
-                Profile(id=principal.user_id, role=principal.role)
-            )
+            profile = self.profiles.add(Profile(id=principal.user_id, role=principal.role))
             self.db.commit()
             self.db.refresh(profile)
         elif profile.role != principal.role:

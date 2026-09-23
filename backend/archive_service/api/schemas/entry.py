@@ -64,6 +64,20 @@ class EntryOut(BaseModel):
     created_at: datetime
 
 
+class EntryNearbyOut(BaseModel):
+    """Минимальная витрина неподтверждённой записи рядом с точкой — для подсказки
+    «помочь проверить» в семейном навигаторе. Без body и submitted_by."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    kind: EntryKind
+    title: str
+    lat: float | None
+    lon: float | None
+    created_at: datetime
+
+
 class EntryPublicOut(BaseModel):
     """Как EntryOut, но без служебной заметки модератора (review_note) —
     она не предназначена для посторонних глаз."""

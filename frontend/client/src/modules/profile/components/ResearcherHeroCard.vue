@@ -1,18 +1,32 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import { formatNumber } from '@/core/format'
 import type { SessionUser } from '@/core/session'
 import MsIcon from '@/ui/MsIcon.vue'
 
-import type { ProfileCounter } from '../data'
+import type { HeroCounter } from '../data'
 
-defineProps<{
+const props = defineProps<{
   /** null — модуль входа убран и человек не входил: показываем гостя. */
   user: SessionUser | null
-  experience: string
-  counters: ProfileCounter[]
+  /** С `user_service` — подтверждён ли профиль модератором или краеведом. */
+  verified: boolean
+  /** Когда профиль заведён — «В проекте с сентября 2026». */
+  since: string | null
+  counters: HeroCounter[]
 }>()
 
 defineEmits<{ 'open-token': [] }>()
+
+const sinceLabel = computed(() => {
+  if (!props.since) return null
+  const date = new Date(props.since)
+  if (Number.isNaN(date.getTime())) return null
+  // «сентября», а не «сентябрь»: месяц в родительном падеже Intl отдаёт только вместе с днём.
+  const month = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(date).replace(/^\d+\s*/, '')
+  return `В проекте с ${month} ${date.getFullYear()}`
+})
 </script>
 
 <template>
@@ -27,8 +41,9 @@ defineEmits<{ 'open-token': [] }>()
           <MsIcon v-else name="person" :size="32" />
         </div>
         <div
-          v-if="user"
+          v-if="verified"
           class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-on-primary shadow-sm"
+          title="Профиль подтверждён"
         >
           <MsIcon name="verified" :size="15" filled />
         </div>
@@ -52,12 +67,15 @@ defineEmits<{ 'open-token': [] }>()
         <p class="mt-0.5 font-body-sm text-body-sm leading-snug text-secondary-fixed-dim">
           {{ user?.headline ?? 'Войдите, чтобы сохранять маршруты и находки' }}
         </p>
-        <div v-if="user" class="mt-1.5 flex items-center gap-space-xs">
-          <span class="inline-flex items-center gap-1 rounded-full bg-on-secondary/15 px-2 py-0.5 font-label-sm text-label-sm text-on-secondary">
+        <div v-if="user" class="mt-1.5 flex flex-wrap items-center gap-space-xs">
+          <span
+            v-if="user.city"
+            class="inline-flex items-center gap-1 rounded-full bg-on-secondary/15 px-2 py-0.5 font-label-sm text-label-sm text-on-secondary"
+          >
             <MsIcon name="location_on" :size="12" />
             {{ user.city }}
           </span>
-          <span class="font-label-sm text-label-sm text-secondary-fixed-dim">{{ experience }}</span>
+          <span v-if="sinceLabel" class="font-label-sm text-label-sm text-secondary-fixed-dim">{{ sinceLabel }}</span>
         </div>
       </div>
     </div>

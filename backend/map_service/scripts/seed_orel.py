@@ -338,7 +338,9 @@ def main() -> None:
     init_db()
     with SessionLocal() as db:
         counts = seed(db)
-    print(f"map_service: слой «ВОВ» — {counts['poi']} точек, «Последний бой» — {counts['last_stand']}")
+    print(
+        f"map_service: слой «ВОВ» — {counts['poi']} точек, «Последний бой» — {counts['last_stand']}"
+    )
 
 
 if __name__ == "__main__":

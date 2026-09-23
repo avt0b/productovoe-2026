@@ -5,7 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 
-from api.deps import DbSession, ProfileServiceDep
+from api.deps import AchievementServiceDep, DbSession, NotificationServiceDep, ProfileServiceDep
+from api.schemas.achievement import AwardOut, AwardRequest
+from api.schemas.notification import BroadcastNearbyOut, BroadcastNearbyRequest
 from api.schemas.profile import ProfileOut
 from core.internal import InternalActor, require_internal_key
 from core.models import Profile
@@ -20,18 +22,16 @@ router = APIRouter(
 @router.get("/stats", summary="Сводка по профилям")
 def stats(db: DbSession) -> dict:
     total = db.scalar(select(func.count(Profile.id))) or 0
-    verified = db.scalar(
-        select(func.count(Profile.id)).where(Profile.is_verified.is_(True))
-    ) or 0
-    subscribed = db.scalar(
-        select(func.count(Profile.id)).where(Profile.subscribed_to_search.is_(True))
-    ) or 0
-    with_squad = db.scalar(
-        select(func.count(Profile.id)).where(Profile.squad_id.is_not(None))
-    ) or 0
+    verified = db.scalar(select(func.count(Profile.id)).where(Profile.is_verified.is_(True))) or 0
+    subscribed = (
+        db.scalar(select(func.count(Profile.id)).where(Profile.subscribed_to_search.is_(True))) or 0
+    )
+    with_squad = db.scalar(select(func.count(Profile.id)).where(Profile.squad_id.is_not(None))) or 0
 
     by_role: dict[str, int] = {}
-    for role, count in db.execute(select(Profile.role, func.count(Profile.id)).group_by(Profile.role)):
+    for role, count in db.execute(
+        select(Profile.role, func.count(Profile.id)).group_by(Profile.role)
+    ):
         by_role[str(role)] = count
 
     # Плитка «На верификации ролей» в админке показывает разбивку:
@@ -104,3 +104,30 @@ def set_verified(
     is_verified: Annotated[bool, Query()],
 ) -> ProfileOut:
     return ProfileOut.model_validate(service.set_verified(actor, profile_id, is_verified))
+
+
+@router.post("/notifications/broadcast-nearby", response_model=BroadcastNearbyOut)
+def broadcast_nearby(
+    payload: BroadcastNearbyRequest, service: NotificationServiceDep
+) -> BroadcastNearbyOut:
+    """Вызывается map_service при появлении новой точки «Последнего боя»: создаёт
+    уведомления всем подписчикам, у кого точка попала в их собственный радиус."""
+    count = service.broadcast_nearby(
+        lat=payload.lat,
+        lon=payload.lon,
+        kind=payload.kind,
+        title=payload.title,
+        body=payload.body,
+        payload=payload.payload,
+    )
+    return BroadcastNearbyOut(notified=count)
+
+
+@router.post("/achievements/award", response_model=AwardOut)
+def award_achievement(payload: AwardRequest, service: AchievementServiceDep) -> AwardOut:
+    """Вызывается сервисами-источниками события (route_service на завершении
+    маршрута, archive_service на верификации, search_hq_service на выезде/
+    донате). Идемпотентно — повторный вызов с тем же (user_id, code) не
+    создаёт дубликат и не шлёт уведомление повторно."""
+    _, awarded = service.award(user_id=payload.user_id, code=payload.code)
+    return AwardOut(code=payload.code, awarded=awarded)

@@ -37,6 +37,7 @@ import io.github.sceneview.rememberModelLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ru.marshruty.ar.MarkerSpec
+import ru.marshruty.ar.data.QrScanner
 import ru.marshruty.ar.domain.CameraFieldOfView
 import ru.marshruty.ar.domain.CompanionPlacement
 import ru.marshruty.ar.domain.DEFAULT_COMPANION_HEIGHT_METERS
@@ -49,6 +50,7 @@ import ru.marshruty.ar.domain.companionHeightFor
 import ru.marshruty.ar.domain.fieldOfViewFromIntrinsics
 import ru.marshruty.ar.domain.placeCompanion
 import ru.marshruty.ar.domain.poseInFrontOfCamera
+import ru.marshruty.ar.domain.qrTriggersCompanion
 import kotlin.math.sin
 import io.github.sceneview.node.Node as NodeImpl
 
@@ -154,6 +156,7 @@ private fun ArMarkerSceneContent(
         loaded.renderableEntities.forEach { entity ->
             renderables.setCulling(renderables.getInstance(entity), false)
         }
+        Log.d(TAG, "модель проводника загружена: $path")
         value = loaded.instance
         awaitDispose { modelLoader.destroyModel(loaded) }
     }
@@ -170,6 +173,7 @@ private fun ArMarkerSceneContent(
     val memory = remember { TrackingMemory() }
     val rig = remember { CompanionRig() }
     val smoother = remember { PlacementSmoother() }
+    val qrScanner = remember { QrScanner() }
 
     LaunchedEffect(status) {
         Log.d(TAG, "маркер: $status")
@@ -216,6 +220,12 @@ private fun ArMarkerSceneContent(
         planeFindingMode = Config.PlaneFindingMode.DISABLED,
         sessionConfiguration = { arSession, config ->
             config.focusMode = Config.FocusMode.AUTO
+            // Глубина выключена намеренно. С ней ARCore прячет проводника за всем,
+            // что ближе: за столом, за спиной соседа, за собственной рукой с
+            // телефоном. Выглядит это не как реализм, а как «маскот пропал» —
+            // именно так и терялся проводник, поставленный перед камерой в
+            // комнате. Проводник должен быть виден всегда.
+            config.depthMode = Config.DepthMode.DISABLED
             // Пауза и возврат в приложение переконфигурируют сессию — уже собранная
             // база не должна при этом теряться.
             memory.database?.takeIf { it.first === arSession }?.let { config.augmentedImageDatabase = it.second }
@@ -239,6 +249,7 @@ private fun ArMarkerSceneContent(
                     explicitMeters = marker.companionHeightMeters,
                     knownWidthMeters = marker.physicalWidthMeters,
                     measuredWidthMeters = memory.measuredWidthMeters,
+                    placedInFront = memory.placedInFront,
                 )
                 val measured = memory.measuredWidthMeters
                 if (measured != null && kotlin.math.abs(measured - memory.loggedWidthMeters) > 0.01f) {
@@ -270,12 +281,40 @@ private fun ArMarkerSceneContent(
                 if (cameraTracking && memory.trackingSinceNanos == 0L) memory.trackingSinceNanos = frame.timestamp
                 val eye = camera.pose.let { Vec3(it.tx().toDouble(), it.ty().toDouble(), it.tz().toDouble()) }
 
-                // Таблички нет, время вышло — ставим проводника перед человеком.
-                // Один раз, а не каждый кадр: иначе он ездил бы вслед за камерой.
-                val fallbackAfter = marker.fallbackInFrontAfterMillis
-                if (memory.markerPose == null && cameraTracking && fallbackAfter != null &&
-                    (frame.timestamp - memory.trackingSinceNanos) / 1_000_000L >= fallbackAfter
+                // QR-код читается быстрее и надёжнее картинки: с экрана, с мятой
+                // бумаги, под углом. Увидели свой код — проводник выходит сразу,
+                // не дожидаясь ни таблички, ни таймера.
+                if (marker.companionOnQr && memory.markerPose == null && cameraTracking &&
+                    (frame.timestamp - memory.lastQrScanNanos) / 1_000_000L >= QR_SCAN_INTERVAL_MILLIS
                 ) {
+                    memory.lastQrScanNanos = frame.timestamp
+                    val code = runCatching {
+                        frame.acquireCameraImage().use { image -> qrScanner.read(image) }
+                    }.getOrNull()
+                    if (qrTriggersCompanion(marker.qrPayload, code)) {
+                        Log.d(TAG, "QR принят, выводим проводника: $code")
+                        memory.qrAccepted = true
+                    }
+                }
+
+                // Таблички нет — ставим проводника перед человеком: по коду сразу,
+                // иначе по истечении отведённого времени. Один раз, а не каждый
+                // кадр: иначе он ездил бы вслед за камерой.
+                val fallbackAfter = marker.fallbackInFrontAfterMillis
+                val waitedLongEnough = fallbackAfter != null &&
+                    (frame.timestamp - memory.trackingSinceNanos) / 1_000_000L >= fallbackAfter
+                if (memory.markerPose == null && cameraTracking && (memory.qrAccepted || waitedLongEnough)) {
+                    // Рост нужен до позы: в ней он задаёт, насколько центр фигуры
+                    // ниже уровня глаз. Посчитанный по прежнему умолчанию, он
+                    // подвешивал проводника на уровень груди — поза ставится один
+                    // раз и потом не пересчитывается.
+                    memory.placedInFront = true
+                    rig.height = companionHeightFor(
+                        explicitMeters = marker.companionHeightMeters,
+                        knownWidthMeters = marker.physicalWidthMeters,
+                        measuredWidthMeters = memory.measuredWidthMeters,
+                        placedInFront = true,
+                    )
                     // Камера ARCore смотрит вдоль своей -Z.
                     memory.markerPose = poseInFrontOfCamera(
                         eye = eye,
@@ -283,7 +322,11 @@ private fun ArMarkerSceneContent(
                         distanceMeters = IN_FRONT_DISTANCE_METERS,
                         companionHeightMeters = rig.height.toDouble(),
                     )
-                    memory.placedInFront = true
+                    Log.d(
+                        TAG,
+                        "проводник перед камерой: рост ${rig.height} м, " +
+                            "повод: ${if (memory.qrAccepted) "QR" else "истекло ожидание таблички"}",
+                    )
                 }
 
                 val pose = memory.markerPose
@@ -351,6 +394,10 @@ private class TrackingMemory {
     var measuredWidthMeters: Float? = null
     var loggedWidthMeters = 0f
     var database: Pair<Session, AugmentedImageDatabase>? = null
+    var lastQrScanNanos = 0L
+
+    /** Код уже прочитан — проводник выходит и остаётся, даже если код убрали из кадра. */
+    var qrAccepted = false
 }
 
 /** Узлы проводника и их поза на текущий кадр. */
@@ -441,7 +488,22 @@ private const val MARKER_NAME = "point-marker"
 private const val MARKER_MAX_SIDE_PX = 800
 
 /** На каком расстоянии от камеры встаёт проводник, если таблички нет. */
-private const val IN_FRONT_DISTANCE_METERS = 0.8
+/**
+ * На каком расстоянии ставить проводника перед человеком, метры.
+ *
+ * Ростом с ребёнка и в двух шагах — фигура целиком помещается в кадр и её
+ * видно. Ближе она упирается в край экрана и читается как обрезок текстуры.
+ */
+private const val IN_FRONT_DISTANCE_METERS = 1.8
+
+/**
+ * Как часто искать QR в кадре, мс.
+ *
+ * Декодер работает в кадровом колбэке сессии, и гонять его сорок раз в секунду
+ * — верный способ получить рывки картинки. Четырёх проверок в секунду хватает:
+ * человек подносит код и держит его дольше.
+ */
+private const val QR_SCAN_INTERVAL_MILLIS = 250L
 
 /** Высота оси оборота в долях роста — примерно пояс. */
 private const val SPIN_PIVOT = 0.5f

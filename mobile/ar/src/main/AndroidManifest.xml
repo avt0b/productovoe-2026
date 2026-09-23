@@ -4,6 +4,11 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!--
+      Озвучка точки приходит ссылкой с media_service. Файл в assets и локальный
+      путь играют и без этого, но тогда голос будет только у демо-точек.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!--
       required="false": приложение целиком должно ставиться и на устройства

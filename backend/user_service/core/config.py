@@ -24,5 +24,24 @@ class Settings(BaseSettings):
         "capacitor://localhost",
     ]
 
+    # --- файлы (аватары) в MinIO, S3-совместимое хранилище ---
+    minio_endpoint: str = "http://127.0.0.1:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "users"
+    minio_public_base_url: str | None = None
+
+    # --- push-доставка (FCM HTTP v1) ---
+    # Без project_id и ключа push просто не уходит — лента уведомлений и
+    # ачивки работают как раньше, это не блокирующая зависимость.
+    fcm_project_id: str | None = None
+    # Ключ сервисного аккаунта (Firebase Console → Project settings → Service
+    # accounts → Generate new private key). Либо путь к файлу на диске
+    # (удобно локально), либо всё содержимое JSON одной строкой (удобно как
+    # секрет в докере/CI, без монтирования файла) — заполнено то, что есть.
+    fcm_credentials_path: str | None = None
+    fcm_credentials_json: str | None = None
+    upstream_timeout_seconds: float = 5.0
+
 
 settings = Settings()

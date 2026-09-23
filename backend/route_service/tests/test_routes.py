@@ -39,11 +39,15 @@ def test_draft_hidden_from_public_until_published(client, author_header):
 
 def test_cannot_publish_without_waypoints(client, author_header):
     route = make_route(client, author_header).json()
-    r = client.post(f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True})
+    r = client.post(
+        f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True}
+    )
     assert r.status_code == 409
 
     add_wp(client, author_header, route["id"])
-    r2 = client.post(f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True})
+    r2 = client.post(
+        f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True}
+    )
     assert r2.status_code == 200
     assert r2.json()["is_published"] is True
     assert len(client.get("/routes").json()) == 1
@@ -85,20 +89,30 @@ def test_reorder_rejects_duplicate_ids(client, author_header):
 
 def test_stranger_cannot_edit(client, author_header):
     route = make_route(client, author_header).json()
-    assert client.patch(
-        f"/routes/{route['id']}", headers=auth_header(role="local_historian"), json={"title": "x"}
-    ).status_code == 403
+    assert (
+        client.patch(
+            f"/routes/{route['id']}",
+            headers=auth_header(role="local_historian"),
+            json={"title": "x"},
+        ).status_code
+        == 403
+    )
     # модератор может
-    assert client.patch(
-        f"/routes/{route['id']}", headers=auth_header(role="moderator"), json={"city": "Кромы"}
-    ).status_code == 200
+    assert (
+        client.patch(
+            f"/routes/{route['id']}", headers=auth_header(role="moderator"), json={"city": "Кромы"}
+        ).status_code
+        == 200
+    )
 
 
 def test_route_detail_includes_waypoints(client, author_header):
     route = make_route(client, author_header).json()
     add_wp(client, author_header, route["id"], title="A")
     add_wp(client, author_header, route["id"], title="B")
-    client.post(f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True})
+    client.post(
+        f"/routes/{route['id']}/publish", headers=author_header, json={"is_published": True}
+    )
 
     detail = client.get(f"/routes/{route['id']}").json()
     assert [w["title"] for w in detail["waypoints"]] == ["A", "B"]

@@ -41,9 +41,7 @@ class EntryRepository:
             stmt = stmt.where(ArchiveEntry.submitted_by == submitted_by)
         if q:
             like = f"%{q}%"
-            stmt = stmt.where(
-                ArchiveEntry.title.ilike(like) | ArchiveEntry.body.ilike(like)
-            )
+            stmt = stmt.where(ArchiveEntry.title.ilike(like) | ArchiveEntry.body.ilike(like))
         if bbox is not None:
             min_lat, min_lon, max_lat, max_lon = bbox
             stmt = stmt.where(

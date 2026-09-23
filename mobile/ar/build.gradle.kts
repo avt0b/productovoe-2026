@@ -72,6 +72,11 @@ dependencies {
 
     implementation(libs.arsceneview)
 
+    // Чтение QR с кадра ARCore: запасной способ вызвать проводника, когда
+    // картинку-табличку поймать не удаётся. Чистая Java, без Play Services —
+    // модуль остаётся работоспособным на телефонах без сервисов Google.
+    implementation(libs.zxing.core)
+
     implementation(libs.camera.core)
     implementation(libs.camera.camera2)
     implementation(libs.camera.lifecycle)

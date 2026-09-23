@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session
 from core.db import get_db
 from core.security import Principal, decode_access_token, principal_from_payload
 from services.bump_service import BumpService
+from services.chat_service import ChatService
 from services.excursion_service import ExcursionService
 from services.need_service import NeedService
+from services.rating_service import RatingService
 from services.squad_service import SquadService
 from services.trip_service import TripService
 
@@ -68,8 +70,18 @@ def get_bump_service(db: DbSession) -> BumpService:
     return BumpService(db)
 
 
+def get_rating_service(db: DbSession) -> RatingService:
+    return RatingService(db)
+
+
+def get_chat_service(db: DbSession) -> ChatService:
+    return ChatService(db)
+
+
 SquadServiceDep = Annotated[SquadService, Depends(get_squad_service)]
 NeedServiceDep = Annotated[NeedService, Depends(get_need_service)]
 TripServiceDep = Annotated[TripService, Depends(get_trip_service)]
 ExcursionServiceDep = Annotated[ExcursionService, Depends(get_excursion_service)]
 BumpServiceDep = Annotated[BumpService, Depends(get_bump_service)]
+RatingServiceDep = Annotated[RatingService, Depends(get_rating_service)]
+ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]

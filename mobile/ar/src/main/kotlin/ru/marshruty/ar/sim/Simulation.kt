@@ -54,7 +54,11 @@ object Simulation {
         target = ArTarget(point = Target, label = "След кабельного окопа"),
         companion = companion,
         narration = NarrationSpec(
-            audioUri = "asset:///narration/wp-2.ogg",
+            // Записанного голоса у сценария нет: озвучку делает бэкенд под
+            // конкретную точку. Рассказ идёт субтитрами — ровно так же он
+            // пойдёт и на точке, для которой голос ещё не записали.
+            // На стенде (`:demo`) ссылку можно подставить руками и проверить звук.
+            audioUri = null,
             subtitles = listOf(
                 SubtitleLine(
                     0, 6_000,

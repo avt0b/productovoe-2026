@@ -14,6 +14,10 @@ uv run uvicorn main:app --reload --port 8004
 
 Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 
+Демо-штаб Орловщины — три отряда, сборы «Поднять бойца» и «Экипировать
+отряд», выезды с чек-листами: `uv run python -m scripts.seed_orel`. Скрипт
+идемпотентный, все строки помечены «ДЕМО», даты выездов считаются от дня запуска.
+
 ## Архитектура
 
 Стандартный трёхслойный скелет (`api` / `services` / `repositories` + `core`).
@@ -21,7 +25,9 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 
 ## Сущности
 
-- **Squad** — поисковый отряд (командир = `leader_id` из JWT).
+- **Squad** — поисковый отряд (командир = `leader_id` из JWT); опциональные
+  `lat`/`lon` (штаб/база) — чтобы потребности отряда можно было нанести на
+  карту (модуль 3 ТЗ, «карта потребностей отрядов»).
 - **SquadNeed** — потребность: `volunteers` / `funds` / `equipment`,
   `target_amount` + `collected_amount`, статус `open` / `closed`.
 - **Donation** — взнос в денежный сбор; при достижении цели сбор
@@ -35,7 +41,7 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 | Метод | Путь | Доступ |
 | --- | --- | --- |
 | POST | `/squads` | `searcher` / `moderator` / root |
-| GET | `/squads` `?region&q` | публично |
+| GET | `/squads` `?region&q&min_lat&min_lon&max_lat&max_lon` | публично — bbox фильтрует отряды с заданными координатами для отображения на карте |
 | GET/PATCH/DELETE | `/squads/{id}` | чтение — все; изменение — командир / `moderator` / root |
 | GET | `/squads/{id}/needs` `?kind&status` | публично |
 | POST | `/squads/{id}/needs` | командир отряда / `moderator` / root |
@@ -44,10 +50,12 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 | POST | `/needs/{id}/donations` | любой авторизованный (сбор `funds`, статус `open`) |
 | GET | `/needs/{id}/donations` | публично |
 | GET | `/trips` `?upcoming_only` | публично |
+| GET | `/trips/mine` `?upcoming_only` | авторизованный — выезды, на которые он записан |
 | POST | `/squads/{id}/trips` · PATCH `/trips/{id}` | командир / `moderator` / root — `capacity` в PATCH нельзя занизить меньше уже зарегистрированных (`409`) |
 | POST | `/trips/{id}/registrations` | любой авторизованный (учёт мест) |
 | DELETE | `/trips/{id}/registrations/me` | сам волонтёр |
 | GET | `/trips/{id}/registrations` | командир / `moderator` / root |
+| GET/POST | `/trips/{id}/messages` | командир и записавшиеся (см. «Чат сбора») |
 
 ## Экскурсии и бамп
 
@@ -63,7 +71,12 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
    Роль `local_historian` / `mentor` / `moderator`.
 2. **Люди записываются** — `POST /excursions/{id}/registrations`. Запись
    открыта, пока экскурсия в статусе `scheduled`: пришедших без записи бамп не
-   отмечает.
+   отмечает. Тело запроса необязательно (обычная запись одного человека); школа
+   или клуб передаёт `organization_name` и `group_size` — это **коллективная
+   заявка** (модуль 5 ТЗ): один представитель держит одну запись на всю группу,
+   `capacity` считается по сумме `group_size`, а не по числу строк. Бамп на
+   месте всё равно один — от представителя группы, остальных участников
+   поимённо система не ведёт (аккаунт у представителя один).
 3. **Краевед на месте нажимает «Начать сбор»** — `POST
    /excursions/{id}/gathering/start` со своими координатами. Сервис проверяет,
    что он не дальше `EXCURSION_SITE_RADIUS_M` от точки, и открывает сбор на
@@ -114,13 +127,14 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 | GET | `/excursions/{id}` | публично, `viewer` — с токеном |
 | PATCH | `/excursions/{id}` | краевед / `moderator` / root, пока `scheduled` |
 | POST | `/excursions/{id}/cancel` | краевед / `moderator` / root |
-| POST | `/excursions/{id}/registrations` | любой авторизованный, пока `scheduled` (учёт мест) |
+| POST | `/excursions/{id}/registrations` | любой авторизованный, пока `scheduled` — опционально `organization_name`/`group_size` для коллективной заявки (учёт мест по сумме `group_size`) |
 | DELETE | `/excursions/{id}/registrations/me` | сам участник, пока `scheduled` |
 | GET | `/excursions/{id}/participants` | краевед / `moderator` / root |
 | POST | `/excursions/{id}/gathering/start` | краевед на месте сбора |
 | POST | `/excursions/{id}/gathering/finish` | краевед |
 | GET | `/excursions/{id}/gathering` | краевед (со списком пришедших) и записавшиеся |
 | POST | `/excursions/{id}/bumps` | краевед и записавшиеся, пока идёт сбор, у места сбора |
+| GET/POST | `/excursions/{id}/messages` | краевед и записавшиеся (см. «Чат сбора») |
 
 Статусы экскурсии: `scheduled` → `gathering` → `finished`, или `cancelled`.
 
@@ -133,11 +147,57 @@ Swagger — <http://127.0.0.1:8004/docs>. Тесты: `uv run pytest`.
 точке, где сидите, либо поднимите `EXCURSION_SITE_RADIUS_M`. Проверять бамп
 нужно на двух телефонах: у краеведа и участника разные аккаунты.
 
+Регистрация на выезд (`POST /trips/{id}/registrations`) шлёт `user_service`
+`POST /internal/achievements/award` с кодом `trip_volunteer`; успешный донат
+(сразу без шлюза или после подтверждения ЮKassa через `confirm_payment`) —
+с кодом `donor` (`services/achievement_client.py`). Недоступность
+user_service не мешает записаться/задонатить — ачивка просто не выдастся.
+
+## Чат сбора
+
+И у выезда «Выходные с поисковиком», и у экскурсии есть общий чат для
+координации на месте («во сколько встречаемся», «где парковка») —
+`GET`/`POST /trips/{id}/messages` и `GET`/`POST /excursions/{id}/messages`.
+Оба живут в одной таблице `chat_messages` (`subject_type` = `trip` или
+`excursion` + `subject_id`, `services/chat_service.py`) — логика доступа
+общая, эндпоинты просто нацелены на разные сущности.
+
+**Доступ проверяется на каждый запрос** (и на чтение, и на отправку), а не
+один раз при входе:
+
+- Выезд — командир отряда, `moderator`/root и те, у кого активная
+  (`registered`) `TripRegistration`.
+- Экскурсия — краевед-ведущий, `moderator`/root и те, у кого активная
+  (`registered`) `ExcursionParticipant`.
+
+Отменил запись — потерял доступ к чату этого сбора, включая уже
+написанные в нём сообщения (не только к отправке новых). Простое правило
+без отдельного состояния «участник чата», согласованное с тем, как уже
+работает `gathering_state` у экскурсий.
+
+**Без WebSocket**, как и весь сервис — клиент опрашивает `GET .../messages`
+раз в несколько секунд, как и сбор группы на бампе. Автор сообщения — только
+`author_id`; человекочитаемое имя фронт достаёт из `user_service`
+(`GET /profiles/{id}`) сам, сервис его не хранит и не подтягивает.
+
+Сообщения не привязаны внешним ключом к `volunteer_trips`/`excursions` —
+общая таблица на два типа сборов, а удаления сборов в API нет, так что
+осиротевших строк на практике не возникает.
+
+**Модерация** (`services/moderation.py`): сообщение с матом отклоняется
+(`422`, `detail: "Соблюдайте правила нашего сообщества"`), в чат не
+попадает. Встроенный список — только мат; расширить его можно через
+`CHAT_BANNED_WORDS` (через запятую) — что банить сверх мата, решает
+оператор площадки конфигом, а не зашито в код. Фильтр ловит прямой текст
+без обфускации (`п_и_з_д`, замену букв цифрами и т.п. не распознаёт).
+
 ## Дальше
 
-- Коллективные заявки школ и клубов на экскурсии (модуль 5 ТЗ) и рейтинг
-  гидов по отметкам «пришёл».
 - Сравнение формы движения телефонов при бампе — защита от совпадений в толпе.
 - Отметка волонтёров бампом на «Выходных с поисковиком».
-- Интеграция платежей (ЮKassa / CloudPayments) вместо «виртуальных» донатов.
-- Событие «новый выезд» / «сбор закрыт» → `notification_service`.
+- Событие «новый выезд» / «сбор закрыт» → уведомление + push через
+  `user_service` (сам механизм доставки уже есть, см.
+  [user_service/README.md](../user_service/README.md#push-доставка) — не
+  хватает только вызова отсюда).
+- Push на новое сообщение в чате сбора — сейчас узнать о нём можно только
+  опросом `GET .../messages`.

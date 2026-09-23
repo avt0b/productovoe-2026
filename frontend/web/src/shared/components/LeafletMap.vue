@@ -28,13 +28,33 @@ const mapEl = ref(null)
 let map = null
 let markerLayer = null
 let pathLayer = null
+let resizeObserver = null
 
 function render() {
   if (!map) return
 
   markerLayer.clearLayers()
   props.markers.forEach((m) => {
-    const marker = L.marker([m.lat, m.lng]).addTo(markerLayer)
+    // m.icon — необязательный: имя Material Symbol + цветовые классы Tailwind
+    // (badgeClass/tailClass) рисуют цветную метку-«пин» вместо стандартной
+    // капли Leaflet. Без m.icon поведение не меняется — обычный маркер.
+    const options = m.icon
+      ? {
+          icon: L.divIcon({
+            className: '',
+            html: `<div class="flex flex-col items-center drop-shadow-md">
+              <div class="w-8 h-8 rounded-full ${m.badgeClass ?? 'bg-primary'} ring-2 ring-surface-container-lowest flex items-center justify-center">
+                <span class="material-symbols-outlined text-white text-[16px]" style="font-variation-settings: 'FILL' 1">${m.icon}</span>
+              </div>
+              <div class="w-0 h-0 border-x-[5px] border-x-transparent border-t-[7px] ${m.tailClass ?? 'border-t-primary'} -mt-px"></div>
+            </div>`,
+            iconSize: [32, 40],
+            iconAnchor: [16, 40],
+            popupAnchor: [0, -36],
+          }),
+        }
+      : {}
+    const marker = L.marker([m.lat, m.lng], options).addTo(markerLayer)
     if (m.title) {
       marker.bindPopup(`<b>${m.title}</b>${m.subtitle ? `<br>${m.subtitle}` : ''}`)
     }
@@ -69,11 +89,22 @@ onMounted(() => {
   }).addTo(map)
   markerLayer = L.layerGroup().addTo(map)
   render()
+
+  // Leaflet меряет размер контейнера один раз, при создании карты. Если в
+  // этот момент контейнер ещё не занял итоговую ширину/высоту (переход
+  // паддинга у сайдбара, донаборка шрифтов на первом заходе, карта в
+  // модалке/раскрывающейся вкладке) — тайлы считаются по старым размерам и
+  // выглядят «съехавшими», пока кто-то вручную не дёрнет invalidateSize().
+  // ResizeObserver дёргает его сам при любом реальном изменении размера.
+  resizeObserver = new ResizeObserver(() => map?.invalidateSize())
+  resizeObserver.observe(mapEl.value)
 })
 
 watch(() => [props.markers, props.path], render, { deep: true })
 
 onUnmounted(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
   map?.remove()
   map = null
 })
@@ -86,5 +117,11 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="mapEl" class="w-full h-full" />
+  <!-- isolate: Leaflet's own panes/controls use z-index up to 1000 (see
+       leaflet.css .leaflet-top/.leaflet-bottom). A `relative` ancestor with
+       no explicit z-index does not contain that — it leaks into the page's
+       global stacking order and can render above fixed overlays with a
+       lower z-index (the onboarding tour is z-60, modals are z-50). isolate
+       creates a stacking context here so every Leaflet z-index stays local. -->
+  <div ref="mapEl" class="w-full h-full isolate" />
 </template>

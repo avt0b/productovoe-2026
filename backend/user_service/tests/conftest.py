@@ -15,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main
-from core.db import engine
+from core.db import SessionLocal, engine
 from core.models import Base
 
 SECRET = os.environ["JWT_SECRET"]
@@ -45,6 +45,17 @@ def client():
     Base.metadata.create_all(bind=engine)
     with TestClient(main.app) as c:
         yield c
+
+
+@pytest.fixture()
+def db_session(client):
+    """Прямой доступ к БД теста — для тестов, которым нужно завести ORM-объект
+    (например Notification) без похода через HTTP."""
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
 
 
 def pytest_sessionfinish(session, exitstatus):
