@@ -1,5 +1,5 @@
 <script setup>
-import ExcursionSignupForm from './components/ExcursionSignupForm.vue'
+import ExcursionsList from './components/ExcursionsList.vue'
 import MyExcursions from './components/MyExcursions.vue'
 </script>
 
@@ -13,6 +13,6 @@ import MyExcursions from './components/MyExcursions.vue'
     </div>
 
     <MyExcursions />
-    <ExcursionSignupForm />
+    <ExcursionsList />
   </div>
 </template>
