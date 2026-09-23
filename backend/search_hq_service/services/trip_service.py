@@ -79,6 +79,10 @@ class TripService:
         reg.status = RegistrationStatus.cancelled
         self.db.commit()
 
+    def mine(self, principal: Principal, *, upcoming_only: bool) -> Sequence[VolunteerTrip]:
+        """Выезды, на которые человек записан, — чтобы приложение показало «Вы записаны»."""
+        return self.repo.trips_of_volunteer(principal.user_id, upcoming_only=upcoming_only)
+
     def registrations_for(self, principal: Principal, trip_id: str) -> Sequence[TripRegistration]:
         trip = self.get(trip_id)
         self._ensure_manager(principal, self._leader_of(trip))
