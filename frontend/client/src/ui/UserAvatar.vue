@@ -27,7 +27,7 @@ const initials = computed(() =>
   <component
     :is="profileAvailable ? 'RouterLink' : 'div'"
     :to="profileAvailable ? { name: 'profile' } : undefined"
-    class="ml-space-xs flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-fixed text-primary"
+    class="ml-space-xs flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary-fixed-dim/70 bg-primary-fixed text-primary"
     :aria-label="profileAvailable ? 'Профиль' : undefined"
   >
     <img

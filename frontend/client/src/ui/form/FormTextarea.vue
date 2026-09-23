@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useId } from 'vue'
 
-import { INPUT_CLASS } from './styles'
+import { FIELD_HINT_CLASS, FIELD_LABEL_CLASS, TEXTAREA_CLASS } from './styles'
 
 const model = defineModel<string>({ required: true })
 
@@ -21,8 +21,8 @@ const id = useId()
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-col gap-1">
-    <label :for="id" class="font-label-md text-label-md text-on-surface">{{ label }}</label>
+  <div class="flex min-w-0 flex-col space-y-space-xs">
+    <label :for="id" :class="FIELD_LABEL_CLASS">{{ label }}</label>
     <textarea
       :id="id"
       v-model="model"
@@ -30,8 +30,8 @@ const id = useId()
       :placeholder="placeholder"
       :required="required"
       :maxlength="maxlength"
-      :class="INPUT_CLASS"
+      :class="TEXTAREA_CLASS"
     />
-    <span v-if="hint" class="font-body-sm text-body-sm text-outline">{{ hint }}</span>
+    <span v-if="hint" :class="FIELD_HINT_CLASS">{{ hint }}</span>
   </div>
 </template>
