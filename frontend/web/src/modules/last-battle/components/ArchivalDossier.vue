@@ -6,6 +6,8 @@ import ArchivalMetadata from './ArchivalMetadata.vue'
 import ExpeditionActivity from './ExpeditionActivity.vue'
 import DossierActions from './DossierActions.vue'
 import DossierStatusControls from './DossierStatusControls.vue'
+import DirectionsButton from './DirectionsButton.vue'
+import PointReviews from './PointReviews.vue'
 import { useAuthSession } from '@modules/auth'
 
 defineProps({
@@ -22,9 +24,11 @@ const canCurate = computed(() => session.user?.role === 'moderator' || session.u
 <template>
   <div class="bg-surface-container-lowest rounded-lg p-6 shadow-md flex flex-col gap-5">
     <DossierHeader :point="point" />
+    <DirectionsButton v-if="point" :point="point" />
     <DossierStatusControls v-if="canCurate && point" :point="point" @updated="emit('point-updated', $event)" />
     <ComparativePhotos />
     <ArchivalMetadata :point="point" />
+    <PointReviews v-if="point" :point="point" />
     <ExpeditionActivity />
     <DossierActions @open-upload="$emit('open-upload')" />
   </div>
