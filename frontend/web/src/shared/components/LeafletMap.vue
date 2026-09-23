@@ -117,5 +117,11 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="mapEl" class="w-full h-full" />
+  <!-- isolate: Leaflet's own panes/controls use z-index up to 1000 (see
+       leaflet.css .leaflet-top/.leaflet-bottom). A `relative` ancestor with
+       no explicit z-index does not contain that — it leaks into the page's
+       global stacking order and can render above fixed overlays with a
+       lower z-index (the onboarding tour is z-60, modals are z-50). isolate
+       creates a stacking context here so every Leaflet z-index stays local. -->
+  <div ref="mapEl" class="w-full h-full isolate" />
 </template>

@@ -129,7 +129,7 @@ const kindsPresent = computed(() => {
             Включите хотя бы один слой выше
           </span>
         </p>
-        <div class="absolute top-3 right-3 flex flex-col gap-1.5 z-[1000]">
+        <div class="absolute top-3 right-3 flex flex-col gap-1.5 z-10">
           <button
             type="button"
             class="w-9 h-9 rounded-full bg-surface-container-lowest/95 backdrop-blur shadow-md hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors"
