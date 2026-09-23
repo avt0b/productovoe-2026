@@ -1,3 +1,4 @@
+export { can } from './roles'
 export { useSessionStore } from './store'
 export type {
   AuthProvider,

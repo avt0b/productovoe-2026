@@ -80,6 +80,7 @@ function toUser(dto: UserDto): SessionUser {
     headline: ROLE_TITLES[dto.role] ?? ROLE_TITLES.family,
     city: '',
     role: dto.role,
+    isRoot: dto.is_root,
     email: dto.email,
   }
 }
@@ -90,7 +91,7 @@ async function explain<T>(request: () => Promise<T>): Promise<T> {
     return await request()
   } catch (reason) {
     if (reason instanceof ServiceUnavailableError) {
-      throw new Error('Сервер входа недоступен. Оставьте поля пустыми, чтобы войти в демо-режиме')
+      throw new Error('Сервер входа не отвечает. Проверьте адрес сервера или оставьте поля пустыми для демо-режима')
     }
     if (reason instanceof ApiError && reason.status === 422) {
       throw new Error('Проверьте почту и пароль: пароль — не короче 8 символов')

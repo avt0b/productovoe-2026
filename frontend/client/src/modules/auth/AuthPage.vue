@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { errorText } from '@/core/format'
 import { usePreferencesStore } from '@/core/preferences'
+import { serverLabel } from '@/core/server'
 import { useSessionStore, type SignInMethod } from '@/core/session'
 import MsIcon from '@/ui/MsIcon.vue'
 import ToggleSwitch from '@/ui/ToggleSwitch.vue'
@@ -31,6 +32,10 @@ const signInError = ref<string | null>(null)
 const activeMethod = ref<SignInMethod | null>(null)
 
 const submitLabel = computed(() => (mode.value === 'login' ? 'Войти в экспедицию' : 'Создать аккаунт'))
+
+/** Выбор сервера — временный модуль `server`. Уберут его — строка пропадёт сама. */
+const canPickServer = computed(() => router.hasRoute('server'))
+const server = computed(() => serverLabel())
 
 /**
  * Куда вернуть после входа. Только внутренний путь: `?next=//evil.example`
@@ -85,6 +90,16 @@ function submit(): void {
         Живая история, семейные маршруты и поиск защитников Отечества
       </p>
     </div>
+
+    <RouterLink
+      v-if="canPickServer"
+      :to="{ name: 'server' }"
+      class="mb-space-md flex items-center gap-space-sm rounded-full bg-surface-container-low px-space-md py-2 text-on-surface-variant transition-colors hover:bg-surface-container"
+    >
+      <MsIcon name="dns" :size="18" class="shrink-0 text-secondary" />
+      <span class="min-w-0 flex-1 truncate font-label-md text-label-md">Сервер: {{ server }}</span>
+      <span class="shrink-0 font-label-md text-label-md text-primary">Изменить</span>
+    </RouterLink>
 
     <AuthBanner class="mb-space-lg" />
 

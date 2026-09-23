@@ -11,6 +11,8 @@ export interface SessionUser {
   avatarUrl?: string
   /** Роль из `auth_service`. У демо-пользователя её нет. */
   role?: UserRole
+  /** Администратор платформы (`is_root`): сервисы пускают его туда же, куда модератора. */
+  isRoot?: boolean
   email?: string
 }
 
