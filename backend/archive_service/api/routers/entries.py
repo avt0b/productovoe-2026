@@ -22,11 +22,16 @@ def list_entries(
     service: EntryServiceDep,
     kind: Annotated[EntryKind | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=200)] = None,
+    point_id: Annotated[str | None, Query(max_length=36)] = None,
+    poi_id: Annotated[str | None, Query(max_length=36)] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[EntryPublicOut]:
-    """Публичная лента — только подтверждённые записи, без служебной заметки модератора."""
-    rows = service.search_public(kind=kind, q=q, limit=limit, offset=offset)
+    """Публичная лента — только подтверждённые записи, без служебной заметки модератора.
+    С `point_id`/`poi_id` — записи, привязанные к конкретной точке карты (карточка точки)."""
+    rows = service.search_public(
+        kind=kind, q=q, point_id=point_id, poi_id=poi_id, limit=limit, offset=offset
+    )
     return [EntryPublicOut.model_validate(e) for e in rows]
 
 

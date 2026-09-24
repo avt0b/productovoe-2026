@@ -27,6 +27,8 @@ class EntryRepository:
         status: EntryStatus | None = None,
         kind: EntryKind | None = None,
         submitted_by: str | None = None,
+        point_id: str | None = None,
+        poi_id: str | None = None,
         q: str | None = None,
         bbox: tuple[float, float, float, float] | None = None,
         limit: int = 100,
@@ -39,6 +41,10 @@ class EntryRepository:
             stmt = stmt.where(ArchiveEntry.kind == kind)
         if submitted_by is not None:
             stmt = stmt.where(ArchiveEntry.submitted_by == submitted_by)
+        if point_id is not None:
+            stmt = stmt.where(ArchiveEntry.point_id == point_id)
+        if poi_id is not None:
+            stmt = stmt.where(ArchiveEntry.poi_id == poi_id)
         if q:
             like = f"%{q}%"
             stmt = stmt.where(ArchiveEntry.title.ilike(like) | ArchiveEntry.body.ilike(like))

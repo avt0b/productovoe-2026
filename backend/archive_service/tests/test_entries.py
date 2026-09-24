@@ -273,3 +273,24 @@ def test_deleting_reviewed_entry_is_logged(client, caplog):
         e["id"] in record.getMessage() and "mod-9" in record.getMessage()
         for record in caplog.records
     )
+
+
+def test_filter_by_point_and_poi(client):
+    point_id = str(uuid.uuid4())
+    poi_id = str(uuid.uuid4())
+    author = auth_header(user_id="author-1")
+
+    to_point = create_entry(client, author, point_id=point_id).json()
+    to_poi = create_entry(client, author, poi_id=poi_id).json()
+    unrelated = create_entry(client, author).json()
+
+    for entry in (to_point, to_poi, unrelated):
+        client.post(
+            f"/entries/{entry['id']}/verify", headers=auth_header(role="local_historian"), json={}
+        )
+
+    by_point = client.get("/entries", params={"point_id": point_id}).json()
+    assert [e["id"] for e in by_point] == [to_point["id"]]
+
+    by_poi = client.get("/entries", params={"poi_id": poi_id}).json()
+    assert [e["id"] for e in by_poi] == [to_poi["id"]]
