@@ -22,17 +22,10 @@ export function getRouteDetail(routeId) {
   return http.get(`${BASE}/${routeId}`)
 }
 
-export function startProgress(token, routeId) {
-  return http.post(`${BASE}/${routeId}/progress/start`, {}, { token })
-}
-
-export function getMyProgress(token, routeId) {
-  return http.get(`${BASE}/${routeId}/progress/me`, { token })
-}
-
-export function completeWaypoint(token, routeId, waypointId) {
-  return http.post(`${BASE}/${routeId}/progress/complete-waypoint`, { waypoint_id: waypointId }, { token })
-}
+// Отметка прогресса по точкам (progress/start, progress/me, progress/
+// complete-waypoint) — сценарий «иду по тропе прямо сейчас» живёт только в
+// мобильном приложении (frontend/client, там же GPS/AR/NFC для точки на
+// месте). На web остаётся только просмотр маршрута для планирования.
 
 // archive_service: «народный архив» — неподтверждённые записи в прямоугольнике
 // вокруг маршрута, витрина для подсказки «рядом есть неподтверждённая заметка,
