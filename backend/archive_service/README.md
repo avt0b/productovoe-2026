@@ -19,10 +19,18 @@ Swagger — <http://127.0.0.1:8005/docs>. Тесты: `uv run pytest`.
 `ArchiveEntry`:
 - `kind`: `event` / `soldier_card` / `memory` / `photo_story`
 - `title`, `body`, опциональные `lat`/`lon` (привязка к точке маршрута),
-  `event_date` / `date_text`, `media_url`
+  `event_date` / `date_text`
+- `media_url` — фото (имя историческое), `audio_url` — аудиовоспоминание.
+  Оба необязательные и могут быть у записи одновременно. Сами файлы
+  загружаются через `POST /uploads` в media_service (фото до 15 МБ, аудио до
+  30 МБ), сюда приходят готовые ссылки
 - `submitted_by` (из JWT)
 - `status`: `pending` → `verified` / `rejected`
 - `verified_by`, `reviewed_at`, `review_note`
+
+Колонку `audio_url` в уже существующей таблице досоздаёт `init_db` на старте
+(`core/db.py`, `_ADDED_COLUMNS`): `create_all` существующие таблицы не меняет.
+Отдельной миграции руками не нужно.
 
 ## Логика доступа
 

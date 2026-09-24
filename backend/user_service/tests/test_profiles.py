@@ -42,6 +42,44 @@ def test_update_me_rejects_bad_radius(client):
     assert client.put("/profiles/me", headers=h, json={"alert_radius_km": 9999}).status_code == 422
 
 
+def _named_profile(client, name: str, **token) -> str:
+    uid = str(uuid.uuid4())
+    h = auth_header(user_id=uid, **token)
+    client.get("/profiles/me", headers=h)
+    client.put(
+        "/profiles/me",
+        headers=h,
+        json={"display_name": name, "city": "Орёл", "home_lat": 52.97, "home_lon": 36.07},
+    )
+    return uid
+
+
+def test_batch_returns_public_cards_without_token(client):
+    anna = _named_profile(client, "Анна")
+    petr = _named_profile(client, "Пётр", role="local_historian")
+    missing = str(uuid.uuid4())
+
+    r = client.get("/profiles/batch", params={"ids": f"{anna}, {petr},{missing},{anna}"})
+    assert r.status_code == 200
+    cards = {card["id"]: card for card in r.json()}
+    assert set(cards) == {anna, petr}  # нет профиля — нет в ответе, повторы схлопнуты
+    assert cards[anna]["display_name"] == "Анна"
+    assert cards[petr]["role"] == "local_historian"
+    # Батч публичный — приватного в нём быть не должно.
+    for card in cards.values():
+        assert set(card) == {"id", "display_name", "avatar_url", "role", "is_verified"}
+
+
+def test_batch_empty_ids(client):
+    assert client.get("/profiles/batch").json() == []
+    assert client.get("/profiles/batch", params={"ids": " , "}).json() == []
+
+
+def test_batch_limits_ids(client):
+    too_many = ",".join(str(uuid.uuid4()) for _ in range(201))
+    assert client.get("/profiles/batch", params={"ids": too_many}).status_code == 422
+
+
 def test_get_other_profile_requires_auth(client):
     assert client.get(f"/profiles/{uuid.uuid4()}").status_code in (401, 403)
 

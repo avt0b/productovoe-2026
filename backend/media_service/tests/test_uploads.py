@@ -7,6 +7,7 @@ import services.storage as storage_module
 class FakeS3Client:
     def __init__(self):
         self.objects: dict[str, bytes] = {}
+        self.content_types: dict[str, str] = {}
         self.buckets: set[str] = set()
 
     def head_bucket(self, Bucket):
@@ -23,6 +24,7 @@ class FakeS3Client:
 
     def put_object(self, Bucket, Key, Body, ContentType):
         self.objects[f"{Bucket}/{Key}"] = Body
+        self.content_types[f"{Bucket}/{Key}"] = ContentType
 
 
 @pytest.fixture()
@@ -40,6 +42,52 @@ def test_upload_rejects_wrong_content_type(client, fake_storage):
         files={"file": ("doc.pdf", b"%PDF-1.4", "application/pdf")},
     )
     assert r.status_code == 415
+
+
+@pytest.mark.parametrize(
+    ("filename", "content_type", "ext"),
+    [
+        ("voice.mp3", "audio/mpeg", ".mp3"),
+        ("voice.ogg", "audio/ogg", ".ogg"),
+        ("voice.wav", "audio/wav", ".wav"),
+        ("Voice.M4A", "audio/x-m4a", ".m4a"),
+        ("recording.webm", "audio/webm", ".webm"),
+    ],
+)
+def test_upload_accepts_audio_and_keeps_extension(client, fake_storage, filename, content_type, ext):
+    r = client.post(
+        "/uploads",
+        headers=auth_header(user_id="u1"),
+        files={"file": (filename, b"audio-bytes", content_type)},
+    )
+    assert r.status_code == 200
+    url = r.json()["url"]
+    assert url.endswith(ext)
+    assert "/u1/" in url
+
+    [key] = fake_storage.objects
+    assert key.endswith(ext)
+    assert fake_storage.content_types[key] == content_type
+
+
+def test_audio_limit_is_higher_than_photo_limit(client, fake_storage, monkeypatch):
+    import api.routers.uploads as uploads_module
+
+    monkeypatch.setattr(uploads_module, "MAX_IMAGE_BYTES", 10)
+    monkeypatch.setattr(uploads_module, "MAX_AUDIO_BYTES", 20)
+    header = auth_header(user_id="u1")
+    payload = b"x" * 15
+
+    photo = client.post("/uploads", headers=header, files={"file": ("a.jpg", payload, "image/jpeg")})
+    assert photo.status_code == 413
+
+    audio = client.post("/uploads", headers=header, files={"file": ("a.mp3", payload, "audio/mpeg")})
+    assert audio.status_code == 200
+
+    too_long = client.post(
+        "/uploads", headers=header, files={"file": ("a.mp3", b"x" * 21, "audio/mpeg")}
+    )
+    assert too_long.status_code == 413
 
 
 def test_uploaded_photo_can_be_used_to_create_clip_linked_to_poi(client, fake_storage):

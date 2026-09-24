@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.deps import (
     AchievementServiceDep,
@@ -12,13 +12,16 @@ from api.deps import (
 )
 from api.schemas.achievement import AchievementOut
 from api.schemas.family_hero import FamilyHeroOut
-from api.schemas.profile import ProfileOut, ProfileUpdate, VerifyRequest
+from api.schemas.profile import ProfileBriefOut, ProfileOut, ProfileUpdate, VerifyRequest
 from core.models import Profile
 from services.achievement_service import AchievementService
 from services.family_hero_service import FamilyHeroService
 from services.stats_service import StatsService
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
+
+# Столько же, сколько максимум записей на странице ленты архива.
+MAX_BATCH_IDS = 200
 
 
 def _full_profile(
@@ -68,6 +71,21 @@ def list_profiles(
 ) -> list[ProfileOut]:
     rows = service.search(role=role, limit=limit, offset=offset)
     return [ProfileOut.model_validate(p) for p in rows]
+
+
+@router.get("/batch", response_model=list[ProfileBriefOut])
+def get_profiles_batch(
+    service: ProfileServiceDep,
+    ids: Annotated[str, Query(description="id через запятую, до 200 штук")] = "",
+) -> list[ProfileBriefOut]:
+    """Имена авторов для ленты одним запросом, без токена (лента архива публична).
+    Отдаёт только публичную карточку (ProfileBriefOut); кого нет — нет в ответе."""
+    wanted = [part.strip() for part in ids.split(",") if part.strip()]
+    if len(wanted) > MAX_BATCH_IDS:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"Не больше {MAX_BATCH_IDS} id за запрос"
+        )
+    return [ProfileBriefOut.model_validate(p) for p in service.get_many(wanted)]
 
 
 @router.get("/{profile_id}", response_model=ProfileOut)
