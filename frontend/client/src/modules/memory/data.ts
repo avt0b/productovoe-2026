@@ -156,6 +156,19 @@ export function proposeEntry(draft: EntryDraft): Promise<ArchiveEntry> {
   return apiRequest('POST', 'archive', '/entries', { body: draft, auth: true })
 }
 
+/**
+ * Поправить свою запись — пока она на проверке (`update` в archive_service:
+ * автору проверенную запись менять нельзя, это уже дело краеведа).
+ */
+export function updateEntry(entryId: string, patch: Partial<EntryDraft>): Promise<ArchiveEntry> {
+  return apiRequest('PATCH', 'archive', `/entries/${encodeURIComponent(entryId)}`, { body: patch, auth: true })
+}
+
+/** Убрать свою запись — тоже пока она на проверке. */
+export function deleteEntry(entryId: string): Promise<void> {
+  return apiRequest('DELETE', 'archive', `/entries/${encodeURIComponent(entryId)}`, { auth: true })
+}
+
 export function reviewEntry(entryId: string, verdict: 'verify' | 'reject', note: string): Promise<ArchiveEntry> {
   return apiRequest('POST', 'archive', `/entries/${encodeURIComponent(entryId)}/${verdict}`, { body: { note }, auth: true })
 }
@@ -192,6 +205,11 @@ export async function uploadPhoto(service: UploadService, file: File): Promise<s
   body.append('file', file)
   const { url } = await apiRequest<{ url: string }>('POST', service, '/uploads', { body, auth: true })
   return url
+}
+
+/** Убрать свой клип из семейного архива — вместе с ним уходит и из мемориала. */
+export function deleteClip(clipId: string): Promise<void> {
+  return apiRequest('DELETE', 'media', `/clips/${encodeURIComponent(clipId)}`, { auth: true })
 }
 
 export function shareClip(clipId: string, recipient: string, note: string): Promise<unknown> {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import { formatCoordinates } from '@/core/geo'
 import MsIcon from '@/ui/MsIcon.vue'
@@ -20,11 +20,18 @@ const props = defineProps<{
   focused?: boolean
 }>()
 
-const emit = defineEmits<{ review: [verdict: 'verify' | 'reject', note: string] }>()
+const emit = defineEmits<{ review: [verdict: 'verify' | 'reject', note: string]; edit: []; remove: [] }>()
 
 const expanded = ref(false)
 const rejecting = ref(false)
+const removing = ref(false)
 const note = ref('')
+
+/**
+ * Свою запись автор правит и убирает, пока она на проверке: подтверждённую
+ * меняет уже краевед (`update`/`delete` в archive_service).
+ */
+const canEdit = computed(() => props.mine === true && props.entry.status === 'pending')
 
 const longBody = props.entry.body.length > 220
 </script>
@@ -82,6 +89,59 @@ const longBody = props.entry.body.length > 220
     <div v-if="mine && entry.review_note" class="flex flex-col gap-0.5 rounded-2xl bg-surface-container-low px-space-sm py-2">
       <span class="font-archival text-archival uppercase text-on-surface-variant">Комментарий проверяющего</span>
       <p class="font-body-sm text-body-sm text-on-surface">{{ entry.review_note }}</p>
+    </div>
+
+    <div v-if="canEdit" class="flex flex-col gap-space-xs pt-space-xs">
+      <div class="flex flex-wrap gap-space-xs">
+        <button
+          type="button"
+          class="flex items-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+          @click="emit('edit')"
+        >
+          <MsIcon name="edit" :size="18" />
+          Изменить
+        </button>
+        <button
+          type="button"
+          class="rounded-full px-space-md py-2 font-label-md text-label-md text-error active:scale-95"
+          :aria-expanded="removing"
+          @click="removing = !removing"
+        >
+          Убрать запись
+        </button>
+      </div>
+      <div
+        class="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+        :class="removing ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+        :inert="!removing"
+      >
+        <div class="overflow-hidden">
+          <div
+            class="flex items-center justify-between gap-space-sm rounded-2xl bg-surface-container-low px-space-sm py-2"
+            role="alertdialog"
+            aria-label="Подтверждение удаления записи"
+          >
+            <span class="min-w-0 font-body-sm text-body-sm text-on-surface">Убрать запись из архива? Это не отменить.</span>
+            <div class="flex shrink-0 gap-space-xs">
+              <button
+                type="button"
+                class="rounded-full px-space-sm py-1.5 font-label-md text-label-md text-on-surface-variant active:scale-95"
+                @click="removing = false"
+              >
+                Нет
+              </button>
+              <button
+                type="button"
+                class="rounded-full bg-error px-space-sm py-1.5 font-label-md text-label-md text-on-error active:scale-95 disabled:opacity-60"
+                :disabled="busy"
+                @click="emit('remove')"
+              >
+                Убрать
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-if="reviewable" class="flex flex-col pt-space-xs">
