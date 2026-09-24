@@ -24,6 +24,31 @@ const photoFile = ref(null)
 const status = ref('idle') // idle | saving | deleting
 const error = ref('')
 
+// Backend (FamilyHeroCreate) допускает 1850..2100, но год позже текущего для
+// исторической личности всегда ошибка — проверяем это на фронте, чтобы не
+// ждать ответа сервера ради опечатки.
+const CURRENT_YEAR = new Date().getFullYear()
+const MIN_YEAR = 1850
+
+function validate() {
+  if (!form.name.trim()) return 'Укажите имя'
+  const birth = form.birthYear ? Number(form.birthYear) : null
+  const death = form.deathYear ? Number(form.deathYear) : null
+  for (const [label, year] of [
+    ['Год рождения', birth],
+    ['Год смерти', death],
+  ]) {
+    if (year === null) continue
+    if (!Number.isInteger(year) || year < MIN_YEAR || year > CURRENT_YEAR) {
+      return `${label}: укажите год между ${MIN_YEAR} и ${CURRENT_YEAR}`
+    }
+  }
+  if (birth !== null && death !== null && death < birth) {
+    return 'Год смерти не может быть раньше года рождения'
+  }
+  return ''
+}
+
 watch(
   () => props.modelValue,
   (open) => {
@@ -58,8 +83,9 @@ function onPhotoChange(event) {
 }
 
 async function submit() {
-  if (!form.name.trim()) {
-    error.value = 'Укажите имя'
+  const validationError = validate()
+  if (validationError) {
+    error.value = validationError
     return
   }
   error.value = ''
@@ -152,6 +178,8 @@ async function remove() {
             <input
               v-model="form.birthYear"
               type="number"
+              :min="MIN_YEAR"
+              :max="CURRENT_YEAR"
               placeholder="1919"
               class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
             />
@@ -161,6 +189,8 @@ async function remove() {
             <input
               v-model="form.deathYear"
               type="number"
+              :min="form.birthYear || MIN_YEAR"
+              :max="CURRENT_YEAR"
               placeholder="1944"
               class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
             />
