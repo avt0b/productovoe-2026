@@ -76,3 +76,16 @@ def test_nearby_alert_radius(client):
 def test_anonymous_can_read(client):
     make_point(client, auth_header(role="searcher"))
     assert client.get("/last-stand").status_code == 200
+
+
+def test_mine_lists_only_own_points(client):
+    mine = auth_header(role="searcher", user_id="author-1")
+    other = auth_header(role="searcher", user_id="author-2")
+    make_point(client, mine, soldier_name="Моя находка")
+    make_point(client, other, soldier_name="Чужая находка")
+
+    r = client.get("/last-stand/mine", headers=mine)
+    assert r.status_code == 200
+    assert [p["soldier_name"] for p in r.json()] == ["Моя находка"]
+
+    assert client.get("/last-stand/mine").status_code == 401

@@ -107,3 +107,16 @@ def test_create_requires_contributor_role(client):
 
 def test_get_missing_404(client):
     assert client.get(f"/poi/{uuid.uuid4()}").status_code == 404
+
+
+def test_mine_lists_only_own_points(client):
+    mine = auth_header(role="local_historian", user_id="author-1")
+    other = auth_header(role="local_historian", user_id="author-2")
+    make_poi(client, mine, title="Моя точка")
+    make_poi(client, other, title="Чужая точка")
+
+    r = client.get("/poi/mine", headers=mine)
+    assert r.status_code == 200
+    assert [p["title"] for p in r.json()] == ["Моя точка"]
+
+    assert client.get("/poi/mine").status_code == 401

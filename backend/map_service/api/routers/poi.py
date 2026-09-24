@@ -28,6 +28,18 @@ def list_poi(
     return [POIOut.model_validate(r) for r in rows]
 
 
+@router.get("/mine", response_model=list[POIOut])
+def my_poi(
+    principal: CurrentPrincipal,
+    service: POIServiceDep,
+    limit: Annotated[int, Query(ge=1, le=500)] = 200,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[POIOut]:
+    """Точки слоя «ВОВ», добавленные самим запрашивающим."""
+    rows = service.search(created_by=principal.user_id, limit=limit, offset=offset)
+    return [POIOut.model_validate(r) for r in rows]
+
+
 @router.get("/nearby", response_model=list[POINearbyOut])
 def poi_nearby(
     service: POIServiceDep,

@@ -27,12 +27,15 @@ class LastStandRepository:
         status: LastStandStatus | None = None,
         bbox: tuple[float, float, float, float] | None = None,
         q: str | None = None,
+        created_by: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> Sequence[LastStandPoint]:
         stmt = select(LastStandPoint)
         if status is not None:
             stmt = stmt.where(LastStandPoint.status == status)
+        if created_by is not None:
+            stmt = stmt.where(LastStandPoint.created_by == created_by)
         if bbox is not None:
             min_lat, min_lon, max_lat, max_lon = bbox
             stmt = stmt.where(
