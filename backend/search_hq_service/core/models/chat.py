@@ -5,6 +5,7 @@ from sqlalchemy import DateTime, Enum, Index, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.models.base import Base, UUIDPrimaryKeyMixin
+from core.timeutil import utcnow
 
 
 class ChatSubjectType(str, enum.Enum):
@@ -17,8 +18,8 @@ class ChatMessage(UUIDPrimaryKeyMixin, Base):
 
     Без FK на trip/excursion: одна таблица обслуживает оба типа сбора, а
     заводить по внешнему ключу на каждый — усложнение ради одной таблицы.
-    Удаления сборов сейчас в API нет, так что осиротевшие сообщения не
-    возникают на практике.
+    Поэтому переписку удалённого выезда (и выездов распущенного отряда)
+    сервис убирает сам — `ChatRepository.delete_for`.
     """
 
     __tablename__ = "chat_messages"
@@ -31,6 +32,8 @@ class ChatMessage(UUIDPrimaryKeyMixin, Base):
     subject_id: Mapped[str] = mapped_column(String(36), nullable=False)
     author_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    # Время ставит приложение: у SQLite `now()` — с точностью до секунды, и
+    # сообщения, отправленные подряд, получали бы одно время и путались в порядке.
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), index=True
+        DateTime(timezone=True), default=utcnow, server_default=func.now(), index=True
     )

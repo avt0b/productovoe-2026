@@ -3,8 +3,15 @@ from collections.abc import Sequence
 from sqlalchemy.orm import Session
 
 from core.exceptions import Conflict, NotFound, PermissionDenied
-from core.models import RegistrationStatus, TripRegistration, TripStatus, VolunteerTrip
+from core.models import (
+    ChatSubjectType,
+    RegistrationStatus,
+    TripRegistration,
+    TripStatus,
+    VolunteerTrip,
+)
 from core.security import Principal
+from repositories.chat_repository import ChatRepository
 from repositories.squad_repository import SquadRepository
 from repositories.trip_repository import TripRepository
 from services import notify_client
@@ -64,6 +71,15 @@ class TripService:
         self._announce_cancel(trip)
         self.db.refresh(trip)
         return trip
+
+    def delete(self, principal: Principal, trip_id: str) -> None:
+        """Выезд создан по ошибке — убрать совсем, вместе с записями и перепиской.
+        Сорвавшийся выезд лучше отменить: он останется в истории отряда."""
+        trip = self.get(trip_id)
+        self._ensure_manager(principal, self._leader_of(trip))
+        ChatRepository(self.db).delete_for(ChatSubjectType.trip, [trip.id])
+        self.repo.delete(trip)
+        self.db.commit()
 
     def _announce_cancel(self, trip: VolunteerTrip) -> None:
         recipients = [

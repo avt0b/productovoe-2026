@@ -19,6 +19,9 @@ class TripRepository:
         self.db.flush()
         return trip
 
+    def delete(self, trip: VolunteerTrip) -> None:
+        self.db.delete(trip)
+
     def search(
         self,
         *,

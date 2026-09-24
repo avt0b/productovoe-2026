@@ -27,6 +27,7 @@ from core.models import (
     NeedKind,
     NeedStatus,
     Squad,
+    SquadKind,
     SquadNeed,
     VolunteerTrip,
 )
@@ -38,6 +39,8 @@ SEED_LEADER = "seed-orel"
 SEED_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "marshruty/seed/orel")
 
 DEMO = "ДЕМО-данные для показа, не настоящий отряд."
+# У музеев и школ названия узнаваемые, но сведения и связь с ними — выдуманные.
+DEMO_ORG = "ДЕМО-данные для показа: связь с организацией выдумана."
 
 
 def seed_id(kind: str, key: str) -> str:
@@ -50,6 +53,7 @@ class SquadSeed:
     name: str
     region: str
     description: str
+    kind: SquadKind = SquadKind.squad
 
 
 @dataclass(frozen=True)
@@ -94,6 +98,56 @@ SQUADS: tuple[SquadSeed, ...] = (
         name="Поисковый отряд «Болховский плацдарм»",
         region="Болхов",
         description=f"Экспедиции в леса Болховского района. {DEMO}",
+    ),
+    # Музеи и школы — к ним краеведы и поисковики относят себя в заявке на роль.
+    SquadSeed(
+        key="museum-military-history",
+        name="Орловский военно-исторический музей",
+        region="Орёл",
+        description=f"Экспозиция о битве на Орловской дуге и освобождении Орла. {DEMO_ORG}",
+        kind=SquadKind.museum,
+    ),
+    SquadSeed(
+        key="museum-diorama",
+        name="Музей-диорама «Орловская наступательная операция»",
+        region="Орёл",
+        description=f"Диорама боёв за Орёл летом 1943 года. {DEMO_ORG}",
+        kind=SquadKind.museum,
+    ),
+    SquadSeed(
+        key="museum-local-lore",
+        name="Орловский краеведческий музей",
+        region="Орёл",
+        description=f"Фонды по истории края, в том числе по годам оккупации. {DEMO_ORG}",
+        kind=SquadKind.museum,
+    ),
+    SquadSeed(
+        key="museum-mtsensk",
+        name="Мценский краеведческий музей",
+        region="Мценск",
+        description=f"Рубежи обороны 1941 года по реке Зуше. {DEMO_ORG}",
+        kind=SquadKind.museum,
+    ),
+    SquadSeed(
+        key="school-orel-pamyat",
+        name="Поисковый клуб «Память» при школе № 26",
+        region="Орёл",
+        description=f"Школьники ведут «Книгу памяти» своего района. {DEMO_ORG}",
+        kind=SquadKind.school,
+    ),
+    SquadSeed(
+        key="school-orel-lyceum",
+        name="Краеведческий кружок лицея № 1",
+        region="Орёл",
+        description=f"Исследовательские работы о земляках-фронтовиках. {DEMO_ORG}",
+        kind=SquadKind.school,
+    ),
+    SquadSeed(
+        key="school-mtsensk",
+        name="Военно-патриотический клуб «Рубеж» при школе № 7",
+        region="Мценск",
+        description=f"Вахты памяти вместе с поисковиками. {DEMO_ORG}",
+        kind=SquadKind.school,
     ),
 )
 
@@ -181,6 +235,7 @@ def seed(db: Session) -> dict[str, int]:
             Squad(
                 id=seed_id("squad", item.key),
                 name=item.name,
+                kind=item.kind,
                 region=item.region,
                 description=item.description,
                 contact="",

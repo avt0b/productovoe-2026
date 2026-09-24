@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,7 @@ from repositories.excursion_repository import ExcursionRepository
 from repositories.squad_repository import SquadRepository
 from repositories.trip_repository import TripRepository
 from services import moderation
+from services.chat_broker import chat_broker, message_payload
 from services.permissions import is_staff
 
 
@@ -24,11 +26,21 @@ class ChatService:
     # --- выезд «Выходные с поисковиком» ---
 
     def trip_messages(
-        self, principal: Principal, trip_id: str, *, limit: int = 100, offset: int = 0
+        self,
+        principal: Principal,
+        trip_id: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        since: datetime | None = None,
     ) -> Sequence[ChatMessage]:
-        trip = self._get_trip(trip_id)
-        self._ensure_trip_member(principal, trip)
-        return self.repo.list_for(ChatSubjectType.trip, trip_id, limit=limit, offset=offset)
+        self.ensure_trip_access(principal, trip_id)
+        return self.repo.list_for(
+            ChatSubjectType.trip, trip_id, limit=limit, offset=offset, since=since
+        )
+
+    def ensure_trip_access(self, principal: Principal, trip_id: str) -> None:
+        self._ensure_trip_member(principal, self._get_trip(trip_id))
 
     def post_trip_message(self, principal: Principal, trip_id: str, body: str) -> ChatMessage:
         trip = self._get_trip(trip_id)
@@ -45,16 +57,27 @@ class ChatService:
         )
         self.db.commit()
         self.db.refresh(message)
+        chat_broker.publish((ChatSubjectType.trip, trip_id), message_payload(message))
         return message
 
     # --- экскурсии краеведов ---
 
     def excursion_messages(
-        self, principal: Principal, excursion_id: str, *, limit: int = 100, offset: int = 0
+        self,
+        principal: Principal,
+        excursion_id: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        since: datetime | None = None,
     ) -> Sequence[ChatMessage]:
-        excursion = self._get_excursion(excursion_id)
-        self._ensure_excursion_member(principal, excursion)
-        return self.repo.list_for(ChatSubjectType.excursion, excursion_id, limit=limit, offset=offset)
+        self.ensure_excursion_access(principal, excursion_id)
+        return self.repo.list_for(
+            ChatSubjectType.excursion, excursion_id, limit=limit, offset=offset, since=since
+        )
+
+    def ensure_excursion_access(self, principal: Principal, excursion_id: str) -> None:
+        self._ensure_excursion_member(principal, self._get_excursion(excursion_id))
 
     def post_excursion_message(
         self, principal: Principal, excursion_id: str, body: str
@@ -73,6 +96,7 @@ class ChatService:
         )
         self.db.commit()
         self.db.refresh(message)
+        chat_broker.publish((ChatSubjectType.excursion, excursion_id), message_payload(message))
         return message
 
     # --- helpers ---

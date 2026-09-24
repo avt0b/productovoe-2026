@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from core.models import Squad
+from core.models import Squad, SquadKind
 
 
 class SquadRepository:
@@ -25,6 +25,7 @@ class SquadRepository:
         self,
         *,
         region: str | None = None,
+        kind: SquadKind | None = None,
         q: str | None = None,
         bbox: tuple[float, float, float, float] | None = None,
         limit: int = 100,
@@ -33,6 +34,8 @@ class SquadRepository:
         stmt = select(Squad)
         if region:
             stmt = stmt.where(Squad.region.ilike(f"%{region}%"))
+        if kind is not None:
+            stmt = stmt.where(Squad.kind == kind)
         if q:
             like = f"%{q}%"
             stmt = stmt.where(Squad.name.ilike(like) | Squad.description.ilike(like))

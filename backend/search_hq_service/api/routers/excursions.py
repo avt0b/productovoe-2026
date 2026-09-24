@@ -1,7 +1,10 @@
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Request, status
+from fastapi.responses import StreamingResponse
 
+from api.chat_stream import chat_stream
 from api.deps import (
     BumpServiceDep,
     ChatServiceDep,
@@ -28,6 +31,7 @@ from api.schemas.excursion import (
     WalkOut,
 )
 from api.schemas.rating import GuideRatingCreate, GuideRatingOut
+from core.models import ChatSubjectType
 
 router = APIRouter(prefix="/excursions", tags=["excursions (экскурсии краеведов и бамп)"])
 
@@ -240,9 +244,21 @@ def list_excursion_messages(
     service: ChatServiceDep,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    since: Annotated[datetime | None, Query()] = None,
 ) -> list[ChatMessageOut]:
-    rows = service.excursion_messages(principal, excursion_id, limit=limit, offset=offset)
+    """Последние сообщения по порядку; `since` — только написанные не раньше."""
+    rows = service.excursion_messages(
+        principal, excursion_id, limit=limit, offset=offset, since=since
+    )
     return [ChatMessageOut.model_validate(r) for r in rows]
+
+
+@router.get("/{excursion_id}/messages/stream", response_class=StreamingResponse)
+async def stream_excursion_messages(
+    excursion_id: str, request: Request, principal: CurrentPrincipal
+) -> StreamingResponse:
+    """Новые сообщения чата сбора — Server-Sent Events, событие `message`."""
+    return await chat_stream(request, principal, ChatSubjectType.excursion, excursion_id)
 
 
 @router.post(

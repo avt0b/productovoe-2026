@@ -9,7 +9,7 @@ from core.models.excursion import (
 )
 from core.models.need import Donation, DonationStatus, NeedKind, NeedStatus, SquadNeed
 from core.models.rating import GuideRating
-from core.models.squad import Squad
+from core.models.squad import Squad, SquadKind
 from core.models.trip import RegistrationStatus, TripRegistration, TripStatus, VolunteerTrip
 
 __all__ = [
@@ -28,6 +28,7 @@ __all__ = [
     "NeedStatus",
     "RegistrationStatus",
     "Squad",
+    "SquadKind",
     "SquadNeed",
     "TripRegistration",
     "TripStatus",

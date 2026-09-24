@@ -1,10 +1,14 @@
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Request, status
+from fastapi.responses import StreamingResponse
 
+from api.chat_stream import chat_stream
 from api.deps import ChatServiceDep, CurrentPrincipal, TripServiceDep
 from api.schemas.chat import ChatMessageCreate, ChatMessageOut
 from api.schemas.trip import RegistrationOut, TripCancelIn, TripOut, TripUpdate
+from core.models import ChatSubjectType
 
 router = APIRouter(prefix="/trips", tags=["trips (Выходные с поисковиком)"])
 
@@ -41,6 +45,11 @@ def update_trip(
     trip_id: str, payload: TripUpdate, principal: CurrentPrincipal, service: TripServiceDep
 ) -> TripOut:
     return TripOut.model_validate(service.update(principal, trip_id, payload.to_update_dict()))
+
+
+@router.delete("/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_trip(trip_id: str, principal: CurrentPrincipal, service: TripServiceDep) -> None:
+    service.delete(principal, trip_id)
 
 
 @router.post("/{trip_id}/cancel", response_model=TripOut)
@@ -86,9 +95,19 @@ def list_trip_messages(
     service: ChatServiceDep,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    since: Annotated[datetime | None, Query()] = None,
 ) -> list[ChatMessageOut]:
-    rows = service.trip_messages(principal, trip_id, limit=limit, offset=offset)
+    """Последние сообщения по порядку; `since` — только написанные не раньше."""
+    rows = service.trip_messages(principal, trip_id, limit=limit, offset=offset, since=since)
     return [ChatMessageOut.model_validate(r) for r in rows]
+
+
+@router.get("/{trip_id}/messages/stream", response_class=StreamingResponse)
+async def stream_trip_messages(
+    trip_id: str, request: Request, principal: CurrentPrincipal
+) -> StreamingResponse:
+    """Новые сообщения чата выезда — Server-Sent Events, событие `message`."""
+    return await chat_stream(request, principal, ChatSubjectType.trip, trip_id)
 
 
 @router.post(

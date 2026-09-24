@@ -3,8 +3,9 @@ from collections.abc import Sequence
 from sqlalchemy.orm import Session
 
 from core.exceptions import NotFound, PermissionDenied
-from core.models import Squad
+from core.models import ChatSubjectType, Squad, SquadKind
 from core.security import Principal
+from repositories.chat_repository import ChatRepository
 from repositories.squad_repository import SquadRepository
 from services.permissions import can_create_squad, is_staff
 
@@ -24,8 +25,10 @@ class SquadService:
         return self.repo.search(**filters)
 
     def create(self, principal: Principal, data: dict) -> Squad:
-        if not can_create_squad(principal):
-            raise PermissionDenied("Создавать отряды могут поисковики и модераторы")
+        if not can_create_squad(principal, data.get("kind", SquadKind.squad)):
+            raise PermissionDenied(
+                "Отряд заводит поисковик, музей и школу — поисковик или краевед"
+            )
         squad = self.repo.add(Squad(leader_id=principal.user_id, **data))
         self.db.commit()
         self.db.refresh(squad)
@@ -43,6 +46,8 @@ class SquadService:
     def delete(self, principal: Principal, squad_id: str) -> None:
         squad = self.get(squad_id)
         self._ensure_can_manage(principal, squad)
+        # Сборы и выезды уходят каскадом, а у переписки выездов внешнего ключа нет.
+        ChatRepository(self.db).delete_for(ChatSubjectType.trip, [trip.id for trip in squad.trips])
         self.repo.delete(squad)
         self.db.commit()
 
