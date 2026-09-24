@@ -50,7 +50,14 @@ export interface Trip {
   description: string
   /** Чек-лист одной строкой: пункты через перевод строки или запятую. */
   checklist: string
+  /** Нет у старого сервиса и в демо — такой выезд считаем запланированным. */
+  status?: 'planned' | 'cancelled'
+  cancel_reason?: string
   created_at: string
+}
+
+export function isCancelled(trip: Trip): boolean {
+  return trip.status === 'cancelled'
 }
 
 export interface Registration {

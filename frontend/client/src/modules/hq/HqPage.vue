@@ -30,6 +30,7 @@ import {
   cancelTripRegistration,
   closeNeed,
   fetchHq,
+  isCancelled,
   registerForTrip,
   type CampaignKind,
   type Need,
@@ -76,6 +77,8 @@ const showAllFunds = ref(false)
 const campaignFilter = ref<CampaignKind | 'all'>('all')
 const tripFilter = ref<TripFilter>('all')
 const busyTripId = ref<string | null>(null)
+/** Ошибка записи — в самой карточке: плашка наверху экрана оставалась за краем, и казалось, что кнопка не работает. */
+const tripError = ref<{ tripId: string; text: string } | null>(null)
 const closingNeedId = ref<string | null>(null)
 const focusedTripId = ref<string | null>(null)
 /** Мои выезды — копия, которую экран меняет сразу после записи, не дожидаясь перезагрузки. */
@@ -103,7 +106,19 @@ const filteredFunds = computed(() =>
 const previewFunds = computed(() => filteredFunds.value.slice(0, FUNDS_PREVIEW))
 const restFunds = computed(() => filteredFunds.value.slice(FUNDS_PREVIEW))
 
-const trips = computed(() => [...(data.value?.trips ?? [])].sort((a, b) => a.starts_on.localeCompare(b.starts_on)))
+/** Отменённый выезд нужен тем, кто на него записан, и командиру — остальным он только мешает выбрать. */
+const trips = computed(() =>
+  [...(data.value?.trips ?? [])]
+    .filter(
+      (trip) =>
+        !isCancelled(trip) ||
+        myTrips.value?.has(trip.id) ||
+        canManage(trip.squad_id) ||
+        // Только что пытались записаться — карточка не исчезает из-под пальца, а объясняет, что случилось.
+        tripError.value?.tripId === trip.id,
+    )
+    .sort((a, b) => a.starts_on.localeCompare(b.starts_on)),
+)
 const visibleTrips = computed(() => {
   const filter = tripFilter.value
   if (filter === 'all') return trips.value
@@ -113,7 +128,7 @@ const visibleTrips = computed(() => {
 /** Ближайший выезд каждого отряда — куда вести с «нужны люди» и с карты. */
 const nextTrips = computed(() => {
   const next = new Map<string, Trip>()
-  for (const trip of trips.value) if (!next.has(trip.squad_id)) next.set(trip.squad_id, trip)
+  for (const trip of trips.value) if (!isCancelled(trip) && !next.has(trip.squad_id)) next.set(trip.squad_id, trip)
   return next
 })
 
@@ -175,12 +190,15 @@ async function register(trip: Trip): Promise<void> {
   if (needAccount('Записаться на выезд можно с аккаунтом') || busyTripId.value) return
   busyTripId.value = trip.id
   notice.value = null
+  tripError.value = null
   try {
     await registerForTrip(trip.id)
     myTrips.value = new Set([...(myTrips.value ?? []), trip.id])
     notice.value = { tone: 'success', text: `Вы записаны: ${trip.title}. Командир отряда увидит вас в списке.` }
   } catch (reason) {
-    notice.value = { tone: 'error', text: errorText(reason) }
+    tripError.value = { tripId: trip.id, text: errorText(reason) }
+    // Выезд успели отменить или заполнить, пока экран был открыт, — показываем, как он выглядит сейчас.
+    await refresh()
   } finally {
     busyTripId.value = null
   }
@@ -190,6 +208,7 @@ async function cancel(trip: Trip): Promise<void> {
   if (busyTripId.value) return
   busyTripId.value = trip.id
   notice.value = null
+  tripError.value = null
   try {
     await cancelTripRegistration(trip.id)
     const next = new Set(myTrips.value ?? [])
@@ -198,7 +217,7 @@ async function cancel(trip: Trip): Promise<void> {
     if (tripFilter.value === 'mine' && next.size === 0) tripFilter.value = 'all'
     notice.value = { tone: 'success', text: 'Запись отменена — место освободилось для другого волонтёра' }
   } catch (reason) {
-    notice.value = { tone: 'error', text: errorText(reason) }
+    tripError.value = { tripId: trip.id, text: errorText(reason) }
   } finally {
     busyTripId.value = null
   }
@@ -427,6 +446,7 @@ function isRegistered(tripId: string): boolean | null {
           :squad="squads.get(trip.squad_id)"
           :registered="isRegistered(trip.id)"
           :busy="busyTripId === trip.id"
+          :error="tripError?.tripId === trip.id ? tripError.text : null"
           :can-manage="canManage(trip.squad_id)"
           :focused="focusedTripId === trip.id"
           @register="register(trip)"

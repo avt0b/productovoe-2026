@@ -2,9 +2,10 @@
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { plural } from '@/core/format'
+import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 
-import { checklistItems, fetchTripRegistrations, tripDay, type Squad, type Trip } from '../data'
+import { checklistItems, fetchTripRegistrations, isCancelled, tripDay, type Squad, type Trip } from '../data'
 
 const props = defineProps<{
   trip: Trip
@@ -12,6 +13,8 @@ const props = defineProps<{
   /** Записан ли человек. `null` — неизвестно (демо-режим). */
   registered: boolean | null
   busy: boolean
+  /** Запись или отписка не прошла — текст ошибки сервиса. */
+  error?: string | null
   /** Командир отряда или администратор: видит, сколько записалось. */
   canManage: boolean
   /** Сюда только что привели с другого блока — карточку надо заметить. */
@@ -21,6 +24,7 @@ const props = defineProps<{
 defineEmits<{ register: []; cancel: []; edit: []; chat: [] }>()
 
 const day = computed(() => tripDay(props.trip.starts_on))
+const cancelled = computed(() => isCancelled(props.trip))
 
 /**
  * Отметки чек-листа — дело самого волонтёра, сервис их не хранит. Живут на
@@ -100,8 +104,12 @@ const seatsPercent = computed(() =>
         <span class="pb-1 font-label-sm text-label-sm text-on-surface-variant">{{ day.weekday }}</span>
       </div>
       <div class="flex min-w-0 flex-1 flex-col">
-        <p class="font-archival text-archival uppercase text-secondary">{{ day.relative }}</p>
-        <h3 class="font-headline-sm text-headline-sm text-on-surface">{{ trip.title }}</h3>
+        <p class="font-archival text-archival uppercase" :class="cancelled ? 'text-on-surface-variant' : 'text-secondary'">
+          {{ cancelled ? 'Отменён' : day.relative }}
+        </p>
+        <h3 class="font-headline-sm text-headline-sm" :class="cancelled ? 'text-on-surface-variant line-through' : 'text-on-surface'">
+          {{ trip.title }}
+        </h3>
         <p class="sr-only">{{ day.long }}</p>
         <p v-if="squad" class="flex items-center gap-1 font-body-sm text-body-sm text-on-surface-variant">
           <MsIcon name="flag" :size="15" class="shrink-0 text-secondary" />
@@ -116,7 +124,7 @@ const seatsPercent = computed(() =>
 
     <p v-if="trip.description" class="font-body-sm text-body-sm text-on-surface-variant">{{ trip.description }}</p>
 
-    <div class="flex flex-col gap-space-xs">
+    <div v-if="!cancelled" class="flex flex-col gap-space-xs">
       <div class="flex items-center justify-between gap-space-sm">
         <span class="flex items-center gap-1 font-label-md text-label-md text-secondary">
           <MsIcon name="group" :size="18" />
@@ -137,7 +145,7 @@ const seatsPercent = computed(() =>
       </div>
     </div>
 
-    <div v-if="items.length" class="overflow-hidden rounded-2xl bg-surface-container-low">
+    <div v-if="items.length && !cancelled" class="overflow-hidden rounded-2xl bg-surface-container-low">
       <button
         type="button"
         class="flex w-full items-center justify-between gap-space-sm px-space-sm py-2 text-left"
@@ -185,8 +193,20 @@ const seatsPercent = computed(() =>
       </div>
     </div>
 
+    <!-- Отменённый выезд: вместо записи — почему отменили. Чат остаётся: записавшимся есть что обсудить. -->
+    <div v-if="cancelled" class="flex items-start gap-space-sm rounded-2xl bg-surface-container-high p-space-sm" role="status">
+      <MsIcon name="event_busy" :size="20" class="mt-0.5 shrink-0 text-on-surface-variant" />
+      <div class="min-w-0">
+        <p class="font-label-lg text-label-lg text-on-surface">Выезд отменён</p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">
+          {{ trip.cancel_reason ? `Причина: ${trip.cancel_reason}` : 'Командир отряда отменил выезд. Следите за новыми датами.' }}
+        </p>
+      </div>
+    </div>
+
     <div v-if="canManage" class="flex flex-wrap items-center justify-center gap-space-xs">
       <button
+        v-if="!cancelled"
         type="button"
         class="flex items-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
         @click="$emit('edit')"
@@ -204,8 +224,22 @@ const seatsPercent = computed(() =>
       </button>
     </div>
 
+    <!-- У отменённого выезда причину уже объясняет плашка выше — второй раз «Выезд отменён» не пишем. -->
+    <InlineNotice v-if="error && !cancelled" tone="error">{{ error }}</InlineNotice>
+
+    <template v-if="cancelled">
+      <button
+        v-if="registered && !canManage"
+        type="button"
+        class="flex items-center gap-space-xs self-center rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+        @click="$emit('chat')"
+      >
+        <MsIcon name="chat" :size="18" />
+        Чат выезда
+      </button>
+    </template>
     <button
-      v-if="!registered"
+      v-else-if="!registered"
       type="button"
       class="flex w-full items-center justify-center gap-space-xs rounded-full bg-secondary px-space-md py-2.5 font-label-lg text-label-lg text-on-secondary transition-all hover:brightness-105 active:scale-[0.99] disabled:opacity-70"
       :disabled="busy"
