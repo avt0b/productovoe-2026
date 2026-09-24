@@ -5,13 +5,16 @@ from services.external.gosuslugi import GosuslugiProvider
 from services.external.max import MaxBotProvider
 from services.external.mock import MockProvider
 from services.external.vk import VkIdProvider
+from services.external.yandex import YandexIdProvider
 
 vk_provider = VkIdProvider()
+yandex_provider = YandexIdProvider()
 max_provider = MaxBotProvider()
 gosuslugi_provider = GosuslugiProvider()
 
 REAL_PROVIDERS: dict[ExternalProvider, ProviderClient] = {
     ExternalProvider.vk: vk_provider,
+    ExternalProvider.yandex: yandex_provider,
     ExternalProvider.max: max_provider,
     ExternalProvider.gosuslugi: gosuslugi_provider,
 }
