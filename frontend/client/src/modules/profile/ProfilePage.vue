@@ -6,13 +6,14 @@ import { useSessionStore } from '@/core/session'
 import AccountRequired from '@/ui/AccountRequired.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
-import AccountSection from './components/AccountSection.vue'
 import BadgesSection from './components/BadgesSection.vue'
 import ExpeditionStatusCard from './components/ExpeditionStatusCard.vue'
+import FamilySection from './components/FamilySection.vue'
 import HeroesSection from './components/HeroesSection.vue'
-import ProfileForm from './components/ProfileForm.vue'
+import ProfileEditSheet from './components/ProfileEditSheet.vue'
 import ResearcherHeroCard from './components/ResearcherHeroCard.vue'
 import ResearcherTokenModal from './components/ResearcherTokenModal.vue'
+import RoleRequestSection from './components/RoleRequestSection.vue'
 import RolesSection from './components/RolesSection.vue'
 import SettingsSection from './components/SettingsSection.vue'
 import SupportSection from './components/SupportSection.vue'
@@ -24,9 +25,11 @@ const session = useSessionStore()
 const overview = useAsync<ProfileOverview | null>(() => (session.hasAccount ? fetchProfile() : Promise.resolve(null)))
 const { data, loading, error, retry } = overview
 
+/** Правка фото, имени, города и «о себе» — одно окно на весь экран профиля. */
+const editOpen = ref(false)
 const tokenOpen = ref(false)
 
-/** Имя и город приходят из профиля — сессия их узнаёт, чтобы шапка и аватар показывали то же. */
+/** Имя, город и фото приходят из профиля — сессия их узнаёт, чтобы шапка и аватар показывали то же. */
 watch(
   () => data.value?.profile,
   (profile) => {
@@ -34,14 +37,17 @@ watch(
     session.updateUser({
       ...(profile.display_name ? { name: profile.display_name } : {}),
       city: profile.city,
+      // Фото сняли — в сессии его тоже быть не должно.
+      avatarUrl: profile.avatar_url ?? undefined,
     })
   },
 )
 
 /** Сохранённый профиль — в экран; сессию догонит наблюдатель выше. */
 function applyProfile(profile: Profile): void {
-  // Значки и счётчики сервис заполняет только в GET — ответ PUT принёс бы пустые и затёр бы их.
-  const { achievements, routes_completed, excursions_completed, finds_count, ...fields } = profile
+  // Значки, счётчики и древо сервис заполняет только в GET — ответ PUT принёс
+  // бы пустые и затёр бы их.
+  const { achievements, heroes, routes_completed, excursions_completed, finds_count, ...fields } = profile
   if (data.value) data.value = { ...data.value, profile: { ...data.value.profile, ...fields } }
 }
 
@@ -61,13 +67,16 @@ const counters = computed<HeroCounter[]>(() => [
         :user="session.user"
         :verified="data?.profile.is_verified ?? false"
         :since="data?.profile.created_at ?? null"
+        :bio="data?.profile.bio ?? ''"
         :counters="counters"
-        @open-token="tokenOpen = true"
+        :can-edit="data !== null"
+        @edit="editOpen = true"
       />
 
       <template v-if="data">
         <ExpeditionStatusCard :trip="nextTrip(data.trips)" />
-        <RolesSection v-if="session.user" :user="session.user" :profile="data.profile" @open-token="tokenOpen = true" />
+        <RolesSection v-if="session.user" :user="session.user" @open-token="tokenOpen = true" />
+        <RoleRequestSection v-if="session.user" :user="session.user" :profile="data.profile" />
         <BadgesSection
           :achievements="data.profile.achievements ?? []"
           :trips="data.trips"
@@ -75,13 +84,12 @@ const counters = computed<HeroCounter[]>(() => [
           :excursions="data.excursions"
           :routes-completed="data.profile.routes_completed ?? 0"
         />
-        <HeroesSection :entries="data.entries" />
-        <ProfileForm :profile="data.profile" :fallback-name="session.user?.name ?? ''" @saved="applyProfile" />
+        <HeroesSection :heroes="data.profile.heroes ?? []" :entries="data.entries" @changed="retry" />
+        <FamilySection />
       </template>
       <AccountRequired v-else-if="session.isAuthenticated" text="Профиль, роль, герои семьи и значки хранятся в аккаунте" />
 
       <SettingsSection :profile="data?.profile ?? null" :squads="data?.squads ?? []" @saved="applyProfile" />
-      <AccountSection v-if="session.user" :user="session.user" />
       <SupportSection />
 
       <p class="py-space-sm text-center font-archival text-archival uppercase text-on-surface-variant">
@@ -89,6 +97,13 @@ const counters = computed<HeroCounter[]>(() => [
       </p>
     </template>
 
+    <ProfileEditSheet
+      v-if="editOpen && data"
+      :profile="data.profile"
+      :fallback-name="session.user?.name ?? ''"
+      @saved="applyProfile"
+      @close="editOpen = false"
+    />
     <ResearcherTokenModal v-if="tokenOpen && session.user" :user="session.user" @close="tokenOpen = false" />
   </div>
 </template>

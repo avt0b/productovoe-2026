@@ -200,6 +200,85 @@ async def verify_profile(
     return result
 
 
+# --- Заявки на роль (поисковик / краевед) -----------------------------------
+
+
+@router.get("/role-applications", summary="Заявки на роль поисковика/краеведа")
+async def list_role_applications(
+    admin: AuthedAdmin,
+    upstream: UpstreamDep,
+    application_status: Annotated[str | None, Query(alias="status")] = "pending",
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict:
+    params: dict = {"limit": limit, "offset": offset}
+    if application_status:
+        params["status"] = application_status
+    return await upstream.call("user", "GET", "/internal/role-applications", params=params)
+
+
+@router.post("/role-applications/{application_id}/approve", summary="Одобрить заявку на роль")
+async def approve_role_application(
+    application_id: str,
+    admin: WriteAdmin,
+    upstream: UpstreamDep,
+    audit: AuditServiceDep,
+    client: Client,
+    note: Annotated[str, Body(embed=True)] = "",
+) -> dict:
+    result = await upstream.call(
+        "user",
+        "POST",
+        f"/internal/role-applications/{application_id}/approve",
+        actor_id=admin.id,
+        json={"note": note},
+    )
+    audit.record(
+        admin,
+        action="role_application.approve",
+        target_service="user_service",
+        target_type="role_application",
+        target_id=application_id,
+        target_label=_label(result, "requested_role", fallback=application_id),
+        message=f"Заявка на роль «{(result or {}).get('requested_role')}» одобрена. {note}".strip(),
+        payload={"note": note},
+        ip=client.ip,
+        user_agent=client.user_agent,
+    )
+    return result
+
+
+@router.post("/role-applications/{application_id}/reject", summary="Отклонить заявку на роль")
+async def reject_role_application(
+    application_id: str,
+    admin: WriteAdmin,
+    upstream: UpstreamDep,
+    audit: AuditServiceDep,
+    client: Client,
+    note: Annotated[str, Body(embed=True)] = "",
+) -> dict:
+    result = await upstream.call(
+        "user",
+        "POST",
+        f"/internal/role-applications/{application_id}/reject",
+        actor_id=admin.id,
+        json={"note": note},
+    )
+    audit.record(
+        admin,
+        action="role_application.reject",
+        target_service="user_service",
+        target_type="role_application",
+        target_id=application_id,
+        target_label=_label(result, "requested_role", fallback=application_id),
+        message=f"Заявка на роль «{(result or {}).get('requested_role')}» отклонена. {note}".strip(),
+        payload={"note": note},
+        ip=client.ip,
+        user_agent=client.user_agent,
+    )
+    return result
+
+
 # --- Модерация народного архива -------------------------------------------
 
 

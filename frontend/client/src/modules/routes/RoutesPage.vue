@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
 import { getMyProgress } from '@/core/services/routes'
-import { useSessionStore } from '@/core/session'
+import { can, useSessionStore } from '@/core/session'
 import {
   distanceKm,
   formatDistance,
@@ -15,21 +15,43 @@ import {
   type LatLon,
 } from '@/core/geo'
 import DemoDataBadge from '@/ui/DemoDataBadge.vue'
+import MsIcon from '@/ui/MsIcon.vue'
 import GeoMap from '@/ui/geo/GeoMap.vue'
 import InlineNotice from '@/ui/InlineNotice.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
+import AddPlaceSheet from './components/AddPlaceSheet.vue'
 import FeaturedRouteCard from './components/FeaturedRouteCard.vue'
+import RoutePromptsCard from './components/RoutePromptsCard.vue'
 import PlaceCard from './components/PlaceCard.vue'
 import PlacesList from './components/PlacesList.vue'
 import RouteFilters from './components/RouteFilters.vue'
 import RoutesSearchBar from './components/RoutesSearchBar.vue'
 import TimelineFilter from './components/TimelineFilter.vue'
-import { PLACE_KINDS, TIMELINE_YEARS, fetchRoutesOverview, type RouteStop } from './data'
+import { PLACE_KINDS, TIMELINE_YEARS, fetchRoutesOverview, type MapPlace, type RouteStop } from './data'
 
 const router = useRouter()
 const session = useSessionStore()
 const { data, loading, error, retry } = useAsync(fetchRoutesOverview)
+
+/** Краевед ведёт свои маршруты — вход в редактор виден только ему (`AUTHOR_ROLES` в route_service). */
+const canAuthor = computed(() => session.hasAccount && can.authorRoute(session.user))
+/** Дополнять слой «ВОВ» могут ещё и поисковики (`_CONTRIBUTOR_ROLES` в map_service). */
+const canAddPlace = computed(() => session.hasAccount && can.addPoi(session.user))
+const addingPlace = ref(false)
+/** Правит и убирает точку её автор или администратор — так же, как решает сервис. */
+const editedPlace = ref<MapPlace | null>(null)
+
+function canEditPlace(place: MapPlace): boolean {
+  if (!session.hasAccount || data.value?.source === 'demo') return false
+  return can.moderate(session.user) || place.createdBy === session.user?.id
+}
+
+/** Точку убрали — карточку закрываем: показывать нечего. */
+async function placeRemoved(): Promise<void> {
+  selectedId.value = null
+  await retry()
+}
 
 /** Пройденные точки маршрута дня — только с аккаунтом и живыми данными: прогресс хранит `route_service`. */
 const completedIds = ref<string[] | null>(null)
@@ -195,7 +217,9 @@ function openStop(stop: RouteStop): void {
           :key="selectedPlace.id"
           :place="selectedPlace"
           :distance="distanceFromUser(selectedPlace)"
+          :can-edit="canEditPlace(selectedPlace)"
           @close="selectedId = null"
+          @edit="editedPlace = selectedPlace"
         />
 
         <!-- Список найденного: метки могут оказаться за краем карты, и без него кажется, что ничего не нашлось. -->
@@ -217,6 +241,7 @@ function openStop(stop: RouteStop): void {
           @select-stop="selectedId = $event"
           @open-stop="openStop"
         />
+        <RoutePromptsCard v-if="data.route" :route="data.route" :prompts="data.prompts" />
         <StateBlock
           v-else
           :loading="false"
@@ -225,7 +250,57 @@ function openStop(stop: RouteStop): void {
           empty-icon="route"
           empty-text="Опубликованных семейных маршрутов пока нет"
         />
+
+        <!-- Краеведу — его собственные маршруты: черновики и опубликованные. -->
+        <RouterLink
+          v-if="canAuthor"
+          :to="{ name: 'my-routes' }"
+          class="flex items-center gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document active:scale-[0.99]"
+        >
+          <span
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container"
+            aria-hidden="true"
+          >
+            <MsIcon name="edit_note" :size="20" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-archival text-archival uppercase text-on-surface-variant">Краеведу</span>
+            <span class="block font-headline-sm text-headline-sm text-on-surface">Мои маршруты</span>
+            <span class="block font-body-sm text-body-sm text-on-surface-variant">Черновики, точки и публикация</span>
+          </span>
+          <MsIcon name="chevron_right" :size="20" class="shrink-0 text-on-surface-variant" />
+        </RouterLink>
+
+        <!-- «Дополнять данные» из ТЗ: памятника или окопа может не быть на карте. -->
+        <button
+          v-if="canAddPlace"
+          type="button"
+          class="flex items-center gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md text-left shadow-document active:scale-[0.99]"
+          @click="addingPlace = true"
+        >
+          <span
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tertiary-fixed text-on-tertiary-fixed"
+            aria-hidden="true"
+          >
+            <MsIcon name="add_location_alt" :size="20" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-archival text-archival uppercase text-on-surface-variant">Слой «ВОВ»</span>
+            <span class="block font-headline-sm text-headline-sm text-on-surface">Добавить место на карту</span>
+            <span class="block font-body-sm text-body-sm text-on-surface-variant">Памятник, захоронение, окоп — со ссылкой на источник</span>
+          </span>
+          <MsIcon name="chevron_right" :size="20" class="shrink-0 text-on-surface-variant" />
+        </button>
       </div>
     </template>
+
+    <AddPlaceSheet v-if="addingPlace" @close="addingPlace = false" @created="retry" />
+    <AddPlaceSheet
+      v-else-if="editedPlace"
+      :place="editedPlace"
+      @close="editedPlace = null"
+      @created="retry"
+      @removed="placeRemoved"
+    />
   </div>
 </template>

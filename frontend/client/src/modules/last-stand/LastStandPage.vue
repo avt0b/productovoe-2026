@@ -34,6 +34,7 @@ import {
 
 type Sheet =
   | { kind: 'add' }
+  | { kind: 'edit'; record: FindRecord }
   | { kind: 'evidence'; record: FindRecord }
   | { kind: 'subscribe' }
   | { kind: 'account'; text: string }
@@ -46,7 +47,7 @@ const sheet = ref<Sheet | null>(null)
 const notice = ref<{ tone: 'success' | 'error'; text: string } | null>(null)
 const statusBusy = ref(false)
 
-/** Кто отмечает места: поисковик, краевед, наставник, модератор. Семье кнопку не показываем. */
+/** Кто отмечает места: поисковик, краевед и администратор. Семье кнопку не показываем. */
 const canAdd = computed(() => session.hasAccount && can.addLastStand(session.user))
 const canModerate = computed(() => session.hasAccount && can.moderate(session.user))
 /** «Готов помочь» ведёт к выездам отрядов — если окно «Штаб» подключено. */
@@ -62,9 +63,28 @@ async function refresh(): Promise<void> {
 }
 
 async function pointAdded(): Promise<void> {
+  const editing = sheet.value?.kind === 'edit'
   sheet.value = null
-  notice.value = { tone: 'success', text: 'Место отмечено со статусом «Обнаружено» — модератор проверит его по архиву' }
+  notice.value = {
+    tone: 'success',
+    text: editing
+      ? 'Сведения о месте обновлены'
+      : 'Место отмечено со статусом «Обнаружено» — администратор проверит его по архиву',
+  }
   await refresh()
+}
+
+/** Место убрали — снимаем выбор, иначе карточка осталась бы висеть над картой. */
+async function pointRemoved(): Promise<void> {
+  sheet.value = null
+  selectedId.value = null
+  notice.value = { tone: 'success', text: 'Место убрано со слоя «ВОВ»' }
+  await refresh()
+}
+
+/** Править место может тот, кто его отметил, и администратор — так решает map_service. */
+function canEditRecord(record: FindRecord): boolean {
+  return canModerate.value || (session.hasAccount && record.raw.created_by === session.user?.id)
 }
 
 function openEvidence(record: FindRecord): void {
@@ -289,9 +309,11 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
           :can-volunteer="canVolunteer"
           :volunteer-is-primary="!canAdd"
           :can-moderate="canModerate"
+          :can-edit="canEditRecord(selectedRecord)"
           :busy="statusBusy"
           @volunteer="router.push({ name: 'hq', query: { tab: 'trips' } })"
           @add-data="openEvidence(selectedRecord)"
+          @edit="sheet = { kind: 'edit', record: selectedRecord }"
           @set-status="(status) => selectedRecord && changeStatus(selectedRecord, status)"
         />
         <StateBlock
@@ -308,6 +330,13 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
     </template>
 
     <AddPointSheet v-if="sheet?.kind === 'add'" @created="pointAdded" @close="sheet = null" />
+    <AddPointSheet
+      v-else-if="sheet?.kind === 'edit'"
+      :record="sheet.record"
+      @created="pointAdded"
+      @removed="pointRemoved"
+      @close="sheet = null"
+    />
     <EvidenceSheet v-else-if="sheet?.kind === 'evidence'" :record="sheet.record" @close="sheet = null" />
     <SubscriptionSheet v-else-if="sheet?.kind === 'subscribe'" @saved="subscriptionSaved" @close="sheet = null" />
     <SheetDialog v-else-if="sheet?.kind === 'account'" title="Нужен аккаунт" @close="sheet = null">

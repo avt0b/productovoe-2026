@@ -24,7 +24,6 @@ def add_wp(client, header, route_id, **over):
 def test_only_curator_creates_route(client):
     assert make_route(client, auth_header(role="family")).status_code == 403
     assert make_route(client, auth_header(role="local_historian")).status_code == 201
-    assert make_route(client, auth_header(role="mentor")).status_code == 201
 
 
 def test_draft_hidden_from_public_until_published(client, author_header):
@@ -97,10 +96,10 @@ def test_stranger_cannot_edit(client, author_header):
         ).status_code
         == 403
     )
-    # модератор может
+    # администратор может
     assert (
         client.patch(
-            f"/routes/{route['id']}", headers=auth_header(role="moderator"), json={"city": "Кромы"}
+            f"/routes/{route['id']}", headers=auth_header(is_root=True), json={"city": "Кромы"}
         ).status_code
         == 200
     )

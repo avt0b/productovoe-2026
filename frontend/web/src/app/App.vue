@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import AppSidebar from './components/AppSidebar.vue'
 import AppHeader from './components/AppHeader.vue'
 import OnboardingGuide from './components/OnboardingGuide.vue'
+import AchievementCelebration from '@shared/components/AchievementCelebration.vue'
 import { useSidebar } from './composables/useSidebar.js'
 import { useOnboarding } from './composables/useOnboarding.js'
 import { useAuthSession, roleLabel } from '@modules/auth'
@@ -43,5 +44,6 @@ const headerUserRole = computed(() =>
       </main>
     </div>
     <OnboardingGuide />
+    <AchievementCelebration />
   </template>
 </template>

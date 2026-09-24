@@ -3,15 +3,22 @@ import { serviceBaseUrl, type ServiceName } from './server'
 /**
  * Запросы к публичным сервисам.
  *
- * Адрес каждого сервиса — `core/server.ts`: из сборки (`.env.local`) или
- * выбранный на экране «Сервер». Для APK на телефоне нужен адрес компьютера в
- * локальной сети: `127.0.0.1` на телефоне — сам телефон.
+ * Адрес каждого сервиса — `core/server.ts`: из сборки (`.env.local`). Для APK
+ * на телефоне нужен адрес компьютера в локальной сети: `127.0.0.1` на
+ * телефоне — сам телефон.
  */
 
 export type { ServiceName } from './server'
 
 /** Дольше спиннер на телефоне никто не ждёт — лучше показать демо и честно сказать об этом. */
 const TIMEOUT_MS = 6000
+
+/**
+ * Загрузка файла — отдельный разговор: снимок на несколько мегабайт по
+ * мобильной сети в шесть секунд не уходит, а обрыв на полпути выглядел бы как
+ * «сервис недоступен».
+ */
+const UPLOAD_TIMEOUT_MS = 45_000
 
 /**
  * Сколько помнить, что сервис не ответил. Иначе каждый следующий экран снова
@@ -113,7 +120,7 @@ async function send(method: HttpMethod, service: ServiceName, path: string, opti
   if (token) headers.Authorization = `Bearer ${token}`
 
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), multipart ? UPLOAD_TIMEOUT_MS : TIMEOUT_MS)
   try {
     return await fetch(url, {
       method,
@@ -124,24 +131,35 @@ async function send(method: HttpMethod, service: ServiceName, path: string, opti
   } catch (reason) {
     // Сюда же попадает отказ CORS — в консоли видно, куда именно не достучались.
     console.warn(`[api] ${service}: нет ответа от ${url.origin}`, reason)
-    downUntil.set(base, Date.now() + DOWN_MEMORY_MS)
+    // Сорвавшаяся загрузка файла — не повод считать весь сервис лежачим: чаще
+    // всего это тяжёлый снимок или хранилище, а профиль и списки работают.
+    if (!multipart) downUntil.set(base, Date.now() + DOWN_MEMORY_MS)
     throw new ServiceUnavailableError(service)
   } finally {
     clearTimeout(timer)
   }
 }
 
+/**
+ * Служебные ответы самого FastAPI — по-английски и не о деле: так отвечает
+ * сервис, до которого запрос дошёл, но ручки такой у него нет. Показывать их
+ * человеку незачем — ниже для каждого кода есть свои слова.
+ */
+const FRAMEWORK_DETAILS = new Set(['Not Found', 'Method Not Allowed', 'Internal Server Error', 'Unauthorized', 'Forbidden'])
+
 async function errorMessage(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as { detail?: unknown } | null
-    if (typeof body?.detail === 'string' && body.detail) return body.detail
+    if (typeof body?.detail === 'string' && body.detail && !FRAMEWORK_DETAILS.has(body.detail)) return body.detail
     // 422 от pydantic: в detail — список полей с ошибками.
     if (Array.isArray(body?.detail)) return 'Проверьте введённые данные'
   } catch {
     // Тело не JSON — хватит кода ответа.
   }
   if (response.status === 401) return 'Сессия истекла — войдите снова'
-  if (response.status === 404) return 'Не нашли — возможно, ссылка устарела'
+  if (response.status === 403) return 'Здесь нужны права другой роли'
+  if (response.status === 404) return 'Не нашли — возможно, ссылка устарела или сервис ещё не обновлён'
+  if (response.status >= 500) return 'Сервис ответил ошибкой — попробуйте позже'
   return `Сервис ответил ошибкой ${response.status}`
 }
 

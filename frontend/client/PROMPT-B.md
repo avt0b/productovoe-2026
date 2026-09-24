@@ -18,7 +18,7 @@
 
 ```
 src/modules/last-stand/**  src/modules/hq/**  src/modules/memory/**
-src/modules/profile/**  src/modules/nfc/**  src/modules/server/**
+src/modules/profile/**  src/modules/nfc/**
 src/features/nfc/**  src/features/notifications/**
 ```
 

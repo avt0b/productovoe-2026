@@ -4,6 +4,7 @@ import LeafletMap from '@shared/components/LeafletMap.vue'
 import DirectionsButton from '@shared/components/DirectionsButton.vue'
 import PointReviews from '@shared/components/PointReviews.vue'
 import { useAuthSession } from '@modules/auth'
+import { checkForNewAchievements } from '@modules/profile'
 import * as routesApi from '../api.js'
 
 const FALLBACK_CENTER = [52.9651, 36.0785] // Орёл
@@ -67,12 +68,15 @@ async function loadNearbyPending(pts) {
   const lons = pts.map((p) => p.lon)
   const pad = 0.15
   try {
-    pendingEntries.value = await routesApi.listNearbyPendingEntries({
+    const res = await routesApi.listNearbyPendingEntries({
       minLat: Math.min(...lats) - pad,
       minLon: Math.min(...lons) - pad,
       maxLat: Math.max(...lats) + pad,
       maxLon: Math.max(...lons) + pad,
     })
+    // Если archive_service недоступен, шлюз иногда всё равно отвечает 200
+    // (например отдаёт SPA вместо JSON) — тело в этом случае не массив.
+    pendingEntries.value = Array.isArray(res) ? res : []
   } catch {
     // best-effort подсказка — молча ничего не показываем при сбое
   }
@@ -148,6 +152,9 @@ async function reviewEntry(action) {
     await call(session.accessToken, selectedPending.value.id)
     pendingEntries.value = pendingEntries.value.filter((e) => e.id !== selectedPending.value.id)
     selectedPendingId.value = null
+    // Подтвердивший/отклонивший получает archive_helper — салютуем сразу
+    // здесь, а не только когда человек потом откроет профиль.
+    checkForNewAchievements(session.accessToken, session.user?.id).catch(() => {})
   } catch (err) {
     reviewError.value = err.detail ?? 'Не удалось отправить решение'
   } finally {

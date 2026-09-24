@@ -7,10 +7,10 @@ def create_squad(client, header, **over):
     return client.post("/squads", headers=header, json=body)
 
 
-def test_only_searcher_or_moderator_creates(client):
+def test_only_searcher_or_root_creates(client):
     assert create_squad(client, auth_header(role="family")).status_code == 403
     assert create_squad(client, auth_header(role="searcher")).status_code == 201
-    assert create_squad(client, auth_header(role="moderator")).status_code == 201
+    assert create_squad(client, auth_header(is_root=True)).status_code == 201
 
 
 def test_leader_is_set_from_token(client, leader_header):

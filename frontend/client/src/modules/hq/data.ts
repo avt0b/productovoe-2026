@@ -159,7 +159,7 @@ export function cancelTripRegistration(tripId: string): Promise<void> {
   return apiRequest('DELETE', 'hq', tripPath(tripId, '/registrations/me'), { auth: true })
 }
 
-/** Кто записался — только командиру отряда и модератору. */
+/** Кто записался — только командиру отряда и администратору. */
 export function fetchTripRegistrations(tripId: string): Promise<Registration[]> {
   return apiRequest('GET', 'hq', tripPath(tripId, '/registrations'), { auth: true })
 }
@@ -173,6 +173,16 @@ export interface SquadDraft {
 
 export function createSquad(draft: SquadDraft): Promise<Squad> {
   return apiRequest('POST', 'hq', '/squads', { body: draft, auth: true })
+}
+
+/** Поправить отряд — командир или администратор (`_ensure_can_manage` в search_hq_service). */
+export function updateSquad(squadId: string, patch: Partial<SquadDraft>): Promise<Squad> {
+  return apiRequest('PATCH', 'hq', squadPath(squadId), { body: patch, auth: true })
+}
+
+/** Распустить отряд — вместе с его сборами и выездами. Только командир или администратор. */
+export function deleteSquad(squadId: string): Promise<void> {
+  return apiRequest('DELETE', 'hq', squadPath(squadId), { auth: true })
 }
 
 export interface TripDraft {
@@ -193,6 +203,16 @@ export interface NeedDraft {
   title: string
   description: string
   target_amount: number | null
+}
+
+/** Поправить выезд — командир отряда или администратор. */
+export function updateTrip(tripId: string, patch: Partial<TripDraft>): Promise<Trip> {
+  return apiRequest('PATCH', 'hq', tripPath(tripId), { body: patch, auth: true })
+}
+
+/** Поправить сбор — тоже командир или администратор. Закрывает сбор отдельная ручка. */
+export function updateNeed(needId: string, patch: Partial<Omit<NeedDraft, 'kind'>>): Promise<Need> {
+  return apiRequest('PATCH', 'hq', needPath(needId), { body: patch, auth: true })
 }
 
 export function createNeed(squadId: string, draft: NeedDraft): Promise<Need> {

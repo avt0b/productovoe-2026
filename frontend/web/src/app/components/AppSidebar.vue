@@ -25,6 +25,8 @@ const navItems = [
   { path: 'excursions', icon: 'groups_3', label: 'Запись на экскурсии', href: '/excursions' },
   { path: 'fundraising', icon: 'volunteer_activism', label: 'Сборы', href: '/fundraising' },
   { path: 'living-memory-archive', icon: 'auto_stories', label: 'Живая память', href: '/living-memory' },
+  { path: 'living-photo', icon: 'smart_toy', label: 'Живое фото', href: '/living-photo' },
+  { path: 'soldiers-archive', icon: 'menu_book', label: 'Архив бойцов', href: '/soldiers-archive' },
   { path: 'researcher-profile', icon: 'manage_accounts', label: 'Профиль исследователя', href: '/profile' },
 ]
 </script>

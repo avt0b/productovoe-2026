@@ -64,11 +64,11 @@ def test_verify_with_wrong_key_403(client):
 def test_stats_shape(client):
     make_profile(client, role="family", squad_id="squad-1")
     make_profile(client, role="local_historian", subscribed_to_search=True)
-    mentor = make_profile(client, role="mentor")
+    searcher = make_profile(client, role="searcher")
 
-    # верифицируем одного (mentor), чтобы pending_verification и by_role различались
+    # верифицируем одного (searcher), чтобы pending_verification и by_role различались
     client.patch(
-        f"/internal/profiles/{mentor}/verify",
+        f"/internal/profiles/{searcher}/verify",
         headers=INTERNAL_HEADERS,
         params={"is_verified": True},
     )
@@ -82,7 +82,7 @@ def test_stats_shape(client):
     assert body["pending_verification"] == 2
     assert body["subscribed_to_search"] == 1
     assert body["with_squad"] == 1
-    assert body["by_role"] == {"family": 1, "local_historian": 1, "mentor": 1}
+    assert body["by_role"] == {"family": 1, "local_historian": 1, "searcher": 1}
     # family не участвует в "ожидают верификации роли"
     assert body["pending_verification_by_role"] == {"local_historian": 1}
     assert body["avg_alert_radius_km"] == 20.0
@@ -93,7 +93,7 @@ def test_stats_shape(client):
 
 def test_list_profiles_ok(client):
     make_profile(client, role="family", display_name="Иван", city="Орёл")
-    make_profile(client, role="mentor", display_name="Пётр", city="Москва")
+    make_profile(client, role="searcher", display_name="Пётр", city="Москва")
 
     r = client.get("/internal/profiles", headers=INTERNAL_HEADERS)
     assert r.status_code == 200
@@ -107,12 +107,12 @@ def test_list_profiles_ok(client):
 
 def test_list_profiles_filters_by_role(client):
     make_profile(client, role="family")
-    make_profile(client, role="mentor")
+    make_profile(client, role="searcher")
 
-    r = client.get("/internal/profiles", headers=INTERNAL_HEADERS, params={"role": "mentor"})
+    r = client.get("/internal/profiles", headers=INTERNAL_HEADERS, params={"role": "searcher"})
     body = r.json()
     assert body["total"] == 1
-    assert body["items"][0]["role"] == "mentor"
+    assert body["items"][0]["role"] == "searcher"
 
 
 def test_list_profiles_filters_by_query(client):

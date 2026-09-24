@@ -70,10 +70,20 @@ def test_verify_profile_permissions(client):
         == 403
     )
 
-    # moderator может
+    # краевед (пиринговая верификация) больше не может — только администратор
+    assert (
+        client.patch(
+            f"/profiles/{target}/verify",
+            headers=auth_header(role="local_historian"),
+            json={"is_verified": True},
+        ).status_code
+        == 403
+    )
+
+    # администратор может
     r = client.patch(
         f"/profiles/{target}/verify",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(is_root=True),
         json={"is_verified": True},
     )
     assert r.status_code == 200

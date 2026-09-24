@@ -28,7 +28,7 @@ def test_default_status_is_discovered(client):
     assert r.json()["status"] == "discovered"
 
 
-def test_status_change_moderator_only(client):
+def test_status_change_root_only(client):
     point = make_point(client, auth_header(role="searcher")).json()
 
     assert (
@@ -42,7 +42,7 @@ def test_status_change_moderator_only(client):
 
     r = client.patch(
         f"/last-stand/{point['id']}/status",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(is_root=True),
         json={"status": "remains_raised"},
     )
     assert r.status_code == 200
@@ -54,7 +54,7 @@ def test_list_filter_by_status(client):
     make_point(client, auth_header(role="searcher"))
     client.patch(
         f"/last-stand/{p1['id']}/status",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(is_root=True),
         json={"status": "archive_confirmed"},
     )
     confirmed = client.get("/last-stand", params={"status": "archive_confirmed"}).json()

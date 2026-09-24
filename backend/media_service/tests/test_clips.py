@@ -102,8 +102,8 @@ def test_private_clip_hidden_from_strangers(client):
         client.get(f"/clips/{c['id']}", headers=auth_header(user_id="stranger")).status_code == 404
     )
     assert client.get(f"/clips/{c['id']}").status_code == 404
-    # модератор видит
-    assert client.get(f"/clips/{c['id']}", headers=auth_header(role="moderator")).status_code == 200
+    # администратор видит
+    assert client.get(f"/clips/{c['id']}", headers=auth_header(is_root=True)).status_code == 200
 
 
 def test_worker_claim_and_lifecycle(client):
@@ -131,8 +131,8 @@ def test_worker_endpoints_reject_normal_user(client):
         ).status_code
         == 403
     )
-    # модератор может без worker-токена
-    assert client.post("/render/claim", headers=auth_header(role="moderator")).status_code in (
+    # администратор может без worker-токена
+    assert client.post("/render/claim", headers=auth_header(is_root=True)).status_code in (
         200,
         204,
     )

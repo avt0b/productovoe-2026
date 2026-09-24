@@ -1,7 +1,15 @@
 import type { DataSource } from '@/core/api'
 import { pathLengthKm, type GeoTone, type LatLon } from '@/core/geo'
 import { listPoi, type Poi, type PoiKind } from '@/core/services/map'
-import { getRoute, listRoutes, type RouteDetail } from '@/core/services/routes'
+import {
+  archivePrompts,
+  getRoute,
+  listRoutes,
+  mediaPrompts,
+  type ArchivePrompt,
+  type MediaPrompt,
+  type RouteDetail,
+} from '@/core/services/routes'
 
 /**
  * Данные окна «Маршруты»: места слоя «ВОВ» из `map_service` и семейный
@@ -52,6 +60,8 @@ export interface MapPlace extends LatLon {
   description: string
   dateText: string
   source: string
+  /** Кто добавил точку: автор правит и убирает её сам (`_ensure_can_edit` в map_service). */
+  createdBy: string
   /** Год события. `null` — дата неизвестна: такие места в хронологию не попадают. */
   year: number | null
 }
@@ -89,7 +99,15 @@ export interface RoutesOverview {
   /** Фильтры — только по тем видам мест, что есть на карте. */
   filters: RouteFilter[]
   route: FamilyRoute | null
+  /** Что на маршруте стоит проверить и где не хватает «живого фото». */
+  prompts: RoutePrompts
   source: DataSource
+}
+
+/** Подсказки маршрута из ТЗ: «помоги проверить» и «оживи фото». */
+export interface RoutePrompts {
+  archive: ArchivePrompt[]
+  media: MediaPrompt[]
 }
 
 /** Семейный темп с ребёнком и остановки у каждой точки — для оценки времени маршрута. */
@@ -102,12 +120,23 @@ export async function fetchRoutesOverview(): Promise<RoutesOverview> {
   const detail = featured ? await getRoute(featured.id) : null
 
   const sources = [places.source, routes.source, detail?.source]
+  const live = featured && detail?.source === 'live'
   return {
     places: places.data.map(toPlace),
     filters: buildFilters(places.data),
     route: detail ? toRoute(detail.data) : null,
+    // Подсказки — приятное дополнение: не ответили, экран работает как прежде.
+    prompts: live ? await fetchPrompts(featured.id) : { archive: [], media: [] },
     source: sources.includes('demo') ? 'demo' : 'live',
   }
+}
+
+async function fetchPrompts(routeId: string): Promise<RoutePrompts> {
+  const [archive, media] = await Promise.all([
+    archivePrompts(routeId).catch(() => []),
+    mediaPrompts(routeId).catch(() => []),
+  ])
+  return { archive, media }
 }
 
 function toPlace(poi: Poi): MapPlace {
@@ -118,6 +147,7 @@ function toPlace(poi: Poi): MapPlace {
     description: poi.description,
     dateText: poi.date_text,
     source: poi.source,
+    createdBy: poi.created_by,
     year: eventYear(poi),
     lat: poi.lat,
     lon: poi.lon,

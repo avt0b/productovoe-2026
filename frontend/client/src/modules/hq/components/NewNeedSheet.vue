@@ -14,26 +14,34 @@ import {
   NEED_KINDS,
   campaignTitle,
   createNeed,
+  updateNeed,
   type CampaignKind,
   type Need,
   type NeedKind,
   type Squad,
 } from '../data'
 
-/** Потребность отряда: целевой сбор («Поднять бойца», «Экипировать отряд»), люди или снаряжение. */
-const props = defineProps<{ squads: Squad[] }>()
+/**
+ * Потребность отряда: целевой сбор («Поднять бойца», «Экипировать отряд»),
+ * люди или снаряжение.
+ *
+ * Это же окно правит уже опубликованную потребность. Вид и отряд при правке не
+ * меняются — сервис их не принимает, — а заголовок правится как есть, без
+ * повторной приставки вида сбора.
+ */
+const props = withDefaults(defineProps<{ squads: Squad[]; need?: Need | null }>(), { need: null })
 
 const emit = defineEmits<{ close: []; created: [need: Need] }>()
 
 /** Лимит сервиса на заголовок. */
 const TITLE_MAX = 255
 
-const squadId = ref<string>(props.squads[0]?.id ?? '')
-const kind = ref<NeedKind>('funds')
+const squadId = ref<string>(props.need?.squad_id ?? props.squads[0]?.id ?? '')
+const kind = ref<NeedKind>(props.need?.kind ?? 'funds')
 const campaign = ref<CampaignKind>('raise')
-const title = ref('')
-const description = ref('')
-const target = ref<number | null>(50_000)
+const title = ref(props.need?.title ?? '')
+const description = ref(props.need?.description ?? '')
+const target = ref<number | null>(props.need?.target_amount ?? 50_000)
 const saving = ref(false)
 const error = ref<string | null>(null)
 
@@ -62,13 +70,26 @@ async function submit(): Promise<void> {
   saving.value = true
   error.value = null
   try {
-    const need = await createNeed(squadId.value, {
-      kind: kind.value,
-      title: isFunds.value ? campaignTitle(campaign.value, title.value.trim()) : title.value.trim(),
-      description: description.value.trim(),
-      target_amount: isFunds.value ? Math.round(target.value ?? 1) : null,
-    })
-    emit('created', need)
+    if (props.need) {
+      emit(
+        'created',
+        await updateNeed(props.need.id, {
+          title: title.value.trim(),
+          description: description.value.trim(),
+          target_amount: isFunds.value ? Math.round(target.value ?? 1) : null,
+        }),
+      )
+    } else {
+      emit(
+        'created',
+        await createNeed(squadId.value, {
+          kind: kind.value,
+          title: isFunds.value ? campaignTitle(campaign.value, title.value.trim()) : title.value.trim(),
+          description: description.value.trim(),
+          target_amount: isFunds.value ? Math.round(target.value ?? 1) : null,
+        }),
+      )
+    }
   } catch (reason) {
     error.value = errorText(reason)
   } finally {
@@ -78,11 +99,15 @@ async function submit(): Promise<void> {
 </script>
 
 <template>
-  <SheetDialog title="Что нужно отряду" subtitle="Появится в штабе и на карте потребностей" @close="emit('close')">
+  <SheetDialog
+    :title="need ? 'Изменить потребность' : 'Что нужно отряду'"
+    :subtitle="need ? 'Волонтёры увидят новые сведения' : 'Появится в штабе и на карте потребностей'"
+    @close="emit('close')"
+  >
     <form class="flex flex-col gap-space-md" @submit.prevent="submit">
-      <FormSelect v-if="squads.length > 1" v-model="squadId" label="Отряд" :options="squadOptions" />
+      <FormSelect v-if="!need && squads.length > 1" v-model="squadId" label="Отряд" :options="squadOptions" />
 
-      <div class="grid grid-cols-3 gap-space-xs" role="radiogroup" aria-label="Что нужно">
+      <div v-if="!need" class="grid grid-cols-3 gap-space-xs" role="radiogroup" aria-label="Что нужно">
         <button
           v-for="value in kinds"
           :key="value"
@@ -98,11 +123,11 @@ async function submit(): Promise<void> {
         </button>
       </div>
 
-      <!-- Вид сбора — только у денег. Схлопывается, а не пропадает: иначе форма прыгает под пальцем. -->
+      <!-- Вид сбора — только у денег и только при создании: в заголовке он уже есть. -->
       <div
         class="-mt-space-md grid transition-[grid-template-rows,opacity] duration-300 ease-out"
-        :class="isFunds ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
-        :inert="!isFunds"
+        :class="isFunds && !need ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+        :inert="!isFunds || need !== null"
       >
         <div class="overflow-hidden">
           <div class="flex flex-col gap-space-xs pt-space-md">
@@ -151,7 +176,7 @@ async function submit(): Promise<void> {
         :disabled="missing !== null || saving"
       >
         <MsIcon :name="saving ? 'progress_activity' : 'add_circle'" :size="18" :class="{ 'animate-spin': saving }" />
-        <span>Опубликовать</span>
+        <span>{{ need ? 'Сохранить' : 'Опубликовать' }}</span>
       </button>
     </form>
   </SheetDialog>

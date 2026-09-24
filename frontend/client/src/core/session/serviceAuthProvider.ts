@@ -36,8 +36,6 @@ const ROLE_TITLES: Record<UserRole, string> = {
   family: 'Участник маршрутов',
   searcher: 'Поисковик',
   local_historian: 'Краевед',
-  mentor: 'Наставник',
-  moderator: 'Модератор',
 }
 
 /** Имена, введённые при регистрации. В `auth_service` имён нет — профиль появится в `user_service`. */
@@ -104,7 +102,7 @@ async function explain<T>(request: () => Promise<T>): Promise<T> {
     return await request()
   } catch (reason) {
     if (reason instanceof ServiceUnavailableError) {
-      throw new Error('Сервер входа не отвечает. Проверьте адрес сервера или оставьте поля пустыми для демо-режима')
+      throw new Error('Сервер входа не отвечает. Проверьте подключение или оставьте поля пустыми для демо-режима')
     }
     if (reason instanceof ApiError && reason.status === 422) {
       throw new Error('Проверьте почту и пароль: пароль — не короче 8 символов')

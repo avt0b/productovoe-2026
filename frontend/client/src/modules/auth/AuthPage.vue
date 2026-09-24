@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 
+import { useAsync } from '@/core/async'
 import { errorText } from '@/core/format'
-import { useSessionStore } from '@/core/session'
+import {
+  clearPendingLogin,
+  completeExternalLogin,
+  listProviders,
+  startExternalLogin,
+  useSessionStore,
+  type ExternalProvider,
+  type PendingLogin,
+} from '@/core/session'
 import MsIcon from '@/ui/MsIcon.vue'
 
 import AuthField from './components/AuthField.vue'
@@ -34,6 +43,22 @@ const submitting = ref(false)
 
 const submitLabel = computed(() => (mode.value === 'login' ? 'Войти в экспедицию' : 'Создать аккаунт'))
 
+/** VK ID, MAX, Госуслуги: что включено на сервере. Не ответил — кнопки недоступны. */
+const providers = useAsync(async () => {
+  try {
+    return await listProviders()
+  } catch {
+    return null
+  }
+})
+const activeProvider = ref<ExternalProvider | null>(null)
+/** Ждём подтверждения у провайдера: в браузере телефона или в боте MAX. */
+const waiting = ref<PendingLogin | null>(null)
+const PROVIDER_TITLES: Record<ExternalProvider, string> = { vk: 'VK ID', max: 'MAX', gosuslugi: 'Госуслугах' }
+/** Как часто спрашивать, подтверждён ли вход через бота, мс. */
+const POLL_MS = 2000
+let pollTimer: ReturnType<typeof setTimeout> | undefined
+
 /**
  * Куда вернуть после входа. Только внутренний путь: `?next=//evil.example`
  * иначе увёл бы человека на чужой сайт прямо с экрана входа.
@@ -41,6 +66,16 @@ const submitLabel = computed(() => (mode.value === 'login' ? 'Войти в эк
 function nextPath(): string | null {
   const next = route.query.next
   return typeof next === 'string' && next.startsWith('/') && !next.startsWith('//') ? next : null
+}
+
+/**
+ * Куда открыть после входа. С аккаунтом — сразу в профиль: там заполняют фото,
+ * имя и «о себе», и сразу видно, под кем вошли. Демо-вход остаётся на стартовой
+ * вкладке — своего профиля у него нет. Модуль профиля можно убрать, поэтому
+ * роут проверяем, а не зовём по имени наугад.
+ */
+function landing(): RouteLocationRaw {
+  return nextPath() ?? (session.hasAccount && router.hasRoute('profile') ? { name: 'profile' } : { name: 'home' })
 }
 
 /** Вход по почте и регистрация. Удачный исход ведёт в профиль исследователя. */
@@ -55,13 +90,64 @@ async function submit(): Promise<void> {
       password: password.value,
       name: mode.value === 'register' ? name.value : undefined,
     })
-    await router.replace(nextPath() ?? { name: 'home' })
+    await router.replace(landing())
   } catch (reason) {
     signInError.value = errorText(reason)
   } finally {
     submitting.value = false
   }
 }
+
+/** Вход через VK ID, MAX или Госуслуги — дальше всё делает `core/session/externalAuth`. */
+async function enterExternal(provider: ExternalProvider): Promise<void> {
+  if (activeProvider.value || submitting.value) return
+  activeProvider.value = provider
+  signInError.value = null
+  try {
+    // В браузере с редиректом страница уже уходит к провайдеру. Бот MAX и APK
+    // возвращают управление сюда — ждём подтверждения.
+    waiting.value = await startExternalLogin(provider)
+    if (waiting.value.kind === 'bot') schedulePoll()
+  } catch (reason) {
+    signInError.value = errorText(reason)
+    activeProvider.value = null
+  }
+}
+
+/** Бот MAX не возвращает человека по ссылке — спрашиваем сервис, подтверждён ли вход. */
+function schedulePoll(): void {
+  clearTimeout(pollTimer)
+  pollTimer = setTimeout(() => void poll(), POLL_MS)
+}
+
+async function poll(): Promise<void> {
+  const pending = waiting.value
+  if (!pending) return
+  if (pending.expiresAt <= Date.now()) {
+    cancelExternal()
+    signInError.value = 'Время на подтверждение вышло — начните вход заново'
+    return
+  }
+  try {
+    const result = await completeExternalLogin(pending, null)
+    if (!result) return schedulePoll()
+    session.adopt(result)
+    waiting.value = null
+    await router.replace(landing())
+  } catch (reason) {
+    cancelExternal()
+    signInError.value = errorText(reason)
+  }
+}
+
+function cancelExternal(): void {
+  clearTimeout(pollTimer)
+  clearPendingLogin()
+  waiting.value = null
+  activeProvider.value = null
+}
+
+onBeforeUnmount(() => clearTimeout(pollTimer))
 </script>
 
 <template>
@@ -247,7 +333,44 @@ async function submit(): Promise<void> {
         <div class="h-px flex-grow bg-white/20" />
       </div>
 
-      <SsoButtons />
+      <SsoButtons
+        :providers="providers.data.value"
+        :active="activeProvider"
+        :disabled="submitting || waiting !== null"
+        @select="enterExternal"
+      />
+
+      <!--
+        Провайдеры не ответили или человек ждёт подтверждения — говорим об этом
+        текстом под кнопками, а не значком на кнопке (см. DESIGN.md, §9).
+      -->
+      <p
+        v-if="!providers.loading.value && !providers.data.value"
+        class="mt-space-sm text-center font-label-sm text-label-sm text-white/75"
+      >
+        Сервер входа не ответил — войти через VK ID, MAX или Госуслуги сейчас нельзя
+      </p>
+
+      <div
+        v-else-if="waiting"
+        class="mt-space-sm flex items-start gap-space-sm rounded-xl border border-white/15 bg-white/10 p-space-sm backdrop-blur-sm"
+        role="status"
+      >
+        <MsIcon name="progress_activity" :size="20" class="mt-0.5 shrink-0 animate-spin text-white" />
+        <div class="min-w-0 flex-1">
+          <p class="font-label-md text-label-md text-white">Подтвердите вход в {{ PROVIDER_TITLES[waiting.provider] }}</p>
+          <p class="font-body-sm text-body-sm text-white/75">
+            {{
+              waiting.kind === 'bot'
+                ? 'Откройте бота и нажмите «Начать» — приложение войдёт само.'
+                : 'После подтверждения браузер вернёт вас в приложение.'
+            }}
+          </p>
+        </div>
+        <button type="button" class="shrink-0 font-label-md text-label-md text-white/75 active:scale-95" @click="cancelExternal">
+          Отмена
+        </button>
+      </div>
     </div>
 
     <p class="mt-space-sm px-space-sm text-center font-label-sm text-label-sm text-white/75">

@@ -3,3 +3,6 @@
 *.png binary
 *.jpg binary
 *.docx binary
+
+# Шрифты — бинарные: eol=lf их не касается.
+*.woff2 binary

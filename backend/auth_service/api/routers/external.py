@@ -20,7 +20,7 @@ from core.exceptions import AppError
 from core.models import ExternalProvider
 from services.external.registry import REAL_PROVIDERS, mock_allowed
 
-router = APIRouter(prefix="/auth/external", tags=["auth: VK ID, MAX, Госуслуги"])
+router = APIRouter(prefix="/auth/external", tags=["auth: VK ID, Яндекс ID, MAX, Госуслуги"])
 
 
 def _page(title: str, text: str, status_code: int = 200, body: str = "") -> HTMLResponse:
@@ -65,7 +65,7 @@ def start_login(
     "/{provider}/callback",
     response_class=RedirectResponse,
     status_code=status.HTTP_303_SEE_OTHER,
-    summary="Возврат от VK ID или Госуслуг",
+    summary="Возврат от VK ID, Яндекс ID или Госуслуг",
 )
 def provider_callback(provider: ExternalProvider, request: Request, service: ExternalAuthServiceDep):
     try:

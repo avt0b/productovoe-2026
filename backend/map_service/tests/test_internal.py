@@ -93,7 +93,7 @@ def test_stats_shape(client):
     make_point(client, auth_header(role="searcher"))
     client.patch(
         f"/last-stand/{p1['id']}/status",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(is_root=True),
         json={"status": "archive_confirmed"},
     )
 
@@ -138,7 +138,7 @@ def test_last_stand_list_ok_and_filters(client):
     ).json()
     client.patch(
         f"/last-stand/{p1['id']}/status",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(is_root=True),
         json={"status": "archive_confirmed"},
     )
 
@@ -162,10 +162,10 @@ def test_last_stand_list_ok_and_filters(client):
     assert by_query["items"][0]["id"] == p2["id"]
 
 
-def test_last_stand_status_update_bypasses_moderator_only(client):
+def test_last_stand_status_update_bypasses_root_only(client):
     point = make_point(client, auth_header(role="searcher")).json()
 
-    # публично статус меняет только модератор
+    # публично статус меняет только администратор (is_root)
     assert (
         client.patch(
             f"/last-stand/{point['id']}/status",

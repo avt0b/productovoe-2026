@@ -28,6 +28,11 @@ class PermissionDenied(AppError):
     detail = "Недостаточно прав"
 
 
+class Conflict(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    detail = "Конфликт состояния"
+
+
 class ServiceUnavailable(AppError):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     detail = "Хранилище файлов недоступно"

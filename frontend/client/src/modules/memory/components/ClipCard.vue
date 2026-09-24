@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 import { formatDateTime } from '@/core/format'
 import MsIcon from '@/ui/MsIcon.vue'
@@ -13,7 +13,10 @@ const props = defineProps<{
   busy: boolean
 }>()
 
-defineEmits<{ watch: []; retry: []; share: [] }>()
+const emit = defineEmits<{ watch: []; retry: []; share: []; remove: [] }>()
+
+/** Убираем в два нажатия: клип живёт в семейном архиве, случайный тап его не сотрёт. */
+const removing = ref(false)
 
 const waiting = computed(() => props.clip.status === 'queued' || props.clip.status === 'processing')
 </script>
@@ -82,5 +85,48 @@ const waiting = computed(() => props.clip.status === 'queued' || props.clip.stat
       </p>
     </div>
     <p v-if="clip.status === 'failed' && clip.error" class="font-body-sm text-body-sm text-error">{{ clip.error }}</p>
+
+    <div class="flex flex-col">
+      <button
+        type="button"
+        class="self-start px-space-xs font-label-md text-label-md text-on-surface-variant active:scale-95"
+        :aria-expanded="removing"
+        @click="removing = !removing"
+      >
+        Убрать из архива
+      </button>
+      <div
+        class="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+        :class="removing ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+        :inert="!removing"
+      >
+        <div class="overflow-hidden">
+          <div
+            class="mt-space-xs flex items-center justify-between gap-space-sm rounded-2xl bg-surface-container-low px-space-sm py-2"
+            role="alertdialog"
+            aria-label="Подтверждение удаления клипа"
+          >
+            <span class="min-w-0 font-body-sm text-body-sm text-on-surface">Убрать «живое фото»? Это не отменить.</span>
+            <div class="flex shrink-0 gap-space-xs">
+              <button
+                type="button"
+                class="rounded-full px-space-sm py-1.5 font-label-md text-label-md text-on-surface-variant active:scale-95"
+                @click="removing = false"
+              >
+                Нет
+              </button>
+              <button
+                type="button"
+                class="rounded-full bg-error px-space-sm py-1.5 font-label-md text-label-md text-on-error active:scale-95 disabled:opacity-60"
+                :disabled="busy"
+                @click="emit('remove')"
+              >
+                Убрать
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </article>
 </template>

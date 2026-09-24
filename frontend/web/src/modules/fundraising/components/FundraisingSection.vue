@@ -2,7 +2,11 @@
 import { computed, onMounted, ref } from 'vue'
 import FundraisingCard from './FundraisingCard.vue'
 import DonationModal from './DonationModal.vue'
+import { useAuthSession } from '@modules/auth'
+import { checkForNewAchievements } from '@modules/profile'
 import * as fundraisingApi from '../api.js'
+
+const { session } = useAuthSession()
 
 const needs = ref([])
 const squadsById = ref({})
@@ -70,6 +74,9 @@ function onDonated() {
   // status тоже может смениться на closed. Перезагружаем список целиком,
   // чтобы карточка и кнопка сразу отражали реальное состояние с бэка.
   load()
+  // donor начисляется сразу при донате (без ЮKassa) — салютуем прямо тут,
+  // не дожидаясь, пока человек откроет профиль.
+  checkForNewAchievements(session.accessToken, session.user?.id).catch(() => {})
 }
 </script>
 

@@ -49,7 +49,8 @@ async function finish(attempt = 1): Promise<void> {
       return
     }
     session.adopt(result)
-    await router.replace({ name: 'home' })
+    // Как и вход по почте: аккаунт есть — ведём в профиль, где фото, имя и «о себе».
+    await router.replace(router.hasRoute('profile') ? { name: 'profile' } : { name: 'home' })
   } catch (reason) {
     problem.value = errorText(reason)
   }

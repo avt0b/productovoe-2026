@@ -159,7 +159,6 @@ class DashboardService:
         names = {
             "local_historian": "краеведов",
             "searcher": "поисковиков",
-            "mentor": "наставников",
         }
         parts = [f"{count} {names.get(role, role)}" for role, count in by_role.items() if count]
         return ", ".join(parts) or None

@@ -11,6 +11,7 @@ class ExternalProvider(str, enum.Enum):
     """Внешний способ входа."""
 
     vk = "vk"  # VK ID
+    yandex = "yandex"  # Яндекс ID
     max = "max"  # мессенджер MAX — через бота
     gosuslugi = "gosuslugi"  # Госуслуги (ЕСИА)
 
@@ -28,7 +29,7 @@ class ExternalIdentity(UUIDPrimaryKeyMixin, Base):
         Enum(ExternalProvider, name="external_provider", native_enum=False, length=16),
         nullable=False,
     )
-    # id человека у провайдера: user_id в VK ID, id пользователя MAX, oid в ЕСИА.
+    # id человека у провайдера: user_id в VK ID, id в Яндекс ID, id пользователя MAX, oid в ЕСИА.
     subject: Mapped[str] = mapped_column(String(128), nullable=False)
     display_name: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     # Почта от провайдера — только для справки. К существующему аккаунту по ней

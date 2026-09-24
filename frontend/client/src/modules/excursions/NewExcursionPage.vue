@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
 import { errorText } from '@/core/format'
@@ -11,7 +11,7 @@ import AccountRequired from '@/ui/AccountRequired.vue'
 import GeoMap from '@/ui/geo/GeoMap.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 
-import { createExcursion, isGuideRole } from './data'
+import { createExcursion, fetchExcursion, isGuideRole, updateExcursion } from './data'
 
 type PlaceMode = 'here' | 'memorial'
 
@@ -21,9 +21,14 @@ interface Point {
   poiId: string | null
 }
 
+const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const { position, status: geoStatus, start: startLocating } = useGeolocation()
+
+/** Экран заводит экскурсию и правит уже заведённую: `/excursions/:id/edit`. */
+const excursionId = computed(() => (typeof route.params.excursionId === 'string' ? route.params.excursionId : null))
+const editing = computed(() => excursionId.value !== null)
 
 const isGuide = computed(() => session.hasAccount && isGuideRole(session.user?.role))
 
@@ -41,6 +46,27 @@ const formError = ref<string | null>(null)
 
 /** Места слоя «ВОВ» — экскурсию удобно ставить у памятника. Сервис не ответил — демо-набор. */
 const places = useAsync(async () => (await listPoi()).data)
+
+/** Правим — подставляем то, что уже стоит в экскурсии. */
+const loading = ref(editing.value)
+if (excursionId.value) {
+  void fetchExcursion(excursionId.value, session.hasAccount)
+    .then((item) => {
+      title.value = item.title
+      description.value = item.description
+      placeName.value = item.place_name
+      point.value = { lat: item.lat, lon: item.lon, poiId: item.poi_id }
+      placeMode.value = item.poi_id ? 'memorial' : 'here'
+      memorialId.value = item.poi_id ?? ''
+      capacity.value = item.capacity
+      // datetime-local ждёт местное время без пояса, а сервис отдаёт UTC.
+      const starts = new Date(item.starts_at)
+      const pad = (value: number): string => String(value).padStart(2, '0')
+      startsAt.value = `${starts.getFullYear()}-${pad(starts.getMonth() + 1)}-${pad(starts.getDate())}T${pad(starts.getHours())}:${pad(starts.getMinutes())}`
+    })
+    .catch((reason) => (formError.value = errorText(reason)))
+    .finally(() => (loading.value = false))
+}
 
 /** Ближайший полный час через час: экскурсию редко заводят «на сейчас». */
 function defaultStart(): string {
@@ -86,19 +112,21 @@ async function submit(): Promise<void> {
   if (!canSubmit.value || saving.value || !point.value) return
   saving.value = true
   formError.value = null
+  const draft = {
+    title: title.value.trim(),
+    description: description.value.trim(),
+    place_name: placeName.value.trim(),
+    lat: point.value.lat,
+    lon: point.value.lon,
+    poi_id: point.value.poiId,
+    // datetime-local — время телефона без пояса; сервису отдаём UTC.
+    starts_at: new Date(startsAt.value).toISOString(),
+    capacity: Math.round(capacity.value),
+  }
   try {
-    const created = await createExcursion({
-      title: title.value.trim(),
-      description: description.value.trim(),
-      place_name: placeName.value.trim(),
-      lat: point.value.lat,
-      lon: point.value.lon,
-      poi_id: point.value.poiId,
-      // datetime-local — время телефона без пояса; сервису отдаём UTC.
-      starts_at: new Date(startsAt.value).toISOString(),
-      capacity: Math.round(capacity.value),
-    })
-    await router.replace({ name: 'excursion', params: { excursionId: created.id } })
+    const id = excursionId.value
+    const saved = id ? await updateExcursion(id, draft) : await createExcursion(draft)
+    await router.replace({ name: 'excursion', params: { excursionId: saved.id } })
   } catch (reason) {
     formError.value = errorText(reason)
   } finally {
@@ -117,8 +145,8 @@ const inputClass =
     <div v-else-if="!isGuide" class="flex items-start gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
       <MsIcon name="info" :size="20" class="mt-0.5 shrink-0 text-secondary" />
       <p class="font-body-sm text-body-sm text-on-surface-variant">
-        Создавать экскурсии могут краеведы и наставники. Зарегистрируйтесь с отметкой «Я краевед» или попросите
-        модератора сменить роль.
+        Водить экскурсии могут краеведы. Подайте заявку на роль в профиле — её подтверждает
+        администратор платформы.
       </p>
     </div>
 
