@@ -66,7 +66,7 @@ export function listLastStand(query: { status?: LastStandStatus } = {}): Promise
 /**
  * Новая точка слоя «ВОВ».
  *
- * Дополнять слой могут поисковики, краеведы и наставники (`_CONTRIBUTOR_ROLES`
+ * Дополнять слой могут поисковики и краеведы (`_CONTRIBUTOR_ROLES`
  * в `map_service`) — у остальных сервис ответит 403, поэтому кнопку показываем
  * только им (`can.addPoi`).
  */
@@ -86,12 +86,12 @@ export function createPoi(draft: PoiDraft): Promise<Poi> {
   return apiRequest('POST', 'map', '/poi', { body: draft, auth: true })
 }
 
-/** Поправить точку — её автор или модератор (`_ensure_can_edit` в map_service). */
+/** Поправить точку — её автор или администратор (`_ensure_can_edit` в map_service). */
 export function updatePoi(poiId: string, patch: Partial<PoiDraft>): Promise<Poi> {
   return apiRequest('PATCH', 'map', `/poi/${encodeURIComponent(poiId)}`, { body: patch, auth: true })
 }
 
-/** Убрать точку со слоя — тоже только автор или модератор. */
+/** Убрать точку со слоя — тоже только автор или администратор. */
 export function deletePoi(poiId: string): Promise<void> {
   return apiRequest('DELETE', 'map', `/poi/${encodeURIComponent(poiId)}`, { auth: true })
 }

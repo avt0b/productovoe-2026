@@ -76,7 +76,7 @@ export interface ExcursionDraft {
 }
 
 /** Кто водит экскурсии — как `GUIDE_ROLES` в search_hq_service. */
-const GUIDE_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['local_historian', 'mentor', 'moderator'])
+const GUIDE_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['local_historian'])
 
 export function isGuideRole(role: UserRole | undefined): boolean {
   return role !== undefined && GUIDE_ROLES.has(role)
@@ -105,7 +105,7 @@ export function createExcursion(draft: ExcursionDraft): Promise<Excursion> {
   return apiRequest('POST', 'hq', '/excursions', { body: draft, auth: true })
 }
 
-/** Поправить экскурсию — краевед, который её ведёт, или модератор. */
+/** Поправить экскурсию — краевед, который её ведёт, или администратор. */
 export function updateExcursion(excursionId: string, patch: Partial<ExcursionDraft>): Promise<Excursion> {
   return apiRequest('PATCH', 'hq', path(excursionId), { body: patch, auth: true })
 }

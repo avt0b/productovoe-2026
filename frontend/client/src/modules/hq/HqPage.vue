@@ -123,7 +123,7 @@ const tabs = computed(() => [
   { value: 'squads' as const, title: 'Отряды', icon: 'map' },
 ])
 
-/** Отряды, которыми человек управляет: свои, а у модератора — все. */
+/** Отряды, которыми человек управляет: свои, а у администратора — все. */
 const managedSquads = computed<Squad[]>(() => {
   const user = session.user
   if (!session.hasAccount || !user) return []

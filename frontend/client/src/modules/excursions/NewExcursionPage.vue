@@ -145,7 +145,7 @@ const inputClass =
     <div v-else-if="!isGuide" class="flex items-start gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
       <MsIcon name="info" :size="20" class="mt-0.5 shrink-0 text-secondary" />
       <p class="font-body-sm text-body-sm text-on-surface-variant">
-        Водить экскурсии могут краеведы и наставники. Подайте заявку на роль в профиле — её подтверждает
+        Водить экскурсии могут краеведы. Подайте заявку на роль в профиле — её подтверждает
         администратор платформы.
       </p>
     </div>

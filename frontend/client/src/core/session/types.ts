@@ -1,5 +1,8 @@
-/** Роль в платформе — как в `auth_service`. */
-export type UserRole = 'family' | 'searcher' | 'local_historian' | 'mentor' | 'moderator'
+/**
+ * Роль в платформе — как в `auth_service`. Ролей три; четвёртая по продукту,
+ * администратор, — не роль, а флаг `is_root` (см. `SessionUser.isRoot`).
+ */
+export type UserRole = 'family' | 'searcher' | 'local_historian'
 
 /** Пользователь текущей сессии — ровно то, что нужно интерфейсу, без полей бэкенда. */
 export interface SessionUser {
@@ -11,7 +14,7 @@ export interface SessionUser {
   avatarUrl?: string
   /** Роль из `auth_service`. У демо-пользователя её нет. */
   role?: UserRole
-  /** Администратор платформы (`is_root`): сервисы пускают его туда же, куда модератора. */
+  /** Администратор платформы (`is_root`): стафф-права сервисов остались только у него. */
   isRoot?: boolean
   email?: string
 }
@@ -37,8 +40,11 @@ export interface SignInRequest {
   password?: string
   /** Имя при регистрации. */
   name?: string
-  /** Роль при регистрации: краевед или наставник водит экскурсии. */
-  role?: UserRole
+  /**
+   * Роль при регистрации. `auth_service` принимает только «семью»
+   * (`SELF_ASSIGNABLE_ROLES`), поисковиком и краеведом становятся по заявке.
+   */
+  role?: 'family'
 }
 
 export interface SignInResult {

@@ -10,7 +10,7 @@ import { ROLES, type HeroCounter } from '../data'
 const props = defineProps<{
   /** null — модуль входа убран и человек не входил: показываем гостя. */
   user: SessionUser | null
-  /** С `user_service` — подтверждён ли профиль модератором или краеведом. */
+  /** С `user_service` — подтверждён ли профиль администратором при одобрении заявки. */
   verified: boolean
   /** Когда профиль заведён — «В проекте с сентября 2026». */
   since: string | null

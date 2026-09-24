@@ -99,7 +99,7 @@ export function completeWaypoint(routeId: string, waypointId: string): Promise<R
 /**
  * Маршруты краеведа: черновики, точки, публикация.
  *
- * Вести маршруты могут краевед, наставник и модератор (`AUTHOR_ROLES` в
+ * Вести маршруты может краевед (`AUTHOR_ROLES` в
  * `route_service`) — у остальных сервис ответит 403, поэтому экраны редактора
  * показываем только тем, кому можно (`can.authorRoute`).
  */
@@ -168,7 +168,7 @@ export function deleteRoute(routeId: string): Promise<void> {
   return apiRequest('DELETE', 'routes', `/routes/${encodeURIComponent(routeId)}`, { auth: true })
 }
 
-/** Маршрут целиком, включая черновик автора: сервис отдаёт его только автору и модератору. */
+/** Маршрут целиком, включая черновик автора: сервис отдаёт его только автору и администратору. */
 export function getMyRoute(routeId: string): Promise<RouteDetail> {
   return apiRequest('GET', 'routes', `/routes/${encodeURIComponent(routeId)}`, { auth: true })
 }

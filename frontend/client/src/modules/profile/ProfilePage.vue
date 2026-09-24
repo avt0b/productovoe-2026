@@ -8,6 +8,7 @@ import StateBlock from '@/ui/StateBlock.vue'
 
 import BadgesSection from './components/BadgesSection.vue'
 import ExpeditionStatusCard from './components/ExpeditionStatusCard.vue'
+import FamilySection from './components/FamilySection.vue'
 import HeroesSection from './components/HeroesSection.vue'
 import ProfileEditSheet from './components/ProfileEditSheet.vue'
 import ResearcherHeroCard from './components/ResearcherHeroCard.vue'
@@ -84,6 +85,7 @@ const counters = computed<HeroCounter[]>(() => [
           :routes-completed="data.profile.routes_completed ?? 0"
         />
         <HeroesSection :heroes="data.profile.heroes ?? []" :entries="data.entries" @changed="retry" />
+        <FamilySection />
       </template>
       <AccountRequired v-else-if="session.isAuthenticated" text="Профиль, роль, герои семьи и значки хранятся в аккаунте" />
 

@@ -15,9 +15,9 @@ import { EVERYONE_CAN, ROLES, ROLE_ORDER, fetchProfileById, verifyProfile, type 
  *
  * Саму роль выдаёт только администратор платформы — в приложении её не
  * назначить и не снять; заявка на краеведа и поисковика живёт в соседней
- * карточке. Здесь остаётся подтверждение профиля по жетону: краевед и
- * модератор ручаются за человека, которого видели (`_VERIFIER_ROLES` в
- * user_service).
+ * карточке. Подтверждение профиля по жетону тоже осталось за администратором
+ * (`set_verified` в user_service требует `is_root`), поэтому инструмент ниже
+ * видит только он.
  */
 const props = defineProps<{ user: SessionUser }>()
 
@@ -27,7 +27,7 @@ const role = computed(() => props.user.role ?? 'family')
 const canVerify = computed(() => can.verifyProfile(props.user))
 const othersOpen = ref(false)
 
-// --- краевед и модератор подтверждают исследователя по номеру жетона ---
+// --- администратор подтверждает исследователя по номеру жетона ---
 
 const tokenId = ref('')
 const found = ref<Profile | null>(null)
@@ -140,7 +140,7 @@ async function setVerified(value: boolean): Promise<void> {
       </button>
     </div>
 
-    <!-- Краевед и модератор: подтвердить исследователя по жетону. -->
+    <!-- Администратор: подтвердить исследователя по жетону. -->
     <div v-if="canVerify" class="flex flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
       <div class="flex items-start gap-space-sm">
         <span

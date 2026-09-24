@@ -5,8 +5,8 @@ import type { LatLon } from '@/core/geo'
  * Данные окна «Память».
  *
  * - **Народный архив** — `archive_service` (`/entries`): каждый может
- *   предложить событие, карточку бойца, воспоминание; краевед, наставник или
- *   модератор подтверждает, и запись появляется в общей ленте.
+ *   предложить событие, карточку бойца, воспоминание; краевед или поисковик
+ *   подтверждает, и запись появляется в общей ленте.
  * - **Живое фото** — `media_service` (`/clips`): заявка на оживление фото
  *   бойца, её статус и общий мемориал. Саму генерацию делает отдельный
  *   воркер; пока его нет, заявки стоят в очереди — экран говорит об этом.
@@ -147,7 +147,7 @@ export function fetchMyEntries(): Promise<ArchiveEntry[]> {
   return apiRequest('GET', 'archive', '/entries/mine', { auth: true })
 }
 
-/** Очередь проверки — краеведу, наставнику, модератору. */
+/** Очередь проверки — краеведу и поисковику (`VERIFIER_ROLES` в archive_service). */
 export function fetchModerationQueue(): Promise<ArchiveEntry[]> {
   return apiRequest('GET', 'archive', '/entries/moderation', { auth: true })
 }

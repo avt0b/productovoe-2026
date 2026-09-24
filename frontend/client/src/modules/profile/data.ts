@@ -231,9 +231,9 @@ export const EVERYONE_CAN = [
  * Роли и что они дают. Списки повторяют правила ядра (`core/session/roles.ts`)
  * и сервисов — меняются там, меняются и здесь.
  *
- * В интерфейсе ролей четыре (`ROLE_ORDER`), но «наставник» остаётся в словаре:
- * в `auth_service` такая роль всё ещё есть, и у старого аккаунта экран должен
- * открыться, а не упасть на пустой карточке.
+ * Ролей три. Четвёртая по продукту — администратор платформы: это не роль, а
+ * флаг `is_root`, и в приложении он только снимает ограничения, отдельной
+ * карточки у него нет (админка — это веб).
  */
 export const ROLES: Record<UserRole, RoleInfo> = {
   family: { title: 'Семья', icon: 'family_restroom', gives: [] },
@@ -245,29 +245,18 @@ export const ROLES: Record<UserRole, RoleInfo> = {
   local_historian: {
     title: 'Краевед',
     icon: 'history_edu',
-    gives: ['Проверять народный архив', 'Отмечать места «Последнего боя»', 'Водить экскурсии', 'Подтверждать исследователей'],
-  },
-  mentor: {
-    title: 'Наставник',
-    icon: 'school',
-    gives: ['Водить экскурсии', 'Проверять народный архив', 'Подтверждать исследователей'],
-  },
-  moderator: {
-    title: 'Модератор',
-    icon: 'shield_person',
-    gives: ['Всё, что могут краеведы', 'Вести стадии мест «Последнего боя»', 'Управлять всеми отрядами'],
+    gives: ['Проверять народный архив', 'Отмечать места «Последнего боя»', 'Водить экскурсии'],
   },
 }
 
-/** Роли, которые показываем: «наставника» в интерфейсе платформы больше нет. */
-export const ROLE_ORDER: readonly UserRole[] = ['family', 'searcher', 'local_historian', 'moderator']
+export const ROLE_ORDER: readonly UserRole[] = ['family', 'searcher', 'local_historian']
 
 /** Чужой профиль по номеру жетона — краевед смотрит, кого подтверждает. */
 export function fetchProfileById(profileId: string): Promise<Profile> {
   return apiRequest('GET', 'users', `/profiles/${encodeURIComponent(profileId)}`, { auth: true })
 }
 
-/** Подтвердить исследователя — краевед, наставник, модератор (`_VERIFIER_ROLES` в user_service). */
+/** Подтвердить исследователя — только администратор (`set_verified` требует `is_root`). */
 export function verifyProfile(profileId: string, isVerified: boolean): Promise<Profile> {
   return apiRequest('PATCH', 'users', `/profiles/${encodeURIComponent(profileId)}/verify`, {
     body: { is_verified: isVerified },
@@ -298,7 +287,7 @@ export interface RequestableRole {
   documents: readonly DocumentKind[]
 }
 
-/** На что можно подать заявку. Модератора администратор назначает сам. */
+/** На что можно подать заявку — `REQUESTABLE_ROLES` в user_service. */
 export const REQUESTABLE_ROLES: readonly RequestableRole[] = [
   {
     role: 'local_historian',
@@ -325,47 +314,88 @@ export const REQUESTABLE_ROLES: readonly RequestableRole[] = [
 /** Лимит `media_service` на файл — 15 МБ, как у фото в «Живой памяти». */
 export const DOCUMENT_MAX_MB = 15
 
-/** Что человек написал в заявке. */
-export interface RoleRequest {
-  role: UserRole
-  /** id из `documents` выбранной роли. */
-  document: string
-  /** Адрес снимка документа в хранилище. `null` — приложить не удалось. */
-  documentUrl: string | null
-  organization: string
-  experience: string
-  links: string
-  /** Когда заявку отправили, ISO. */
-  sentAt: string
+/**
+ * Семейные связи — живые люди, которые хотят находить друг друга: родитель и
+ * ребёнок на маршруте, бабушка и внук. Не путать с «Героями семьи»: там
+ * приватное древо погибших, здесь — учётные записи платформы.
+ *
+ * Связь заводится по короткому коду: один код — одно использование, семь дней.
+ */
+export interface FamilyMember {
+  member_id: string
+  display_name: string
+  city: string
+  avatar_url: string | null
+  home_lat: number | null
+  home_lon: number | null
+  linked_at: string
 }
 
-function requestKey(role: UserRole, userId: string): string {
-  return `marshruty.client.role-request.${role}.${userId}`
+export interface FamilyInvite {
+  code: string
+  expires_at: string
 }
 
-/** Поданная заявка — `null`, если её не было или хранилище недоступно. */
-export function readRoleRequest(role: UserRole, userId: string): RoleRequest | null {
-  try {
-    return JSON.parse(localStorage.getItem(requestKey(role, userId)) ?? 'null') as RoleRequest | null
-  } catch {
-    return null
-  }
+export function familyMembers(): Promise<FamilyMember[]> {
+  return apiRequest('GET', 'users', '/family-links/mine', { auth: true })
 }
 
-export function saveRoleRequest(userId: string, request: RoleRequest): void {
-  try {
-    localStorage.setItem(requestKey(request.role, userId), JSON.stringify(request))
-  } catch {
-    /* приватный режим — отметка проживёт до закрытия приложения */
-  }
+export function createFamilyInvite(): Promise<FamilyInvite> {
+  return apiRequest('POST', 'users', '/family-links/invite', { auth: true })
 }
 
-export function clearRoleRequest(role: UserRole, userId: string): void {
-  try {
-    localStorage.removeItem(requestKey(role, userId))
-  } catch {
-    /* нечего убирать */
-  }
+/** Ввести чужой код. Сервис отвечает 409 на свой, использованный и просроченный. */
+export function redeemFamilyInvite(code: string): Promise<void> {
+  return apiRequest('POST', 'users', '/family-links/redeem', { body: { code: code.trim().toUpperCase() }, auth: true })
+}
+
+/** Разорвать связь — сразу с обеих сторон, как и заводилась. */
+export function removeFamilyMember(memberId: string): Promise<void> {
+  return apiRequest('DELETE', 'users', `/family-links/${encodeURIComponent(memberId)}`, { auth: true })
+}
+
+/** Решение по заявке — `ApplicationStatus` в user_service. */
+export type ApplicationStatus = 'pending' | 'approved' | 'rejected'
+
+/** Заявка на роль, как её хранит user_service. */
+export interface RoleApplication {
+  id: string
+  user_id: string
+  requested_role: UserRole
+  full_name: string
+  contact: string
+  evidence: string
+  evidence_url: string | null
+  status: ApplicationStatus
+  review_note: string
+  reviewed_by: string | null
+  created_at: string
+}
+
+export interface RoleApplicationDraft {
+  requested_role: 'searcher' | 'local_historian'
+  full_name: string
+  /** Телефон, телеграм — как администратору связаться. Свободный текст. */
+  contact: string
+  /** Опыт и доказательства одним текстом: сервис не разбирает его на графы. */
+  evidence: string
+  evidence_url: string | null
+}
+
+/**
+ * Мои заявки — все, вместе с рассмотренными: отказ с причиной человеку нужен
+ * не меньше одобрения.
+ */
+export function myRoleApplications(): Promise<RoleApplication[]> {
+  return apiRequest('GET', 'users', '/role-applications/mine', { auth: true })
+}
+
+/**
+ * Подать заявку. Сервис отвечает 409, если роль уже есть или заявка на неё
+ * ещё на рассмотрении, — повторную подачу он не примет.
+ */
+export function submitRoleApplication(draft: RoleApplicationDraft): Promise<RoleApplication> {
+  return apiRequest('POST', 'users', '/role-applications', { body: draft, auth: true })
 }
 
 /** Снимок документа — в хранилище `media_service`; в заявку уходит адрес. */
@@ -374,22 +404,4 @@ export async function uploadRoleDocument(file: File): Promise<string> {
   body.append('file', file)
   const { url } = await apiRequest<{ url: string }>('POST', 'media', '/uploads', { body, auth: true })
   return url
-}
-
-/** Текст заявки — его администратор и получает сообщением. */
-export function applicationText(request: RoleRequest, name: string, userId: string, city: string): string {
-  const documents = REQUESTABLE_ROLES.find((item) => item.role === request.role)?.documents ?? []
-  const document = documents.find((item) => item.id === request.document)?.title ?? 'Документ'
-  return [
-    `Заявка на роль «${ROLES[request.role].title}» в «Маршрутах победы»`,
-    `Имя: ${name}`,
-    city ? `Город: ${city}` : '',
-    `Номер жетона: ${userId}`,
-    request.organization.trim() ? `Отряд, музей, школа: ${request.organization.trim()}` : '',
-    `Опыт: ${request.experience.trim()}`,
-    request.links.trim() ? `Публикации и ссылки: ${request.links.trim()}` : '',
-    request.documentUrl ? `${document}: ${request.documentUrl}` : `${document}: пришлю отдельно`,
-  ]
-    .filter(Boolean)
-    .join('\n')
 }

@@ -46,7 +46,7 @@ function onCreated(route: RouteSummary | RouteDetail): void {
     <AccountRequired v-if="!session.hasAccount" text="Маршруты ведут из аккаунта краеведа" />
 
     <InlineNotice v-else-if="!canAuthor" tone="info">
-      Вести маршруты могут краеведы, наставники и модераторы. Подайте заявку на роль в профиле — её подтверждает
+      Вести маршруты могут краеведы. Подайте заявку на роль в профиле — её подтверждает
       администратор платформы.
     </InlineNotice>
 

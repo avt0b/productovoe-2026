@@ -47,7 +47,7 @@ const sheet = ref<Sheet | null>(null)
 const notice = ref<{ tone: 'success' | 'error'; text: string } | null>(null)
 const statusBusy = ref(false)
 
-/** Кто отмечает места: поисковик, краевед, наставник, модератор. Семье кнопку не показываем. */
+/** Кто отмечает места: поисковик, краевед и администратор. Семье кнопку не показываем. */
 const canAdd = computed(() => session.hasAccount && can.addLastStand(session.user))
 const canModerate = computed(() => session.hasAccount && can.moderate(session.user))
 /** «Готов помочь» ведёт к выездам отрядов — если окно «Штаб» подключено. */
@@ -69,7 +69,7 @@ async function pointAdded(): Promise<void> {
     tone: 'success',
     text: editing
       ? 'Сведения о месте обновлены'
-      : 'Место отмечено со статусом «Обнаружено» — модератор проверит его по архиву',
+      : 'Место отмечено со статусом «Обнаружено» — администратор проверит его по архиву',
   }
   await refresh()
 }
@@ -82,7 +82,7 @@ async function pointRemoved(): Promise<void> {
   await refresh()
 }
 
-/** Править место может тот, кто его отметил, и модератор — так решает map_service. */
+/** Править место может тот, кто его отметил, и администратор — так решает map_service. */
 function canEditRecord(record: FindRecord): boolean {
   return canModerate.value || (session.hasAccount && record.raw.created_by === session.user?.id)
 }

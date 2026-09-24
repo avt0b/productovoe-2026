@@ -9,7 +9,7 @@ import { CAMPAIGN_KINDS, campaignOf, type Need, type Squad } from '../data'
 const props = defineProps<{
   need: Need
   squad: Squad | undefined
-  /** Командир этого отряда или модератор: может закрыть сбор. */
+  /** Командир этого отряда или администратор: может закрыть сбор. */
   canManage: boolean
   closing?: boolean
 }>()

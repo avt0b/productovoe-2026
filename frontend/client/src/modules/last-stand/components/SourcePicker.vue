@@ -154,7 +154,7 @@ function patch(field: keyof SourceDraft, value: unknown): void {
       role="status"
     >
       <MsIcon name="format_quote" :size="18" class="mt-0.5 shrink-0 text-tertiary" />
-      <span>{{ preview || 'Без источника модератор не сможет подтвердить место архивом — укажите, откуда сведения.' }}</span>
+      <span>{{ preview || 'Без источника администратор не сможет подтвердить место архивом — укажите, откуда сведения.' }}</span>
     </p>
   </div>
 </template>

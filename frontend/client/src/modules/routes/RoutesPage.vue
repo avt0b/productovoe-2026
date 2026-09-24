@@ -39,7 +39,7 @@ const canAuthor = computed(() => session.hasAccount && can.authorRoute(session.u
 /** Дополнять слой «ВОВ» могут ещё и поисковики (`_CONTRIBUTOR_ROLES` в map_service). */
 const canAddPlace = computed(() => session.hasAccount && can.addPoi(session.user))
 const addingPlace = ref(false)
-/** Правит и убирает точку её автор или модератор — так же, как решает сервис. */
+/** Правит и убирает точку её автор или администратор — так же, как решает сервис. */
 const editedPlace = ref<MapPlace | null>(null)
 
 function canEditPlace(place: MapPlace): boolean {

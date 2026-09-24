@@ -16,9 +16,9 @@ const props = defineProps<{
    * есть «Отметить место» для поисковика: главная кнопка на экране одна.
    */
   volunteerIsPrimary: boolean
-  /** Модератор: может сменить стадию места. */
+  /** Администратор: может сменить стадию места. */
   canModerate: boolean
-  /** Автор места или модератор: может уточнить сведения (`_ensure_can_edit` в map_service). */
+  /** Автор места или администратор: может уточнить сведения (`_ensure_can_edit` в map_service). */
   canEdit: boolean
   busy: boolean
 }>()
@@ -116,11 +116,11 @@ async function openRoute(): Promise<void> {
     </dl>
 
     <!--
-      Модератор ведёт место по стадиям кейса. Подложка выбранной стадии едет
+      Администратор ведёт место по стадиям кейса. Подложка выбранной стадии едет
       трансформацией, как вкладки на экране входа: видно, куда ушёл выбор.
     -->
     <div v-if="canModerate" class="flex flex-col gap-space-xs">
-      <span class="font-archival text-archival uppercase text-on-surface-variant">Стадия · модератор</span>
+      <span class="font-archival text-archival uppercase text-on-surface-variant">Стадия · администратор</span>
       <div class="relative grid grid-cols-3 rounded-xl bg-surface-container p-1 text-center" role="radiogroup" aria-label="Стадия места">
         <span
           class="absolute inset-y-1 left-1 w-[calc((100%-8px)/3)] rounded-lg bg-surface-container-lowest shadow-float transition-transform duration-300 ease-out"

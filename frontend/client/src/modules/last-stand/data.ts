@@ -4,7 +4,7 @@ import { listLastStand, type LastStandPoint, type LastStandStatus } from '@/core
 
 /**
  * Данные окна «Последний бой» — места гибели бойцов из `map_service`
- * (`/last-stand`): добавить место, сменить статус (модератор). «Дополнить
+ * (`/last-stand`): добавить место, сменить статус (администратор). «Дополнить
  * данными» — запись народного архива (`archive_service`) с координатами места.
  *
  * Если сервис не ответил, приходит демо-набор Орловщины из
@@ -115,13 +115,13 @@ export interface PointDraft extends LatLon {
   source: string
 }
 
-/** Новое место — поисковику, краеведу, наставнику, модератору. Появляется со статусом «Обнаружено». */
+/** Новое место — поисковику, краеведу и администратору. Появляется со статусом «Обнаружено». */
 export function createPoint(draft: PointDraft): Promise<LastStandPoint> {
   return apiRequest('POST', 'map', '/last-stand', { body: draft, auth: true })
 }
 
 /**
- * Поправить место — автор или модератор (`_ensure_can_edit` в map_service).
+ * Поправить место — автор или администратор (`_ensure_can_edit` в map_service).
  * После экспедиции уточняют обстоятельства, часть и координаты.
  */
 export function updatePoint(pointId: string, patch: Partial<PointDraft>): Promise<LastStandPoint> {
@@ -129,7 +129,7 @@ export function updatePoint(pointId: string, patch: Partial<PointDraft>): Promis
 }
 
 /**
- * Убрать место — автор или модератор (тот же `_ensure_can_edit`). Нужно, когда
+ * Убрать место — автор или администратор (тот же `_ensure_can_edit`). Нужно, когда
  * точку поставили по ошибке: не туда нажали на карте или сведения оказались о
  * другом месте.
  */
@@ -137,7 +137,7 @@ export function deletePoint(pointId: string): Promise<void> {
   return apiRequest('DELETE', 'map', `/last-stand/${encodeURIComponent(pointId)}`, { auth: true })
 }
 
-/** Сменить стадию — только модератор. */
+/** Сменить стадию — только администратор. */
 export function setPointStatus(pointId: string, status: FindStatus): Promise<LastStandPoint> {
   return apiRequest('PATCH', 'map', `/last-stand/${encodeURIComponent(pointId)}/status`, {
     body: { status: TO_SERVICE[status] },
