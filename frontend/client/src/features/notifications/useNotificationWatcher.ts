@@ -15,37 +15,66 @@ import { fetchNotifications, markNotificationRead, type AppNotification } from '
  */
 const POLL_MS = 10_000
 
-/**
- * Уведомления старше этого не всплывают, мс.
- *
- * Сбор живёт тридцать минут: звать на него человека, открывшего приложение
- * через час, — значит отправить его к пустому месту.
- */
-const FRESH_MS = 30 * 60_000
-
 /** Что показать и куда вести. Неизвестные виды не всплывают — только лежат в списке. */
 export interface NotificationBannerItem {
   notification: AppNotification
   actionLabel: string
+  icon: string
   target: RouteLocationRaw
 }
 
-/** Куда ведёт уведомление каждого вида: подпись кнопки и экран. */
-const EXCURSION_TARGETS: Record<string, { actionLabel: string; route: string }> = {
-  excursion_gathering_started: { actionLabel: 'К сбору', route: 'excursion-gathering' },
-  // Краевед повёл группу: сразу на карту, где все свои и маршрут.
-  excursion_walk_started: { actionLabel: 'Открыть карту', route: 'excursion-walk' },
+interface Kind {
+  actionLabel: string
+  icon: string
+  /**
+   * Сколько уведомление имеет смысл всплывать, мс. Сбор живёт полчаса: звать
+   * на него через час — значит отправить к пустому месту. Место гибели рядом
+   * ждёт помощи сутками, и узнать о нём вечером — не поздно.
+   */
+  freshMs: number
+  /** Куда вести. null — в уведомлении не хватает данных, чтобы вести. */
+  target: (notification: AppNotification) => RouteLocationRaw | null
 }
 
-function toBanner(notification: AppNotification): NotificationBannerItem | null {
-  const target = EXCURSION_TARGETS[notification.kind]
-  const excursionId = notification.payload?.excursion_id
-  if (!target || typeof excursionId !== 'string') return null
-  return {
-    notification,
-    actionLabel: target.actionLabel,
-    target: { name: target.route, params: { excursionId } },
+const HOUR_MS = 60 * 60_000
+
+function toExcursion(route: string) {
+  return (notification: AppNotification): RouteLocationRaw | null => {
+    const excursionId = notification.payload?.excursion_id
+    return typeof excursionId === 'string' ? { name: route, params: { excursionId } } : null
   }
+}
+
+/** Виды уведомлений, которые всплывают, — подпись кнопки, значок и экран. */
+const KINDS: Record<string, Kind> = {
+  excursion_gathering_started: {
+    actionLabel: 'К сбору',
+    icon: 'groups',
+    freshMs: HOUR_MS / 2,
+    target: toExcursion('excursion-gathering'),
+  },
+  // Краевед повёл группу: сразу на карту, где все свои и маршрут.
+  excursion_walk_started: {
+    actionLabel: 'Открыть карту',
+    icon: 'directions_walk',
+    freshMs: HOUR_MS / 2,
+    target: toExcursion('excursion-walk'),
+  },
+  // «В N км от вас обнаружено место гибели». Какая именно точка, сервис не
+  // сообщает — экран «Последний бой» сам откроет место, которому нужна проверка.
+  last_stand_nearby: {
+    actionLabel: 'Открыть на карте',
+    icon: 'person_search',
+    freshMs: 24 * HOUR_MS,
+    target: () => ({ name: 'last-stand' }),
+  },
+}
+
+function toBanner(notification: AppNotification, now: number): NotificationBannerItem | null {
+  const kind = KINDS[notification.kind]
+  if (!kind || now - new Date(notification.created_at).getTime() >= kind.freshMs) return null
+  const target = kind.target(notification)
+  return target ? { notification, actionLabel: kind.actionLabel, icon: kind.icon, target } : null
 }
 
 /**
@@ -71,8 +100,7 @@ export function useNotificationWatcher() {
     const now = Date.now()
     const next = items
       .filter((item) => item.read_at === null && !shown.has(item.id))
-      .filter((item) => now - new Date(item.created_at).getTime() < FRESH_MS)
-      .map(toBanner)
+      .map((item) => toBanner(item, now))
       .find((item): item is NotificationBannerItem => item !== null)
     if (!next || current.value) return
     shown.add(next.notification.id)

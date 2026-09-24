@@ -28,6 +28,11 @@ const sending = ref(false)
 const error = ref<string | null>(null)
 const done = ref<number | null>(null)
 
+const percent = computed(() => {
+  const target = props.need.target_amount
+  return target ? Math.min(100, Math.round((props.need.collected_amount / target) * 100)) : null
+})
+
 const valid = computed(() => amount.value !== null && Number.isInteger(amount.value) && amount.value >= 1 && amount.value <= MAX_AMOUNT)
 
 async function submit(): Promise<void> {
@@ -51,14 +56,17 @@ async function submit(): Promise<void> {
   <SheetDialog :title="need.title" :subtitle="squad?.name" @close="emit('close')">
     <AccountRequired v-if="!session.hasAccount" text="Помочь отряду можно с аккаунтом" />
 
-    <div v-else-if="done !== null" class="flex flex-col items-center gap-space-md py-space-md text-center">
-      <div class="flex h-14 w-14 items-center justify-center rounded-full bg-secondary-container text-secondary">
-        <MsIcon name="volunteer_activism" :size="30" filled />
+    <div v-else-if="done !== null" class="flex flex-col items-center gap-space-md py-space-md text-center" role="status">
+      <span class="flex h-14 w-14 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
+        <MsIcon name="volunteer_activism" :size="28" filled />
+      </span>
+      <div class="flex flex-col gap-space-xs">
+        <p class="font-headline-sm text-headline-sm text-on-surface">Спасибо! {{ formatMoney(done) }} добавлено к сбору</p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">Командир отряда увидит взнос и ваше пожелание.</p>
       </div>
-      <p class="font-headline-sm text-headline-sm text-on-surface">Спасибо! {{ formatMoney(done) }} добавлено к сбору</p>
       <button
         type="button"
-        class="w-full rounded-full bg-secondary py-3 font-label-lg text-label-lg text-on-secondary"
+        class="rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
         @click="emit('close')"
       >
         Готово
@@ -71,13 +79,24 @@ async function submit(): Promise<void> {
         Тестовый взнос: оплата через ЮKassa ещё не подключена, деньги не списываются — сумма только добавится к сбору.
       </InlineNotice>
 
-      <div class="grid grid-cols-4 gap-space-xs">
+      <div v-if="percent !== null" class="flex flex-col gap-space-xs">
+        <div class="h-2 w-full overflow-hidden rounded-full bg-surface-container-high" aria-hidden="true">
+          <div class="h-full rounded-full bg-secondary" :style="{ width: `${percent}%` }" />
+        </div>
+        <p class="font-label-sm text-label-sm text-on-surface-variant">
+          Собрано {{ formatMoney(need.collected_amount) }} из {{ formatMoney(need.target_amount) }}
+        </p>
+      </div>
+
+      <div class="grid grid-cols-4 gap-space-xs" role="radiogroup" aria-label="Сумма взноса">
         <button
           v-for="preset in PRESETS"
           :key="preset"
           type="button"
-          class="rounded-full py-2 font-label-md text-label-md transition-colors"
-          :class="amount === preset ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface'"
+          role="radio"
+          :aria-checked="amount === preset"
+          class="rounded-full py-2 font-label-md text-label-md transition-colors duration-200 active:scale-95"
+          :class="amount === preset ? 'bg-secondary text-on-secondary' : 'bg-surface-container-high text-on-surface'"
           @click="amount = preset"
         >
           {{ formatMoney(preset) }}
@@ -91,11 +110,11 @@ async function submit(): Promise<void> {
 
       <button
         type="submit"
-        class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99] disabled:opacity-60"
+        class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-70 short:py-2.5"
         :disabled="!valid || sending"
       >
-        <MsIcon :name="sending ? 'progress_activity' : 'volunteer_activism'" :size="20" :class="{ 'animate-spin': sending }" />
-        {{ valid && amount ? `Помочь на ${formatMoney(amount)}` : 'Укажите сумму' }}
+        <MsIcon :name="sending ? 'progress_activity' : 'volunteer_activism'" :size="18" :class="{ 'animate-spin': sending }" />
+        <span>{{ valid && amount ? `Помочь на ${formatMoney(amount)}` : 'Укажите сумму' }}</span>
       </button>
     </form>
   </SheetDialog>
