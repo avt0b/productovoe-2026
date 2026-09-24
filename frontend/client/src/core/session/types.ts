@@ -28,7 +28,7 @@ export interface SessionTokens {
 }
 
 /**
- * Вход по паролю или регистрация в `auth_service`. VK ID, MAX и Госуслуги —
+ * Вход по паролю или регистрация в `auth_service`. VK ID, Яндекс ID, MAX и Госуслуги —
  * отдельный путь через провайдера (`externalAuth.ts`).
  */
 export type SignInMethod = 'password' | 'register'

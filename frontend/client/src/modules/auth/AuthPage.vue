@@ -43,7 +43,7 @@ const submitting = ref(false)
 
 const submitLabel = computed(() => (mode.value === 'login' ? 'Войти в экспедицию' : 'Создать аккаунт'))
 
-/** VK ID, MAX, Госуслуги: что включено на сервере. Не ответил — кнопки недоступны. */
+/** VK ID, Яндекс ID, MAX, Госуслуги: что включено на сервере. Не ответил — кнопки недоступны. */
 const providers = useAsync(async () => {
   try {
     return await listProviders()
@@ -54,7 +54,7 @@ const providers = useAsync(async () => {
 const activeProvider = ref<ExternalProvider | null>(null)
 /** Ждём подтверждения у провайдера: в браузере телефона или в боте MAX. */
 const waiting = ref<PendingLogin | null>(null)
-const PROVIDER_TITLES: Record<ExternalProvider, string> = { vk: 'VK ID', max: 'MAX', gosuslugi: 'Госуслугах' }
+const PROVIDER_TITLES: Record<ExternalProvider, string> = { vk: 'VK ID', yandex: 'Яндекс ID', max: 'MAX', gosuslugi: 'Госуслугах' }
 /** Как часто спрашивать, подтверждён ли вход через бота, мс. */
 const POLL_MS = 2000
 let pollTimer: ReturnType<typeof setTimeout> | undefined
@@ -69,13 +69,19 @@ function nextPath(): string | null {
 }
 
 /**
- * Куда открыть после входа. С аккаунтом — сразу в профиль: там заполняют фото,
- * имя и «о себе», и сразу видно, под кем вошли. Демо-вход остаётся на стартовой
- * вкладке — своего профиля у него нет. Модуль профиля можно убрать, поэтому
- * роут проверяем, а не зовём по имени наугад.
+ * Куда открыть после входа. С аккаунтом — в профиль: там фото, имя, роль и
+ * заявка на неё, и сразу видно, под кем вошли. `next` на вкладку роутер
+ * ставит сам, просто потому что открыли приложение, — его пропускаем.
+ * Уважаем только ссылку на конкретный экран (`layout: 'detail'`: экскурсия,
+ * точка маршрута, метка) — туда человек шёл намеренно. Демо-вход своего
+ * профиля не имеет и остаётся на вкладке. Модуль профиля можно убрать,
+ * поэтому роут проверяем, а не зовём по имени наугад.
  */
 function landing(): RouteLocationRaw {
-  return nextPath() ?? (session.hasAccount && router.hasRoute('profile') ? { name: 'profile' } : { name: 'home' })
+  const next = nextPath()
+  if (!session.hasAccount) return next ?? { name: 'home' }
+  if (next && router.resolve(next).meta.layout === 'detail') return next
+  return router.hasRoute('profile') ? { name: 'profile' } : (next ?? { name: 'home' })
 }
 
 /** Вход по почте и регистрация. Удачный исход ведёт в профиль исследователя. */
@@ -98,7 +104,7 @@ async function submit(): Promise<void> {
   }
 }
 
-/** Вход через VK ID, MAX или Госуслуги — дальше всё делает `core/session/externalAuth`. */
+/** Вход через VK ID, Яндекс ID, MAX или Госуслуги — дальше всё делает `core/session/externalAuth`. */
 async function enterExternal(provider: ExternalProvider): Promise<void> {
   if (activeProvider.value || submitting.value) return
   activeProvider.value = provider
@@ -348,7 +354,7 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
         v-if="!providers.loading.value && !providers.data.value"
         class="mt-space-sm text-center font-label-sm text-label-sm text-white/75"
       >
-        Сервер входа не ответил — войти через VK ID, MAX или Госуслуги сейчас нельзя
+        Сервер входа не ответил — войти через VK ID, Яндекс ID, MAX или Госуслуги сейчас нельзя
       </p>
 
       <div

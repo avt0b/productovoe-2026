@@ -75,7 +75,7 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  /** Принять готовую сессию — после входа через VK ID, MAX или Госуслуги. */
+  /** Принять готовую сессию — после входа через VK ID, Яндекс ID, MAX или Госуслуги. */
   function adopt(result: SignInResult): void {
     user.value = result.user
     tokens.value = result.tokens

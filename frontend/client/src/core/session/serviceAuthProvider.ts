@@ -11,7 +11,7 @@ import type { AuthProvider, SessionTokens, SessionUser, SignInRequest, SignInRes
  * нет токена, поэтому то, что пишет в сервисы от имени человека (запись на
  * экскурсию, бамп), в ней недоступно.
  *
- * Вход через VK ID, MAX и Госуслуги — `externalAuth.ts`: он заканчивается той
+ * Вход через VK ID, Яндекс ID, MAX и Госуслуги — `externalAuth.ts`: он заканчивается той
  * же парой токенов, её превращает в сессию `fromExternalLogin`.
  */
 
@@ -90,7 +90,7 @@ export interface ExternalCompleteDto extends TokenPairDto {
   is_new_user: boolean
 }
 
-/** Сессия после входа через VK ID, MAX или Госуслуги. Имя берём у провайдера — в auth_service имён нет. */
+/** Сессия после входа через VK ID, Яндекс ID, MAX или Госуслуги. Имя берём у провайдера — в auth_service имён нет. */
 export function fromExternalLogin(response: ExternalCompleteDto): SignInResult {
   rememberName(response.user.email, response.display_name)
   return { user: toUser(response.user), tokens: toTokens(response) }

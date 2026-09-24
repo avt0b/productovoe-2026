@@ -7,7 +7,7 @@ import { fromExternalLogin, type ExternalCompleteDto } from './serviceAuthProvid
 import type { SignInResult } from './types'
 
 /**
- * Вход через VK ID, MAX и Госуслуги — ручки `auth_service` `/auth/external/*`.
+ * Вход через VK ID, Яндекс ID, MAX и Госуслуги — ручки `auth_service` `/auth/external/*`.
  *
  * 1. `start` — сервис отдаёт `login_id` (секрет попытки, хранится здесь) и
  *    адрес подтверждения у провайдера.
@@ -23,7 +23,7 @@ import type { SignInResult } from './types'
  * ссылки бесполезен.
  */
 
-export type ExternalProvider = 'vk' | 'max' | 'gosuslugi'
+export type ExternalProvider = 'vk' | 'yandex' | 'max' | 'gosuslugi'
 
 export interface ProviderInfo {
   provider: ExternalProvider
