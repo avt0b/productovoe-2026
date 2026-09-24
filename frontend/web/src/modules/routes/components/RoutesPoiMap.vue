@@ -68,12 +68,15 @@ async function loadNearbyPending(pts) {
   const lons = pts.map((p) => p.lon)
   const pad = 0.15
   try {
-    pendingEntries.value = await routesApi.listNearbyPendingEntries({
+    const res = await routesApi.listNearbyPendingEntries({
       minLat: Math.min(...lats) - pad,
       minLon: Math.min(...lons) - pad,
       maxLat: Math.max(...lats) + pad,
       maxLon: Math.max(...lons) + pad,
     })
+    // Если archive_service недоступен, шлюз иногда всё равно отвечает 200
+    // (например отдаёт SPA вместо JSON) — тело в этом случае не массив.
+    pendingEntries.value = Array.isArray(res) ? res : []
   } catch {
     // best-effort подсказка — молча ничего не показываем при сбое
   }
