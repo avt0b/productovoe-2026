@@ -6,16 +6,62 @@ import * as profileApi from '../api.js'
 const { session } = useAuthSession()
 
 // Дублирует ACHIEVEMENT_TITLES в user_service/core/models/achievement.py —
-// бэкенд отдаёт только code и earned_at, иконку и подпись рисует фронт.
+// бэкенд отдаёт только code и earned_at, иконку/подпись/подсказку рисует
+// фронт. hint — что нужно сделать, чтобы получить (виден только пока значок
+// не заслужен).
 const ACHIEVEMENT_META = {
-  first_route_completed: { title: 'Первый маршрут пройден', icon: 'route', bg: 'bg-secondary', fg: 'text-on-secondary' },
-  archive_helper: { title: 'Помощник архива', icon: 'auto_stories', bg: 'bg-tertiary', fg: 'text-on-tertiary' },
-  trip_volunteer: { title: 'Доброволец', icon: 'volunteer_activism', bg: 'bg-primary', fg: 'text-on-primary' },
-  donor: { title: 'Жертвователь', icon: 'favorite', bg: 'bg-secondary-fixed', fg: 'text-on-secondary-fixed' },
+  first_route_completed: {
+    title: 'Первый маршрут пройден',
+    hint: 'Пройдите маршрут до конца',
+    icon: 'route',
+    bg: 'bg-secondary',
+    fg: 'text-on-secondary',
+  },
+  archive_helper: {
+    title: 'Помощник архива',
+    hint: 'Подтвердите или предложите запись в «Живой памяти»',
+    icon: 'auto_stories',
+    bg: 'bg-tertiary',
+    fg: 'text-on-tertiary',
+  },
+  trip_volunteer: {
+    title: 'Доброволец',
+    hint: 'Съездите с отрядом на выезд',
+    icon: 'volunteer_activism',
+    bg: 'bg-primary',
+    fg: 'text-on-primary',
+  },
+  donor: {
+    title: 'Жертвователь',
+    hint: 'Задонатьте на сбор отряда в «Штабе»',
+    icon: 'favorite',
+    bg: 'bg-secondary-fixed',
+    fg: 'text-on-secondary-fixed',
+  },
 }
+const ALL_CODES = Object.keys(ACHIEVEMENT_META)
 
 const achievements = ref([])
 const status = ref('idle') // idle | loading | loaded | error
+// Свежеполученные значки — на них крутится салют пару секунд.
+const celebrating = ref(new Set())
+
+function seenKey(userId) {
+  return `marshruty.achievements-seen.${userId}`
+}
+
+function loadSeen(userId) {
+  try {
+    const raw = localStorage.getItem(seenKey(userId))
+    return raw ? new Set(JSON.parse(raw)) : null
+  } catch {
+    return null
+  }
+}
+
+function saveSeen(userId, codes) {
+  localStorage.setItem(seenKey(userId), JSON.stringify([...codes]))
+}
 
 async function load() {
   if (session.status !== 'authenticated') return
@@ -23,6 +69,23 @@ async function load() {
   try {
     achievements.value = await profileApi.getMyAchievements(session.accessToken)
     status.value = 'loaded'
+
+    const userId = session.user?.id
+    if (!userId) return
+    const currentCodes = new Set(achievements.value.map((a) => a.code))
+    const seen = loadSeen(userId)
+    // seen === null — впервые видим этот профиль в этом браузере: просто
+    // запоминаем текущие значки, не салютуем за то, что заслужено раньше.
+    if (seen) {
+      const newlyEarned = [...currentCodes].filter((code) => !seen.has(code))
+      if (newlyEarned.length) {
+        celebrating.value = new Set(newlyEarned)
+        setTimeout(() => {
+          celebrating.value = new Set()
+        }, 1600)
+      }
+    }
+    saveSeen(userId, currentCodes)
   } catch {
     status.value = 'error'
   }
@@ -36,6 +99,16 @@ watch(() => session.status, (s) => {
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
 }
+
+function isEarned(code) {
+  return achievements.value.some((a) => a.code === code)
+}
+
+function earnedAt(code) {
+  return achievements.value.find((a) => a.code === code)?.earned_at
+}
+
+const PARTICLE_COLORS = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-ribbon-orange', 'bg-error']
 </script>
 
 <template>
@@ -56,29 +129,75 @@ function formatDate(iso) {
     <p v-else-if="status === 'error'" class="font-body-sm text-body-sm text-error">
       Не удалось загрузить значки — user_service недоступен
     </p>
-    <p v-else-if="status === 'loaded' && !achievements.length" class="font-body-sm text-body-sm text-on-surface-variant">
-      Пока ни одного значка — пройдите маршрут, помогите с архивом, съездите волонтёром или задонатьте отряду.
-    </p>
 
-    <div v-else-if="achievements.length" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div v-else-if="status === 'loaded'" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
       <div
-        v-for="a in achievements"
-        :key="a.code"
-        class="bg-surface-container-low p-4 rounded-DEFAULT flex flex-col items-center text-center group hover:bg-surface-container transition-all"
+        v-for="code in ALL_CODES"
+        :key="code"
+        class="relative bg-surface-container-low p-4 rounded-DEFAULT flex flex-col items-center text-center group hover:bg-surface-container transition-all overflow-visible"
       >
         <div
-          class="w-14 h-14 rounded-full flex items-center justify-center mb-3 shadow-md group-hover:scale-105 transition-transform"
-          :class="[ACHIEVEMENT_META[a.code]?.bg ?? 'bg-outline', ACHIEVEMENT_META[a.code]?.fg ?? 'text-on-surface']"
+          class="relative w-14 h-14 rounded-full flex items-center justify-center mb-3 transition-transform"
+          :class="
+            isEarned(code)
+              ? [ACHIEVEMENT_META[code].bg, ACHIEVEMENT_META[code].fg, 'shadow-md group-hover:scale-105']
+              : 'bg-surface-container-high text-on-surface-variant'
+          "
         >
-          <span class="material-symbols-outlined text-[28px]">{{ ACHIEVEMENT_META[a.code]?.icon ?? 'workspace_premium' }}</span>
+          <span class="material-symbols-outlined text-[28px]" :class="{ 'opacity-50': !isEarned(code) }">
+            {{ isEarned(code) ? ACHIEVEMENT_META[code].icon : 'lock' }}
+          </span>
+
+          <!-- Салют: разлетающиеся точки поверх значка при получении. -->
+          <template v-if="celebrating.has(code)">
+            <span
+              v-for="n in 12"
+              :key="n"
+              class="firework-particle absolute top-1/2 left-1/2 w-1.5 h-1.5 rounded-full"
+              :class="PARTICLE_COLORS[n % PARTICLE_COLORS.length]"
+              :style="{ '--angle': `${n * 30}deg`, animationDelay: `${(n % 4) * 40}ms` }"
+            />
+          </template>
         </div>
-        <span class="font-headline-sm text-[15px] font-bold text-on-surface leading-snug">
-          {{ ACHIEVEMENT_META[a.code]?.title ?? a.code }}
+
+        <span
+          class="font-headline-sm text-[15px] font-bold leading-snug"
+          :class="isEarned(code) ? 'text-on-surface' : 'text-on-surface-variant'"
+        >
+          {{ ACHIEVEMENT_META[code].title }}
         </span>
-        <span class="font-body-sm text-[11px] text-on-surface-variant mt-2 bg-surface-container-lowest px-2 py-0.5 rounded-full">
-          {{ formatDate(a.earned_at) }}
+
+        <span
+          v-if="isEarned(code)"
+          class="font-body-sm text-[11px] text-on-surface-variant mt-2 bg-surface-container-lowest px-2 py-0.5 rounded-full"
+        >
+          {{ formatDate(earnedAt(code)) }}
+        </span>
+        <span v-else class="font-body-sm text-[11px] text-on-surface-variant mt-2 italic">
+          {{ ACHIEVEMENT_META[code].hint }}
         </span>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.firework-particle {
+  animation: firework-burst 900ms ease-out forwards;
+  transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0);
+}
+
+@keyframes firework-burst {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0) scale(1);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-34px) scale(0.4);
+  }
+}
+</style>
