@@ -52,7 +52,16 @@ export interface MapPlace extends LatLon {
   description: string
   dateText: string
   source: string
+  /** Год события. `null` — дата неизвестна: такие места в хронологию не попадают. */
+  year: number | null
 }
+
+/**
+ * Хронология из кейса: карта показывает не только «где», но и «когда».
+ * Орловщина прошла всю войну — от боёв 1941-го под Мценском до освобождения
+ * 5 августа 1943-го и до госпиталей 1945-го, поэтому шкала охватывает все годы.
+ */
+export const TIMELINE_YEARS = [1941, 1942, 1943, 1944, 1945] as const
 
 export interface RouteStop extends LatLon {
   id: string
@@ -109,9 +118,22 @@ function toPlace(poi: Poi): MapPlace {
     description: poi.description,
     dateText: poi.date_text,
     source: poi.source,
+    year: eventYear(poi),
     lat: poi.lat,
     lon: poi.lon,
   }
+}
+
+/**
+ * Год события. Точную дату сервис отдаёт не всегда: у половины архивных
+ * записей есть только словесная («осень 1941 года»), поэтому год выцепляем
+ * и из неё. Ни там, ни там года нет — место остаётся вне хронологии.
+ */
+function eventYear(poi: Poi): number | null {
+  const iso = poi.event_date ? Number(poi.event_date.slice(0, 4)) : Number.NaN
+  if (Number.isFinite(iso)) return iso
+  const found = poi.date_text.match(/\b(194[1-5])\b/)
+  return found ? Number(found[1]) : null
 }
 
 function buildFilters(pois: Poi[]): RouteFilter[] {

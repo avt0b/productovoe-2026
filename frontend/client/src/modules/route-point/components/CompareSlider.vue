@@ -51,7 +51,7 @@ function onKey(event: KeyboardEvent): void {
 </script>
 
 <template>
-  <div class="relative w-full select-none overflow-hidden rounded-lg bg-surface-container-low shadow-sm">
+  <div class="relative w-full select-none overflow-hidden rounded-2xl bg-surface-container-low shadow-document">
     <div
       ref="container"
       class="relative h-64 w-full touch-none overflow-hidden"
@@ -63,7 +63,7 @@ function onKey(event: KeyboardEvent): void {
       <!-- Сегодня — во всю ширину -->
       <img :src="modernImage" alt="" class="pointer-events-none absolute inset-0 h-full w-full object-cover" />
       <div
-        class="absolute right-3 top-3 z-10 rounded-full bg-surface/85 px-2.5 py-1 font-label-sm text-label-sm text-on-surface shadow-sm backdrop-blur-md"
+        class="absolute right-3 top-3 z-10 rounded-full bg-surface/85 px-2.5 py-1 font-label-sm text-label-sm text-on-surface shadow-float backdrop-blur-md"
       >
         {{ modernLabel }}
       </div>
@@ -80,7 +80,7 @@ function onKey(event: KeyboardEvent): void {
         :style="{ clipPath: `inset(0 ${100 - position}% 0 0)` }"
       />
       <div
-        class="absolute left-3 top-3 z-10 rounded-full bg-surface-dim/90 px-2.5 py-1 font-label-sm text-label-sm text-on-surface shadow-sm backdrop-blur-md"
+        class="absolute left-3 top-3 z-10 rounded-full bg-surface-dim/90 px-2.5 py-1 font-label-sm text-label-sm text-on-surface shadow-float backdrop-blur-md"
       >
         {{ archiveLabel }}
       </div>
@@ -104,10 +104,10 @@ function onKey(event: KeyboardEvent): void {
       </div>
 
       <div class="pointer-events-none absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between">
-        <span class="rounded-full bg-surface/90 px-3 py-1 font-label-sm text-label-sm text-on-surface-variant shadow-sm backdrop-blur-md">
+        <span class="rounded-full bg-surface/90 px-3 py-1 font-label-sm text-label-sm text-on-surface-variant shadow-float backdrop-blur-md">
           {{ source }}
         </span>
-        <span class="rounded-full bg-primary-container px-2.5 py-1 font-label-sm text-label-sm text-on-primary-container shadow-sm">
+        <span class="rounded-full bg-primary-container px-2.5 py-1 font-label-sm text-label-sm text-on-primary-container shadow-float">
           Сравнить эпоху
         </span>
       </div>

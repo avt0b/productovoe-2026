@@ -148,30 +148,38 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
 
 <template>
   <div class="fixed inset-0 z-0 flex flex-col bg-surface">
-    <GeoMap
-      class="absolute inset-0"
-      :markers="markers"
-      :paths="paths"
-      :user="position"
-      :locating="geoStatus === 'locating'"
-      follow
-    />
+    <!--
+      Карта — подложка под панелями, поэтому её растягивает обёртка, а не класс
+      снаружи: у самой `GeoMap` есть `relative`, и в Tailwind он перебивает
+      переданный `absolute` (порядок в таблице стилей, а не в атрибуте). Из-за
+      этого карта оказывалась нулевой высоты, и экран показывал пустой лист.
+    -->
+    <div class="absolute inset-0">
+      <GeoMap
+        class="h-full w-full"
+        :markers="markers"
+        :paths="paths"
+        :user="position"
+        :locating="geoStatus === 'locating'"
+        follow
+      />
+    </div>
 
     <!-- Верх: назад и что за экран. -->
     <div class="pointer-events-none relative z-10 flex items-center gap-space-sm px-space-sm pt-safe">
       <button
         type="button"
         aria-label="К экскурсии"
-        class="pointer-events-auto mt-space-sm flex h-11 w-11 items-center justify-center rounded-full bg-surface-container-lowest text-on-surface shadow-lg active:scale-95"
+        class="pointer-events-auto mt-space-sm flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-night/55 text-white shadow-sheet backdrop-blur-md transition-colors hover:bg-night/70 active:scale-95"
         @click="back"
       >
         <MsIcon name="arrow_back" :size="22" />
       </button>
       <div
-        class="pointer-events-auto mt-space-sm flex min-w-0 items-center gap-space-xs rounded-full bg-surface-container-lowest px-space-md py-2 shadow-lg"
+        class="pointer-events-auto mt-space-sm flex min-w-0 items-center gap-space-xs rounded-full border border-white/15 bg-night/55 px-space-md py-2 shadow-sheet backdrop-blur-md"
       >
-        <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-primary" />
-        <span class="truncate font-label-lg text-label-lg text-on-surface">
+        <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-primary-fixed-dim" />
+        <span class="truncate font-label-lg text-label-lg text-white">
           {{ walk?.status === 'walking' ? 'Группа идёт' : 'Карта группы' }}
         </span>
       </div>
@@ -179,29 +187,36 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
 
     <!-- Низ: куда идём, сколько, и действия. -->
     <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-space-sm pb-safe">
-      <div class="pointer-events-auto mb-space-sm flex flex-col gap-space-sm rounded-xl bg-surface-container-lowest p-space-md shadow-xl">
+      <!--
+        Карточка лежит на карте, поэтому она стеклянная и тёмная — как форма на
+        экране входа поверх фотографии. На светлой подложке карта под ней
+        просвечивала бы и мешала читать.
+      -->
+      <div
+        class="pointer-events-auto mb-space-sm flex flex-col gap-space-sm rounded-2xl border border-white/15 bg-night/55 p-space-md shadow-sheet backdrop-blur-md"
+      >
         <template v-if="loadError">
-          <p class="font-body-md text-body-md text-error">{{ loadError }}</p>
-          <button type="button" class="self-start font-label-lg text-label-lg text-primary" @click="refresh">
+          <p class="rounded-xl bg-error/90 px-space-sm py-2 font-body-sm text-body-sm text-white" role="alert">{{ loadError }}</p>
+          <button type="button" class="self-start font-label-lg text-label-lg text-white underline underline-offset-2" @click="refresh">
             Повторить
           </button>
         </template>
 
-        <p v-else-if="!walk" class="font-body-md text-body-md text-on-surface-variant">Загружаю карту группы…</p>
+        <p v-else-if="!walk" class="font-body-md text-body-md text-white/75">Загружаю карту группы…</p>
 
         <template v-else-if="walk.status === 'finished'">
           <div class="flex items-center gap-space-sm">
-            <span class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container text-on-primary-container">
+            <span class="flex h-10 w-10 items-center justify-center rounded-full bg-tertiary text-on-tertiary">
               <MsIcon name="celebration" :size="22" />
             </span>
             <div class="flex flex-col">
-              <p class="font-headline-sm text-headline-sm text-on-surface">Экскурсия завершена</p>
-              <p class="font-body-sm text-body-sm text-on-surface-variant">Спасибо, что были с группой</p>
+              <p class="font-headline-sm text-headline-sm text-white">Экскурсия завершена</p>
+              <p class="font-body-sm text-body-sm text-white/75">Спасибо, что были с группой</p>
             </div>
           </div>
           <button
             type="button"
-            class="h-11 rounded-full bg-primary font-label-lg text-label-lg text-on-primary active:scale-[0.98]"
+            class="h-11 rounded-full bg-primary-container font-label-lg text-label-lg text-white shadow-stamp transition-colors hover:bg-primary active:scale-[0.98]"
             @click="back"
           >
             К экскурсии
@@ -209,7 +224,7 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
         </template>
 
         <template v-else-if="walk.status !== 'walking' || !destination">
-          <p class="font-body-md text-body-md text-on-surface-variant">
+          <p class="font-body-md text-body-md text-white/75">
             Группа ещё не вышла — карта откроется сама, как только краевед поведёт всех к месту.
           </p>
         </template>
@@ -218,27 +233,29 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
           <div class="flex items-start gap-space-sm">
             <span
               class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-              :class="arrived ? 'bg-primary text-on-primary' : 'bg-primary-container text-on-primary-container'"
+              :class="arrived ? 'bg-tertiary text-on-tertiary' : 'bg-primary-container text-white'"
             >
               <MsIcon :name="arrived ? 'where_to_vote' : 'flag'" :size="22" />
             </span>
             <div class="flex min-w-0 flex-1 flex-col">
-              <p class="truncate font-headline-sm text-headline-sm text-on-surface">
+              <p class="truncate font-headline-sm text-headline-sm text-white">
                 {{ destination.name || 'Памятное место' }}
               </p>
-              <p class="font-label-lg text-label-lg" :class="arrived ? 'text-primary' : 'text-on-surface'">
+              <p class="font-label-lg text-label-lg" :class="arrived ? 'text-tertiary-fixed-dim' : 'text-white'">
                 {{ summary }}
               </p>
-              <p class="font-body-sm text-body-sm text-on-surface-variant">{{ guideHint }}</p>
+              <p class="font-body-sm text-body-sm text-white/75">{{ guideHint }}</p>
             </div>
           </div>
 
-          <p v-if="actionError" class="font-body-sm text-body-sm text-error">{{ actionError }}</p>
+          <p v-if="actionError" class="rounded-xl bg-error/90 px-space-sm py-2 font-body-sm text-body-sm text-white" role="alert">
+            {{ actionError }}
+          </p>
 
           <div class="flex gap-space-xs">
             <button
               type="button"
-              class="flex h-11 flex-1 items-center justify-center gap-space-xs rounded-full bg-primary font-label-lg text-label-lg text-on-primary active:scale-[0.98]"
+              class="flex h-11 flex-1 items-center justify-center gap-space-xs rounded-full bg-primary-container font-label-lg text-label-lg text-white shadow-stamp transition-colors hover:bg-primary active:scale-[0.98]"
               @click="openNavigator"
             >
               <MsIcon name="navigation" :size="18" />
@@ -247,7 +264,7 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
             <button
               v-if="isGuide"
               type="button"
-              class="flex h-11 flex-1 items-center justify-center gap-space-xs rounded-full bg-secondary-container font-label-lg text-label-lg text-on-secondary-container active:scale-[0.98] disabled:opacity-60"
+              class="flex h-11 flex-1 items-center justify-center gap-space-xs rounded-full border border-white/20 bg-white/10 font-label-lg text-label-lg text-white backdrop-blur-sm transition-colors hover:bg-white/20 active:scale-[0.98] disabled:opacity-60"
               :disabled="busy"
               @click="picking = true"
             >
@@ -260,7 +277,7 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
             v-if="isGuide"
             type="button"
             class="h-10 rounded-full font-label-lg text-label-lg active:scale-[0.98] disabled:opacity-60"
-            :class="confirmFinish ? 'bg-error text-on-error' : 'text-on-surface-variant'"
+            :class="confirmFinish ? 'bg-error text-white' : 'text-white/75 hover:text-white'"
             :disabled="busy"
             @click="finish"
           >

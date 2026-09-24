@@ -73,7 +73,7 @@ function choose(poi: Poi): void {
         <li v-for="{ poi, km } in nearest" :key="poi.id">
           <button
             type="button"
-            class="flex w-full items-center gap-space-sm rounded-lg px-space-xs py-space-sm text-left transition-colors hover:bg-surface-container active:bg-surface-container-high disabled:opacity-60"
+            class="flex w-full items-center gap-space-sm rounded-2xl px-space-xs py-space-sm text-left transition-colors hover:bg-surface-container active:bg-surface-container-high disabled:opacity-60"
             :disabled="busy"
             @click="choose(poi)"
           >

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 
 import { formatCoordinates } from '@/core/geo'
 import MsIcon from '@/ui/MsIcon.vue'
+import FormTextarea from '@/ui/form/FormTextarea.vue'
 
 import { ENTRY_KINDS, ENTRY_STATUS, type ArchiveEntry } from '../data'
 
@@ -15,6 +16,8 @@ const props = defineProps<{
   mine?: boolean
   reviewable?: boolean
   busy?: boolean
+  /** Сюда только что привели — карточку надо заметить. */
+  focused?: boolean
 }>()
 
 const emit = defineEmits<{ review: [verdict: 'verify' | 'reject', note: string] }>()
@@ -23,109 +26,115 @@ const expanded = ref(false)
 const rejecting = ref(false)
 const note = ref('')
 
-function confirmReject(): void {
-  emit('review', 'reject', note.value.trim())
-}
-
 const longBody = props.entry.body.length > 220
 </script>
 
 <template>
-  <article class="flex flex-col gap-space-sm rounded-DEFAULT bg-surface-container-lowest p-space-md shadow-sm">
+  <article
+    class="flex scroll-mt-space-md flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document ring-tertiary/60 transition-shadow duration-300"
+    :class="{ 'ring-2': focused }"
+  >
     <div class="flex items-center justify-between gap-space-xs">
-      <span class="inline-flex items-center gap-1 font-label-sm text-label-sm uppercase tracking-wider text-outline">
-        <MsIcon :name="ENTRY_KINDS[entry.kind].icon" :size="15" />
-        {{ ENTRY_KINDS[entry.kind].title }}
+      <span class="flex min-w-0 items-center gap-1 font-archival text-archival uppercase text-on-surface-variant">
+        <MsIcon :name="ENTRY_KINDS[entry.kind].icon" :size="15" class="shrink-0" />
+        <span class="truncate">{{ ENTRY_KINDS[entry.kind].title }}</span>
       </span>
       <span
         v-if="mine || reviewable || entry.status === 'verified'"
-        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-label-sm text-label-sm"
+        class="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 font-label-sm text-label-sm"
         :class="ENTRY_STATUS[entry.status].class"
       >
-        <MsIcon :name="ENTRY_STATUS[entry.status].icon" :size="13" :filled="entry.status === 'verified'" />
+        <MsIcon :name="ENTRY_STATUS[entry.status].icon" :size="15" :filled="entry.status === 'verified'" />
         {{ ENTRY_STATUS[entry.status].title }}
       </span>
     </div>
 
     <div>
-      <h4 class="font-headline-sm text-headline-sm leading-tight text-on-surface">{{ entry.title }}</h4>
-      <p v-if="entry.date_text" class="mt-0.5 font-label-md text-label-md text-primary">{{ entry.date_text }}</p>
+      <h3 class="font-headline-sm text-headline-sm text-on-surface">{{ entry.title }}</h3>
+      <p v-if="entry.date_text" class="font-label-md text-label-md text-on-surface-variant">{{ entry.date_text }}</p>
     </div>
 
-    <p
-      v-if="entry.body"
-      class="whitespace-pre-line font-body-sm text-body-sm text-on-surface-variant"
-      :class="{ 'line-clamp-4': longBody && !expanded }"
-    >
-      {{ entry.body }}
-    </p>
-    <button
-      v-if="longBody"
-      type="button"
-      class="self-start font-label-md text-label-md text-primary"
-      @click="expanded = !expanded"
-    >
-      {{ expanded ? 'Свернуть' : 'Читать полностью' }}
-    </button>
+    <template v-if="entry.body">
+      <p
+        class="whitespace-pre-line font-body-sm text-body-sm text-on-surface-variant"
+        :class="{ 'line-clamp-4': longBody && !expanded }"
+      >
+        {{ entry.body }}
+      </p>
+      <button
+        v-if="longBody"
+        type="button"
+        class="-mt-space-xs self-start font-label-md text-label-md text-secondary"
+        :aria-expanded="expanded"
+        @click="expanded = !expanded"
+      >
+        {{ expanded ? 'Свернуть' : 'Читать полностью' }}
+      </button>
+    </template>
 
-    <img v-if="entry.media_url" :src="entry.media_url" alt="" class="max-h-56 w-full rounded-DEFAULT object-cover" />
+    <img v-if="entry.media_url" :src="entry.media_url" alt="" class="max-h-56 w-full rounded-2xl object-cover" loading="lazy" />
 
-    <p v-if="entry.lat !== null && entry.lon !== null" class="flex items-center gap-1 font-body-sm text-body-sm text-outline">
-      <MsIcon name="pin_drop" :size="15" />
+    <p v-if="entry.lat !== null && entry.lon !== null" class="flex items-center gap-1 font-body-sm text-body-sm text-on-surface-variant">
+      <MsIcon name="pin_drop" :size="15" class="shrink-0" />
       {{ formatCoordinates({ lat: entry.lat, lon: entry.lon }) }}
     </p>
 
-    <p
-      v-if="mine && entry.review_note"
-      class="rounded-DEFAULT bg-surface-container-low px-3 py-2 font-body-sm text-body-sm text-on-surface-variant"
-    >
-      Комментарий проверяющего: {{ entry.review_note }}
-    </p>
+    <div v-if="mine && entry.review_note" class="flex flex-col gap-0.5 rounded-2xl bg-surface-container-low px-space-sm py-2">
+      <span class="font-archival text-archival uppercase text-on-surface-variant">Комментарий проверяющего</span>
+      <p class="font-body-sm text-body-sm text-on-surface">{{ entry.review_note }}</p>
+    </div>
 
-    <template v-if="reviewable">
-      <div v-if="!rejecting" class="grid grid-cols-2 gap-space-sm pt-space-xs">
+    <div v-if="reviewable" class="flex flex-col pt-space-xs">
+      <div class="grid grid-cols-2 gap-space-sm">
         <button
           type="button"
-          class="flex items-center justify-center gap-1.5 rounded-full bg-secondary py-2.5 font-label-md text-label-md text-on-secondary disabled:opacity-60"
+          class="flex items-center justify-center gap-1.5 rounded-full bg-tertiary py-2.5 font-label-md text-label-md text-on-tertiary transition-all active:scale-[0.99] disabled:opacity-60"
           :disabled="busy"
           @click="emit('review', 'verify', '')"
         >
-          <MsIcon :name="busy ? 'progress_activity' : 'verified'" :size="18" :class="{ 'animate-spin': busy }" />
+          <MsIcon :name="busy && !rejecting ? 'progress_activity' : 'verified'" :size="18" :class="{ 'animate-spin': busy && !rejecting }" filled />
           Подтвердить
         </button>
         <button
           type="button"
-          class="flex items-center justify-center gap-1.5 rounded-full bg-surface-container-high py-2.5 font-label-md text-label-md text-on-surface disabled:opacity-60"
+          class="flex items-center justify-center gap-1.5 rounded-full py-2.5 font-label-md text-label-md transition-colors duration-200 active:scale-[0.99] disabled:opacity-60"
+          :class="rejecting ? 'bg-inverse-surface text-inverse-on-surface' : 'bg-surface-container-high text-on-surface'"
           :disabled="busy"
-          @click="rejecting = true"
+          :aria-expanded="rejecting"
+          @click="rejecting = !rejecting"
         >
           <MsIcon name="block" :size="18" />
           Отклонить
         </button>
       </div>
-      <form v-else class="flex flex-col gap-space-xs pt-space-xs" @submit.prevent="confirmReject">
-        <label class="sr-only" :for="`note-${entry.id}`">Почему отклонено</label>
-        <textarea
-          :id="`note-${entry.id}`"
-          v-model="note"
-          rows="2"
-          maxlength="1000"
-          placeholder="Почему: не нашли в Книге Памяти, нужны документы…"
-          class="w-full rounded-DEFAULT bg-surface-container-low px-3 py-2 font-body-sm text-body-sm text-on-surface outline-none focus:ring-2 focus:ring-primary"
-        />
-        <div class="grid grid-cols-2 gap-space-sm">
-          <button type="button" class="rounded-full bg-surface-container-high py-2.5 font-label-md text-label-md" @click="rejecting = false">
-            Назад
-          </button>
+
+      <!-- Причина отказа раскрывается под кнопками: автор увидит её у себя в «Моих записях». -->
+      <div
+        class="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+        :class="rejecting ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+        :inert="!rejecting"
+      >
+        <form class="flex flex-col gap-space-sm overflow-hidden" @submit.prevent="emit('review', 'reject', note.trim())">
+          <div class="pt-space-sm">
+            <FormTextarea
+              v-model="note"
+              label="Почему отклонено"
+              :rows="2"
+              :maxlength="1000"
+              placeholder="Не нашли в Книге Памяти, нужны документы…"
+              hint="Автор увидит комментарий и сможет дополнить запись"
+            />
+          </div>
           <button
             type="submit"
-            class="rounded-full bg-error py-2.5 font-label-md text-label-md text-on-error disabled:opacity-60"
+            class="flex items-center justify-center gap-1.5 rounded-full bg-inverse-surface py-2.5 font-label-md text-label-md text-inverse-on-surface active:scale-[0.99] disabled:opacity-60"
             :disabled="busy"
           >
-            Отклонить
+            <MsIcon v-if="busy" name="progress_activity" :size="18" class="animate-spin" />
+            Отклонить запись
           </button>
-        </div>
-      </form>
-    </template>
+        </form>
+      </div>
+    </div>
   </article>
 </template>

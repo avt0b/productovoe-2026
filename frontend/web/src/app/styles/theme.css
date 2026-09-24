@@ -20,7 +20,12 @@
   --color-ribbon-orange: #e8a33d;
   --color-ribbon-orange-deep: #c97f1c;
   --color-ribbon-orange-pale: #f6dcae;
-  /* Ночной слой: тёмные подложки поверх фото. */
+  /*
+   * Ночной слой: экран входа лежит на фотографии, и поверх неё нужен
+   * затемняющий подмалёвок плюс стеклянные поверхности формы. Значения — те
+   * же, что в мобильном клиенте (frontend/client/tailwind.config.js): экран
+   * входа в вебе и в приложении должен читаться как один и тот же.
+   */
   --color-night: #0d0b09;
   --color-night-soft: #1d1815;
   /* Выцветшие чернила — текст и штампы на пергаменте. */
@@ -172,6 +177,8 @@
   --text-archival--line-height: 14px;
   --text-archival--letter-spacing: 0.18em;
   --text-archival--font-weight: 700;
+  /* Ширина «телефона»: карточка входа не растягивается во весь экран. */
+  --container-app: 480px;
 }
 
 @layer base {

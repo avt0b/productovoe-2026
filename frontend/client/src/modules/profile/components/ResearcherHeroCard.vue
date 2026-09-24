@@ -5,7 +5,7 @@ import { formatNumber } from '@/core/format'
 import type { SessionUser } from '@/core/session'
 import MsIcon from '@/ui/MsIcon.vue'
 
-import type { HeroCounter } from '../data'
+import { ROLES, type HeroCounter } from '../data'
 
 const props = defineProps<{
   /** null — модуль входа убран и человек не входил: показываем гостя. */
@@ -27,69 +27,72 @@ const sinceLabel = computed(() => {
   const month = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(date).replace(/^\d+\s*/, '')
   return `В проекте с ${month} ${date.getFullYear()}`
 })
+
+const role = computed(() => (props.user?.role ? ROLES[props.user.role] : null))
 </script>
 
 <template>
-  <div class="relative flex flex-col gap-space-lg overflow-hidden rounded-lg bg-secondary p-space-lg text-on-secondary shadow-lg">
-    <div class="pointer-events-none absolute -bottom-10 -right-8 h-44 w-44 rounded-full bg-secondary-container/10 blur-xl" />
-    <div class="pointer-events-none absolute -left-6 -top-6 h-32 w-32 rounded-full bg-surface-container-lowest/5" />
-
-    <div class="relative z-10 flex items-start gap-space-md">
+  <section class="flex flex-col gap-space-md rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
+    <div class="flex items-start gap-space-md">
       <div class="relative shrink-0">
-        <div class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-secondary-fixed text-secondary shadow-md">
-          <img v-if="user?.avatarUrl" :src="user.avatarUrl" alt="" class="h-full w-full object-cover" />
-          <MsIcon v-else name="person" :size="32" />
-        </div>
         <div
+          class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-secondary-container text-on-secondary-container short:h-14 short:w-14"
+        >
+          <img v-if="user?.avatarUrl" :src="user.avatarUrl" alt="" class="h-full w-full object-cover" />
+          <MsIcon v-else name="person" :size="28" />
+        </div>
+        <span
           v-if="verified"
-          class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-on-primary shadow-sm"
+          class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-tertiary text-on-tertiary ring-2 ring-surface-container-lowest"
           title="Профиль подтверждён"
         >
           <MsIcon name="verified" :size="15" filled />
-        </div>
+          <span class="sr-only">Профиль подтверждён</span>
+        </span>
       </div>
 
-      <div class="flex min-w-0 flex-1 flex-col">
-        <div class="flex items-center justify-between gap-space-xs">
-          <h2 class="truncate font-headline-md text-headline-md leading-tight text-on-secondary">
-            {{ user?.name ?? 'Гость' }}
-          </h2>
-          <button
-            v-if="user"
-            type="button"
-            aria-label="Цифровой жетон исследователя"
-            class="flex h-8 w-8 items-center justify-center rounded-full bg-on-secondary/15 transition-transform hover:bg-on-secondary/25 active:scale-95"
-            @click="$emit('open-token')"
-          >
-            <MsIcon name="qr_code_2" :size="18" />
-          </button>
-        </div>
-        <p class="mt-0.5 font-body-sm text-body-sm leading-snug text-secondary-fixed-dim">
-          {{ user?.headline ?? 'Войдите, чтобы сохранять маршруты и находки' }}
+      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p class="font-archival text-archival uppercase text-on-surface-variant">
+          {{ role ? role.title : 'Исследователь' }}{{ verified ? ' · подтверждён' : '' }}
         </p>
-        <div v-if="user" class="mt-1.5 flex flex-wrap items-center gap-space-xs">
+        <h1
+          class="ribbon-shimmer font-headline-lg [overflow-wrap:anywhere] text-headline-lg text-on-surface [--shimmer-base:theme(colors.ink.DEFAULT)] short:text-headline-lg-mobile"
+        >
+          {{ user?.name ?? 'Гость' }}
+        </h1>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">
+          {{ user?.headline || 'Войдите, чтобы сохранять маршруты и находки' }}
+        </p>
+        <div v-if="user && (user.city || sinceLabel)" class="mt-space-xs flex flex-wrap items-center gap-space-xs">
           <span
             v-if="user.city"
-            class="inline-flex items-center gap-1 rounded-full bg-on-secondary/15 px-2 py-0.5 font-label-sm text-label-sm text-on-secondary"
+            class="flex items-center gap-1 rounded-full bg-surface-container-high px-2 py-0.5 font-label-sm text-label-sm text-on-surface"
           >
-            <MsIcon name="location_on" :size="12" />
+            <MsIcon name="location_on" :size="15" />
             {{ user.city }}
           </span>
-          <span v-if="sinceLabel" class="font-label-sm text-label-sm text-secondary-fixed-dim">{{ sinceLabel }}</span>
+          <span v-if="sinceLabel" class="font-label-sm text-label-sm text-on-surface-variant">{{ sinceLabel }}</span>
         </div>
       </div>
+
+      <button
+        v-if="user"
+        type="button"
+        aria-label="Жетон исследователя"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-on-surface active:scale-95"
+        @click="$emit('open-token')"
+      >
+        <MsIcon name="badge" :size="20" />
+      </button>
     </div>
 
-    <div class="relative z-10 grid grid-cols-3 gap-space-xs rounded-DEFAULT bg-on-secondary/10 p-space-sm backdrop-blur-sm">
-      <div v-for="counter in counters" :key="counter.label" class="flex flex-col items-center px-1 py-0.5 text-center">
-        <span
-          class="font-headline-md text-headline-md font-bold"
-          :class="counter.accent ? 'text-tertiary-fixed' : 'text-on-secondary'"
-        >
+    <dl class="grid grid-cols-3 divide-x divide-outline-variant/60">
+      <div v-for="counter in counters" :key="counter.label" class="flex flex-col-reverse items-center justify-end px-1 text-center">
+        <dt class="font-label-sm text-label-sm leading-tight text-on-surface-variant">{{ counter.label }}</dt>
+        <dd class="font-headline-md text-headline-md" :class="counter.accent ? 'text-tertiary' : 'text-on-surface'">
           {{ formatNumber(counter.value) }}
-        </span>
-        <span class="mt-0.5 font-label-sm text-label-sm leading-tight text-secondary-fixed-dim">{{ counter.label }}</span>
+        </dd>
       </div>
-    </div>
-  </div>
+    </dl>
+  </section>
 </template>

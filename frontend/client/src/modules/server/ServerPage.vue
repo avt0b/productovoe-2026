@@ -42,6 +42,7 @@ const saving = ref(false)
 const origin = computed(() => normalizeOrigin(address.value))
 const candidate = computed<ServerChoice | null>(() => (origin.value ? { mode: mode.value, origin: origin.value } : null))
 const current = computed(() => serverLabel())
+const modeHint = computed(() => MODES.find((option) => option.value === mode.value)?.hint ?? '')
 
 // Поменяли адрес или режим — прошлая проверка уже не про него.
 watch(candidate, () => (results.value = null))
@@ -71,6 +72,7 @@ const preview = computed(() =>
 )
 
 const downCount = computed(() => results.value?.filter((result) => result.state === 'down').length ?? 0)
+const okCount = computed(() => results.value?.filter((result) => result.state === 'ok').length ?? 0)
 
 const STATE_ICON = {
   ok: { name: 'check_circle', class: 'text-secondary' },
@@ -94,6 +96,9 @@ function sameAsCurrent(next: ServerChoice | null): boolean {
   return now.mode === next.mode && now.origin === next.origin
 }
 
+/** Смена сервера закрывает сессию — говорим об этом до нажатия, а не после. */
+const willSignOut = computed(() => session.isAuthenticated && candidate.value !== null && !sameAsCurrent(candidate.value))
+
 /**
  * Применить выбор. Токены одного сервера на другом недействительны, поэтому
  * сессия закрывается — на старом сервере, пока выбор ещё не сменился.
@@ -115,98 +120,113 @@ async function apply(next: ServerChoice | null): Promise<void> {
 </script>
 
 <template>
-  <div class="flex w-full flex-col gap-space-md px-margin pb-space-xl pt-space-sm">
+  <div class="flex w-full flex-col gap-space-md px-margin pb-space-xl pt-space-sm short:gap-space-sm">
     <InlineNotice icon="science">
       Экран для тестов: к какому бэкенду подключаться. После смены сервера нужно войти заново. Перед релизом экран
       уберём.
     </InlineNotice>
 
-    <div class="flex items-center gap-space-sm rounded-lg bg-surface-container-low p-space-md">
-      <MsIcon name="dns" :size="22" class="shrink-0 text-secondary" />
+    <section class="flex items-center gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
+      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container" aria-hidden="true">
+        <MsIcon name="dns" :size="20" />
+      </span>
       <div class="min-w-0">
-        <span class="block font-label-sm text-label-sm text-outline">Сейчас</span>
-        <span class="block truncate font-label-lg text-label-lg text-on-surface">{{ current }}</span>
+        <p class="font-archival text-archival uppercase text-on-surface-variant">Сейчас подключено</p>
+        <p class="truncate font-headline-sm text-headline-sm text-on-surface">{{ current }}</p>
       </div>
-    </div>
+    </section>
 
-    <fieldset class="flex flex-col gap-space-sm">
-      <legend class="mb-1 font-label-md text-label-md text-on-surface">Как подняты сервисы</legend>
-      <div class="grid grid-cols-2 gap-space-sm">
-        <button
-          v-for="option in MODES"
-          :key="option.value"
-          type="button"
-          class="flex flex-col items-start gap-0.5 rounded-DEFAULT p-space-sm text-left transition-colors"
-          :class="mode === option.value ? 'bg-secondary text-on-secondary' : 'bg-surface-container-low text-on-surface'"
-          :aria-pressed="mode === option.value"
-          @click="mode = option.value"
-        >
-          <span class="font-label-lg text-label-lg">{{ option.title }}</span>
-          <span class="font-body-sm text-body-sm opacity-80">{{ option.hint }}</span>
-        </button>
-      </div>
-    </fieldset>
-
-    <form class="flex flex-col gap-space-sm" @submit.prevent="check">
-      <FormInput
-        v-model="address"
-        label="Адрес компьютера или шлюза"
-        type="text"
-        inputmode="url"
-        placeholder="192.168.1.10"
-        :hint="mode === 'ports' ? 'Только адрес: порты сервисов подставятся сами' : 'Например, https://marshruty.ru'"
-      />
-
-      <div class="flex flex-wrap gap-space-xs">
-        <button
-          v-for="suggestion in suggestions"
-          :key="suggestion"
-          type="button"
-          class="rounded-full bg-surface-container px-3 py-1.5 font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high"
-          @click="address = suggestion"
-        >
-          {{ suggestion }}
-        </button>
+    <section class="flex flex-col gap-space-md rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
+      <div>
+        <p class="font-archival text-archival uppercase text-on-surface-variant">Новый сервер</p>
+        <h2 class="font-headline-sm text-headline-sm text-on-surface">Куда подключиться</h2>
       </div>
 
-      <p v-if="address && !origin" class="font-body-sm text-body-sm text-error" role="alert">
-        Не получилось разобрать адрес — нужен вид 192.168.1.10 или https://example.ru
-      </p>
+      <!-- Два режима — подложка едет, как на экране входа. -->
+      <div class="flex flex-col gap-space-xs">
+        <div class="relative grid grid-cols-2 rounded-xl bg-surface-container p-1 text-center" role="radiogroup" aria-label="Как подняты сервисы">
+          <span
+            class="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-lg bg-surface-container-lowest shadow-float transition-transform duration-300 ease-out"
+            :class="mode === 'gateway' ? 'translate-x-full' : 'translate-x-0'"
+            aria-hidden="true"
+          />
+          <button
+            v-for="option in MODES"
+            :key="option.value"
+            type="button"
+            role="radio"
+            :aria-checked="mode === option.value"
+            class="relative z-10 rounded-lg py-2 font-label-md text-label-md transition-colors duration-200"
+            :class="mode === option.value ? 'text-on-surface' : 'text-on-surface-variant'"
+            @click="mode = option.value"
+          >
+            {{ option.title }}
+          </button>
+        </div>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">{{ modeHint }}</p>
+      </div>
 
-      <div class="grid grid-cols-2 gap-space-sm pt-space-xs">
+      <form class="flex flex-col gap-space-sm" @submit.prevent="check">
+        <FormInput
+          v-model="address"
+          label="Адрес компьютера или шлюза"
+          type="text"
+          inputmode="url"
+          placeholder="192.168.1.10"
+          :hint="mode === 'ports' ? 'Только адрес: порты сервисов подставятся сами' : 'Например, https://marshruty.ru'"
+        />
+
+        <div class="flex flex-wrap gap-space-xs">
+          <button
+            v-for="suggestion in suggestions"
+            :key="suggestion"
+            type="button"
+            class="rounded-full px-space-sm py-1.5 font-label-md text-label-md transition-colors duration-200 active:scale-95"
+            :class="address === suggestion ? 'bg-secondary text-on-secondary' : 'bg-surface-container-high text-on-surface'"
+            @click="address = suggestion"
+          >
+            {{ suggestion }}
+          </button>
+        </div>
+
+        <p v-if="address && !origin" class="font-body-sm text-body-sm text-error" role="alert">
+          Не получилось разобрать адрес — нужен вид 192.168.1.10 или https://example.ru
+        </p>
+
         <button
           type="submit"
-          class="flex items-center justify-center gap-1.5 rounded-full bg-secondary-container py-3 font-label-lg text-label-lg text-on-secondary-container active:scale-[0.99] disabled:opacity-60"
+          class="flex items-center justify-center gap-space-xs self-start rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95 disabled:opacity-60"
           :disabled="!candidate || checking"
         >
-          <MsIcon :name="checking ? 'progress_activity' : 'network_check'" :size="20" :class="{ 'animate-spin': checking }" />
-          Проверить
+          <MsIcon :name="checking ? 'progress_activity' : 'network_check'" :size="18" :class="{ 'animate-spin': checking }" />
+          Проверить сервисы
         </button>
-        <button
-          type="button"
-          class="flex items-center justify-center gap-1.5 rounded-full bg-primary py-3 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99] disabled:opacity-60"
-          :disabled="!candidate || saving"
-          @click="apply(candidate)"
-        >
-          <MsIcon name="save" :size="20" />
-          Подключиться
-        </button>
-      </div>
-    </form>
+      </form>
+    </section>
 
-    <section class="flex flex-col gap-space-xs rounded-lg bg-surface-container-lowest p-space-md shadow-sm">
-      <h2 class="font-label-lg text-label-lg text-on-surface">Куда пойдут запросы</h2>
-      <ul class="flex flex-col divide-y divide-surface-container">
+    <section class="flex flex-col gap-space-xs rounded-2xl bg-surface-container-lowest px-space-md pt-space-md shadow-document">
+      <div class="flex items-center justify-between gap-space-sm">
+        <h2 class="font-label-lg text-label-lg text-on-surface">Куда пойдут запросы</h2>
+        <span
+          v-if="results"
+          class="rounded-full px-2 py-0.5 font-label-sm text-label-sm"
+          :class="downCount ? 'bg-error-container text-on-error-container' : 'bg-secondary-container text-on-secondary-container'"
+        >
+          {{ okCount }} из {{ SERVICE_NAMES.length }} отвечают
+        </span>
+      </div>
+      <ul class="flex flex-col divide-y divide-outline-variant/60">
         <li v-for="row in preview" :key="row.service" class="flex items-center gap-space-sm py-2">
           <MsIcon
             :name="row.state ? STATE_ICON[row.state].name : 'radio_button_unchecked'"
-            :size="20"
+            :size="18"
             class="shrink-0"
-            :class="row.state ? STATE_ICON[row.state].class : 'text-outline'"
+            :class="row.state ? STATE_ICON[row.state].class : 'text-on-surface-variant'"
+            :filled="row.state === 'ok'"
           />
           <div class="min-w-0 flex-1">
             <span class="block font-label-md text-label-md text-on-surface">{{ row.title }}</span>
-            <span class="block truncate font-mono text-label-sm text-outline">{{ row.url }}</span>
+            <span class="block truncate font-label-sm text-label-sm font-normal text-on-surface-variant">{{ row.url }}</span>
           </div>
           <span v-if="row.detail" class="shrink-0 font-label-sm text-label-sm text-on-surface-variant">{{ row.detail }}</span>
         </li>
@@ -219,15 +239,30 @@ async function apply(next: ServerChoice | null): Promise<void> {
       <code>CORS_ORIGINS</code> сервиса (у APK — <code>https://localhost</code>).
     </InlineNotice>
 
-    <button
-      v-if="serverChoice"
-      type="button"
-      class="flex items-center justify-center gap-1.5 rounded-full bg-surface-container-high py-3 font-label-lg text-label-lg text-on-surface active:scale-[0.99] disabled:opacity-60"
-      :disabled="saving"
-      @click="apply(null)"
-    >
-      <MsIcon name="restart_alt" :size="20" />
-      Вернуть адреса из сборки
-    </button>
+    <div class="flex flex-col gap-space-sm">
+      <p v-if="willSignOut" class="text-center font-body-sm text-body-sm text-on-surface-variant">
+        Сессия закроется — на новом сервере войдёте заново
+      </p>
+      <p v-else-if="!candidate" class="text-center font-body-sm text-body-sm text-on-surface-variant">Введите адрес сервера</p>
+      <button
+        type="button"
+        class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-70 short:py-2.5"
+        :disabled="!candidate || saving"
+        @click="apply(candidate)"
+      >
+        <MsIcon :name="saving ? 'progress_activity' : 'link'" :size="18" :class="{ 'animate-spin': saving }" />
+        <span>Подключиться</span>
+      </button>
+      <button
+        v-if="serverChoice"
+        type="button"
+        class="flex items-center justify-center gap-space-xs self-center rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95 disabled:opacity-60"
+        :disabled="saving"
+        @click="apply(null)"
+      >
+        <MsIcon name="restart_alt" :size="18" />
+        Вернуть адреса из сборки
+      </button>
+    </div>
   </div>
 </template>

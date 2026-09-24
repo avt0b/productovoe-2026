@@ -23,7 +23,7 @@ const style = computed(() => STYLE[props.tone])
 
 <template>
   <p
-    class="flex items-start gap-2 rounded-DEFAULT px-3 py-2 font-body-sm text-body-sm"
+    class="flex items-start gap-space-sm rounded-DEFAULT px-space-sm py-2 font-body-sm text-body-sm"
     :class="style.box"
     :role="tone === 'error' ? 'alert' : 'status'"
   >

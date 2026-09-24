@@ -17,7 +17,7 @@ const TONES: Record<ExcursionStatus, { chip: string; icon: string }> = {
 
 <template>
   <span
-    class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-label-sm text-label-sm"
+    class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-archival text-archival uppercase"
     :class="TONES[status].chip"
   >
     <MsIcon :name="TONES[status].icon" :size="14" :class="{ 'animate-pulse': status === 'gathering' || status === 'walking' }" />

@@ -29,12 +29,6 @@ export interface RoutePoint {
     modernLabel: string
     source: string
   }
-  audio?: {
-    title: string
-    author: string
-    durationSeconds: number
-    positionSeconds: number
-  }
   quest?: {
     points: number
     title: string
@@ -51,7 +45,7 @@ export interface RoutePoint {
   arHint: string | null
   /** Где точка на земле — AR наводит на неё. */
   location: LatLon
-  /** Аудио рассказа, если автор точки его записал. */
+  /** Запись рассказа о точке, если автор её приложил. Её играет карточка «Голос эпохи». */
   audioUrl: string | null
   /**
    * Место траурное — братская могила или мемориал. Проводника-маскота там не

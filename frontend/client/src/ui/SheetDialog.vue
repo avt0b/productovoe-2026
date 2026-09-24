@@ -45,8 +45,12 @@ onBeforeUnmount(() => {
     @click.self="emit('close')"
   >
     <div
-      class="pb-safe flex max-h-[92vh] w-full max-w-app flex-col overflow-hidden rounded-t-lg bg-surface-container-lowest shadow-2xl sm:rounded-lg"
+      class="pb-safe flex max-h-[92vh] w-full max-w-app flex-col overflow-hidden rounded-t-sheet bg-surface-container-lowest shadow-sheet sm:rounded-sheet"
     >
+      <!-- «Ручка»: показывает, что окно выезжает снизу, и куда тянуть, чтобы его закрыть. -->
+      <div class="flex justify-center pt-space-sm sm:hidden" aria-hidden="true">
+        <span class="h-1 w-10 rounded-full bg-outline-variant" />
+      </div>
       <div class="flex items-start justify-between gap-space-sm px-space-md pb-space-sm pt-space-md">
         <div class="min-w-0">
           <h3 class="font-headline-sm text-headline-sm text-on-surface">{{ title }}</h3>

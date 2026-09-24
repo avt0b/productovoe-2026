@@ -7,10 +7,11 @@ import { errorText, plural } from '@/core/format'
 import { geolocationProblem, useGeolocation } from '@/core/geo'
 import { useSessionStore } from '@/core/session'
 import { BumpPad, TogetherOverlay, useBump } from '@/features/bump'
+import AccountRequired from '@/ui/AccountRequired.vue'
+import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
-import AccountRequired from './components/AccountRequired.vue'
 import DestinationPicker from './components/DestinationPicker.vue'
 import {
   fetchExcursion,
@@ -212,11 +213,6 @@ async function leadGroup(target: WalkTarget): Promise<void> {
 /** Откуда считать «ближайшие места»: где краевед сейчас, а без GPS — место сбора. */
 const pickFrom = computed(() => position.value ?? (excursion.value ? { lat: excursion.value.lat, lon: excursion.value.lon } : { lat: 52.9686, lon: 36.0694 }))
 
-const NOTICE_TONES: Record<Notice['tone'], string> = {
-  info: 'bg-surface-container-high text-on-surface-variant',
-  error: 'bg-error-container text-on-error-container',
-  success: 'bg-secondary-container text-on-secondary-container',
-}
 </script>
 
 <template>
@@ -239,21 +235,15 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
         </p>
       </div>
 
-      <div
-        v-if="!isGuide && !isRegistered"
-        class="flex items-start gap-space-sm rounded-lg bg-surface-container-low p-space-md"
-      >
-        <MsIcon name="info" :size="20" class="mt-0.5 shrink-0 text-secondary" />
-        <p class="font-body-sm text-body-sm text-on-surface-variant">
-          Вы не записаны на эту экскурсию — отметиться на месте могут только записавшиеся заранее.
-        </p>
-      </div>
+      <InlineNotice v-if="!isGuide && !isRegistered">
+        Вы не записаны на эту экскурсию — отметиться на месте могут только записавшиеся заранее.
+      </InlineNotice>
 
       <template v-else>
         <!-- Сколько уже в группе -->
-        <div class="flex items-center justify-between rounded-lg bg-surface-container-lowest p-space-md shadow-sm">
+        <div class="flex items-center justify-between rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
           <div>
-            <p class="font-label-sm text-label-sm uppercase tracking-wide text-outline">В группе</p>
+            <p class="font-archival text-archival uppercase text-on-surface-variant">В группе</p>
             <p class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">
               {{ gathering?.checked_in_count ?? excursion.checked_in_count }}
               <span class="font-body-md text-body-md text-on-surface-variant">
@@ -273,7 +263,7 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
         <!-- Подготовка: разрешения только из нажатия -->
         <section
           v-if="phase === 'setup' && excursion.status !== 'finished' && excursion.status !== 'cancelled'"
-          class="flex flex-col items-center gap-space-sm rounded-lg bg-surface-container-lowest p-space-lg text-center shadow-sm"
+          class="flex flex-col items-center gap-space-sm rounded-2xl bg-surface-container-lowest p-space-lg text-center shadow-document"
         >
           <div class="flex h-20 w-20 items-center justify-center rounded-full bg-primary-fixed text-primary">
             <MsIcon name="vibration" :size="40" />
@@ -290,7 +280,7 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
           </p>
           <button
             type="button"
-            class="mt-space-xs flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+            class="mt-space-xs flex w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99]"
             @click="getReady"
           >
             <MsIcon name="sensors" :size="20" />
@@ -312,13 +302,11 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
           @shake="sensor.trigger"
         />
 
-        <p v-if="notice" class="rounded-DEFAULT px-3 py-2 text-center font-body-sm text-body-sm" :class="NOTICE_TONES[notice.tone]" role="status">
-          {{ notice.text }}
-        </p>
+        <InlineNotice v-if="notice" :tone="notice.tone">{{ notice.text }}</InlineNotice>
 
         <!-- Краевед: кто пришёл и закрыть сбор -->
-        <section v-if="isGuide && gathering" class="flex flex-col gap-space-sm rounded-lg bg-surface-container-lowest p-space-md shadow-sm">
-          <h3 class="font-label-lg text-label-lg text-on-surface">Отметились на месте</h3>
+        <section v-if="isGuide && gathering" class="flex flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
+          <h3 class="font-archival text-archival uppercase text-on-surface-variant">Отметились на месте</h3>
           <p v-if="!gathering.checked_in.length" class="font-body-sm text-body-sm text-on-surface-variant">Пока никого</p>
           <ul v-else class="flex flex-col gap-1">
             <li
@@ -338,7 +326,7 @@ const NOTICE_TONES: Record<Notice['tone'], string> = {
             <!-- Главное действие после сбора: повести всех к памятному месту. -->
             <button
               type="button"
-              class="flex h-11 items-center justify-center gap-space-xs rounded-full bg-primary font-label-lg text-label-lg text-on-primary active:scale-[0.98] disabled:opacity-60"
+              class="flex h-11 items-center justify-center gap-space-xs rounded-full bg-primary-container font-label-lg text-label-lg text-white shadow-stamp transition-colors hover:bg-primary active:scale-[0.98] disabled:opacity-60"
               :disabled="leading || gathering.checked_in_count === 0"
               @click="picking = true"
             >
