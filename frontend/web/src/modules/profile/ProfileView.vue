@@ -58,12 +58,12 @@ const heroProps = computed(() => {
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
       <div class="lg:col-span-7 flex flex-col gap-8">
+        <MyExcursions />
         <FamilyTree />
         <AwardsBadges />
       </div>
 
       <div class="lg:col-span-5 flex flex-col gap-8">
-        <MyExcursions />
         <LocalHistorianVerification />
         <ResearcherDataForm />
       </div>
