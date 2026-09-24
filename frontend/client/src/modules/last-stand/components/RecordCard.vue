@@ -18,10 +18,12 @@ const props = defineProps<{
   volunteerIsPrimary: boolean
   /** Модератор: может сменить стадию места. */
   canModerate: boolean
+  /** Автор места или модератор: может уточнить сведения (`_ensure_can_edit` в map_service). */
+  canEdit: boolean
   busy: boolean
 }>()
 
-defineEmits<{ volunteer: []; addData: []; setStatus: [status: FindStatus] }>()
+defineEmits<{ volunteer: []; addData: []; edit: []; setStatus: [status: FindStatus] }>()
 
 const STAGES: FindStatus[] = ['found', 'confirmed', 'raised']
 
@@ -177,6 +179,15 @@ async function openRoute(): Promise<void> {
         >
           <MsIcon name="directions_car" :size="18" />
           Маршрут к месту
+        </button>
+        <button
+          v-if="canEdit"
+          type="button"
+          class="flex items-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+          @click="$emit('edit')"
+        >
+          <MsIcon name="edit" :size="18" />
+          Уточнить сведения
         </button>
       </div>
     </div>

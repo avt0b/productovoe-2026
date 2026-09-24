@@ -175,6 +175,16 @@ export function createSquad(draft: SquadDraft): Promise<Squad> {
   return apiRequest('POST', 'hq', '/squads', { body: draft, auth: true })
 }
 
+/** Поправить отряд — командир или модератор (`_ensure_can_manage` в search_hq_service). */
+export function updateSquad(squadId: string, patch: Partial<SquadDraft>): Promise<Squad> {
+  return apiRequest('PATCH', 'hq', squadPath(squadId), { body: patch, auth: true })
+}
+
+/** Распустить отряд — вместе с его сборами и выездами. Только командир или модератор. */
+export function deleteSquad(squadId: string): Promise<void> {
+  return apiRequest('DELETE', 'hq', squadPath(squadId), { auth: true })
+}
+
 export interface TripDraft {
   title: string
   location: string

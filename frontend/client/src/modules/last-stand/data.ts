@@ -56,6 +56,19 @@ export interface FindRecord extends LatLon {
   coordinates: string
   source: string
   evidence: string
+  /**
+   * Поля сервиса как есть. В карточке они причёсаны («Неизвестный боец»,
+   * «Обстоятельства уточняются»), а правит автор именно исходные — иначе в
+   * форму попали бы наши подписи вместо пустых граф.
+   */
+  raw: {
+    created_by: string
+    soldier_name: string
+    unit: string
+    circumstances: string
+    date_text: string
+    source: string
+  }
 }
 
 export interface LastStandOverview {
@@ -83,6 +96,14 @@ function toRecord(point: LastStandPoint): FindRecord {
     evidence: point.circumstances || 'Обстоятельства гибели уточняются',
     lat: point.lat,
     lon: point.lon,
+    raw: {
+      created_by: point.created_by,
+      soldier_name: point.soldier_name,
+      unit: point.unit,
+      circumstances: point.circumstances,
+      date_text: point.date_text,
+      source: point.source,
+    },
   }
 }
 
@@ -97,6 +118,14 @@ export interface PointDraft extends LatLon {
 /** Новое место — поисковику, краеведу, наставнику, модератору. Появляется со статусом «Обнаружено». */
 export function createPoint(draft: PointDraft): Promise<LastStandPoint> {
   return apiRequest('POST', 'map', '/last-stand', { body: draft, auth: true })
+}
+
+/**
+ * Поправить место — автор или модератор (`_ensure_can_edit` в map_service).
+ * После экспедиции уточняют обстоятельства, часть и координаты.
+ */
+export function updatePoint(pointId: string, patch: Partial<PointDraft>): Promise<LastStandPoint> {
+  return apiRequest('PATCH', 'map', `/last-stand/${encodeURIComponent(pointId)}`, { body: patch, auth: true })
 }
 
 /** Сменить стадию — только модератор. */

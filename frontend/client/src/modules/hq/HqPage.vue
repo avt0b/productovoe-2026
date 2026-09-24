@@ -45,7 +45,7 @@ const TABS: readonly Tab[] = ['funds', 'trips', 'squads']
 
 type Sheet =
   | { kind: 'donate'; need: Need }
-  | { kind: 'squad' }
+  | { kind: 'squad'; squad?: Squad }
   | { kind: 'trip' }
   | { kind: 'need' }
   | { kind: 'account'; text: string }
@@ -268,6 +268,19 @@ function isRegistered(tripId: string): boolean | null {
           </div>
         </div>
         <template v-if="managedSquads.length">
+          <!-- Командир правит сведения отряда: их видят волонтёры на карте потребностей. -->
+          <div class="flex flex-wrap gap-space-xs">
+            <button
+              v-for="squad in managedSquads"
+              :key="squad.id"
+              type="button"
+              class="flex items-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+              @click="sheet = { kind: 'squad', squad }"
+            >
+              <MsIcon name="edit" :size="18" />
+              <span class="max-w-40 truncate">{{ squad.name }}</span>
+            </button>
+          </div>
           <button
             type="button"
             class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] short:py-2.5"
@@ -442,7 +455,13 @@ function isRegistered(tripId: string): boolean | null {
       @donated="refresh"
       @close="sheet = null"
     />
-    <NewSquadSheet v-else-if="sheet?.kind === 'squad'" @created="(squad) => created(`${squad.name}: отряд создан, вы его командир`)" @close="sheet = null" />
+    <NewSquadSheet
+      v-else-if="sheet?.kind === 'squad'"
+      :squad="sheet.squad ?? null"
+      @created="(squad) => created(sheet?.kind === 'squad' && sheet.squad ? `${squad.name}: сведения обновлены` : `${squad.name}: отряд создан, вы его командир`)"
+      @removed="(squad) => created(`${squad.name}: отряд распущен`)"
+      @close="sheet = null"
+    />
     <NewTripSheet
       v-else-if="sheet?.kind === 'trip'"
       :squads="managedSquads"
