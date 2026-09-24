@@ -64,6 +64,7 @@ services:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /home/user1/.htpasswd:/etc/nginx/.htpasswd:ro
     depends_on:
       - frontend_client
       - frontend_web
