@@ -1,4 +1,4 @@
-import { apiGet, withDemoFallback, type Sourced } from '@/core/api'
+import { apiGet, apiRequest, withDemoFallback, type Sourced } from '@/core/api'
 
 import { DEMO_LAST_STAND, DEMO_POI } from './demoOrel'
 
@@ -61,4 +61,27 @@ export function listLastStand(query: { status?: LastStandStatus } = {}): Promise
     () => apiGet<LastStandPoint[]>('map', '/last-stand', { status: query.status, limit: PAGE_LIMIT }),
     () => DEMO_LAST_STAND.filter((point) => !query.status || point.status === query.status),
   )
+}
+
+/**
+ * Новая точка слоя «ВОВ».
+ *
+ * Дополнять слой могут поисковики, краеведы и наставники (`_CONTRIBUTOR_ROLES`
+ * в `map_service`) — у остальных сервис ответит 403, поэтому кнопку показываем
+ * только им (`can.addPoi`).
+ */
+export interface PoiDraft {
+  kind: PoiKind
+  title: string
+  description: string
+  lat: number
+  lon: number
+  /** Как о дате говорят люди: «5 августа 1943», «октябрь 1941 — август 1943». */
+  date_text: string
+  /** Откуда сведения: Книга Памяти, музей, рассказ жителя. */
+  source: string
+}
+
+export function createPoi(draft: PoiDraft): Promise<Poi> {
+  return apiRequest('POST', 'map', '/poi', { body: draft, auth: true })
 }
