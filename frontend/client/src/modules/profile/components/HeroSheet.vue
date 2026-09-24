@@ -7,8 +7,8 @@ import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import SheetDialog from '@/ui/SheetDialog.vue'
 import FormInput from '@/ui/form/FormInput.vue'
-import FormSelect from '@/ui/form/FormSelect.vue'
 import FormTextarea from '@/ui/form/FormTextarea.vue'
+import { FIELD_LABEL_CLASS } from '@/ui/form/styles'
 
 import {
   AVATAR_MAX_MB,
@@ -32,8 +32,6 @@ const props = withDefaults(defineProps<{ hero?: FamilyHero | null }>(), { hero: 
 
 const emit = defineEmits<{ close: []; saved: []; removed: [] }>()
 
-const statusOptions = HERO_STATUS_ORDER.map((value) => ({ value, title: HERO_STATUS[value].title }))
-
 const name = ref(props.hero?.name ?? '')
 const status = ref<HeroStatus>(props.hero?.status ?? 'veteran')
 const birthYear = ref<number | null>(props.hero?.birth_year ?? null)
@@ -55,7 +53,7 @@ const missing = computed(() => {
   if (!name.value.trim()) return 'Как звали героя?'
   const birth = birthYear.value
   const death = deathYear.value
-  if (birth !== null && death !== null && death < birth) return 'Год гибели раньше года рождения — проверьте даты'
+  if (birth !== null && death !== null && death < birth) return `${HERO_STATUS[status.value].endYear} раньше года рождения — проверьте даты`
   return null
 })
 
@@ -180,10 +178,41 @@ onBeforeUnmount(dropPreview)
       <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" tabindex="-1" @change="pickPhoto" />
 
       <FormInput v-model="name" label="Имя" icon="badge" :maxlength="255" placeholder="Воронов Алексей Григорьевич" required />
-      <FormSelect v-model="status" label="Судьба" :options="statusOptions" icon="military_tech" />
+      <!-- Судьба — карточками, а не списком: её выбирают один раз и осознанно, пояснение помогает выбрать верно. -->
+      <fieldset class="flex flex-col gap-space-xs">
+        <legend :class="[FIELD_LABEL_CLASS, 'mb-space-xs']">Судьба</legend>
+        <div class="grid grid-cols-2 gap-space-xs" role="radiogroup" aria-label="Судьба героя">
+          <button
+            v-for="value in HERO_STATUS_ORDER"
+            :key="value"
+            type="button"
+            role="radio"
+            :aria-checked="status === value"
+            class="flex items-start gap-space-sm rounded-2xl border p-space-sm text-left transition-colors duration-200 active:scale-[0.98]"
+            :class="status === value ? 'border-secondary bg-secondary-container/60' : 'border-outline-variant/60 bg-surface-container-lowest'"
+            @click="status = value"
+          >
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" :class="HERO_STATUS[value].tone" aria-hidden="true">
+              <MsIcon :name="HERO_STATUS[value].icon" :size="18" :filled="status === value" />
+            </span>
+            <span class="flex min-w-0 flex-col">
+              <span class="font-label-md text-label-md text-on-surface">{{ HERO_STATUS[value].title }}</span>
+              <span class="font-label-sm text-label-sm font-normal text-on-surface-variant">{{ HERO_STATUS[value].hint }}</span>
+            </span>
+          </button>
+        </div>
+      </fieldset>
       <div class="grid grid-cols-2 gap-space-sm">
         <FormInput v-model="birthYear" label="Год рождения" type="number" inputmode="numeric" :min="1850" :max="2100" placeholder="1920" />
-        <FormInput v-model="deathYear" label="Год гибели" type="number" inputmode="numeric" :min="1850" :max="2100" placeholder="1943" />
+        <FormInput
+          v-model="deathYear"
+          :label="HERO_STATUS[status].endYear"
+          type="number"
+          inputmode="numeric"
+          :min="1850"
+          :max="2100"
+          :placeholder="status === 'veteran' ? '1985' : '1943'"
+        />
       </div>
       <FormInput v-model="unit" label="Часть" icon="flag" :maxlength="300" placeholder="308-я стрелковая дивизия" />
       <FormTextarea

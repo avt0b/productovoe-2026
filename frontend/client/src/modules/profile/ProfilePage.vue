@@ -83,6 +83,7 @@ const counters = computed<HeroCounter[]>(() => [
           :entries="data.entries"
           :excursions="data.excursions"
           :routes-completed="data.profile.routes_completed ?? 0"
+          :role="session.user?.role"
         />
         <HeroesSection :heroes="data.profile.heroes ?? []" :entries="data.entries" @changed="retry" />
         <FamilySection />

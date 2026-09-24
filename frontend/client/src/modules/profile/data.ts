@@ -61,11 +61,38 @@ export interface FamilyHero {
 export type HeroDraft = Omit<FamilyHero, 'id' | 'owner_id' | 'created_at'>
 
 /** Как подписываем судьбу героя. Порядок — от «дожил» к «пропал без вести». */
-export const HERO_STATUS: Record<HeroStatus, { title: string; icon: string; tone: string }> = {
-  veteran: { title: 'Дожил до Победы', icon: 'military_tech', tone: 'bg-secondary-container text-on-secondary-container' },
-  killed_in_action: { title: 'Погиб в бою', icon: 'local_florist', tone: 'bg-tertiary-fixed text-on-tertiary-fixed' },
-  died_of_wounds: { title: 'Умер от ран', icon: 'local_hospital', tone: 'bg-tertiary-fixed text-on-tertiary-fixed' },
-  missing_in_action: { title: 'Пропал без вести', icon: 'person_search', tone: 'bg-surface-container-high text-on-surface-variant' },
+export const HERO_STATUS: Record<
+  HeroStatus,
+  { title: string; hint: string; icon: string; tone: string; /** Как подписать второй год жизни. */ endYear: string }
+> = {
+  veteran: {
+    title: 'Дожил до Победы',
+    hint: 'Вернулся домой',
+    icon: 'military_tech',
+    tone: 'bg-secondary-container text-on-secondary-container',
+    endYear: 'Год смерти',
+  },
+  killed_in_action: {
+    title: 'Погиб в бою',
+    hint: 'Пал на поле боя',
+    icon: 'local_florist',
+    tone: 'bg-tertiary-fixed text-on-tertiary-fixed',
+    endYear: 'Год гибели',
+  },
+  died_of_wounds: {
+    title: 'Умер от ран',
+    hint: 'В госпитале или после войны',
+    icon: 'local_hospital',
+    tone: 'bg-tertiary-fixed text-on-tertiary-fixed',
+    endYear: 'Год гибели',
+  },
+  missing_in_action: {
+    title: 'Пропал без вести',
+    hint: 'Поисковики помогут узнать судьбу',
+    icon: 'person_search',
+    tone: 'bg-surface-container-high text-on-surface-variant',
+    endYear: 'Когда пропал',
+  },
 }
 
 export const HERO_STATUS_ORDER: readonly HeroStatus[] = [
@@ -189,7 +216,19 @@ export function nextTrip(trips: MyTrip[] | null): MyTrip | null {
  * Значки. Код выдаёт сервис, где случилось событие (`ACHIEVEMENT_TITLES` в
  * user_service); здесь — как их показать и как заслужить.
  */
-export const ACHIEVEMENTS: Record<string, { title: string; hint: string; icon: string; tone: string }> = {
+export interface AchievementMeta {
+  title: string
+  hint: string
+  icon: string
+  tone: string
+  /** Значок роли: его показывают краеведу или поисковику отдельным блоком. Нет — общий. */
+  role?: 'local_historian' | 'searcher'
+}
+
+const HISTORIAN_TONE = 'bg-tertiary-fixed text-on-tertiary-fixed'
+const SEARCHER_TONE = 'bg-secondary text-on-secondary'
+
+export const ACHIEVEMENTS: Record<string, AchievementMeta> = {
   first_route_completed: {
     title: 'Первый маршрут',
     hint: 'Пройдите маршрут до конца',
@@ -213,6 +252,92 @@ export const ACHIEVEMENTS: Record<string, { title: string; hint: string; icon: s
     hint: 'Помогите сбору отряда в «Штабе»',
     icon: 'volunteer_activism',
     tone: 'bg-tertiary-fixed text-on-tertiary-fixed',
+  },
+  // Краевед — выдают search_hq, route, map и archive: там, где случилось дело.
+  historian_first_excursion: {
+    title: 'Первая экскурсия',
+    hint: 'Проведите экскурсию до конца',
+    icon: 'groups',
+    tone: HISTORIAN_TONE,
+    role: 'local_historian',
+  },
+  historian_led_group: {
+    title: 'Проводник',
+    hint: 'Поведите группу по местам памяти',
+    icon: 'directions_walk',
+    tone: HISTORIAN_TONE,
+    role: 'local_historian',
+  },
+  historian_five_stars: {
+    title: 'Пять звёзд',
+    hint: 'Участник экскурсии оценил вас на пять',
+    icon: 'star',
+    tone: HISTORIAN_TONE,
+    role: 'local_historian',
+  },
+  historian_route_author: {
+    title: 'Автор маршрута',
+    hint: 'Опубликуйте свой маршрут',
+    icon: 'route',
+    tone: HISTORIAN_TONE,
+    role: 'local_historian',
+  },
+  historian_poi_author: {
+    title: 'Летописец местности',
+    hint: 'Добавьте место на слой «ВОВ»',
+    icon: 'add_location_alt',
+    tone: HISTORIAN_TONE,
+    role: 'local_historian',
+  },
+  historian_archive_keeper: {
+    title: 'Хранитель архива',
+    hint: 'Подтвердите десять записей народного архива',
+    icon: 'history_edu',
+    tone: HISTORIAN_TONE,
+    role: 'local_historian',
+  },
+  // Поисковик
+  searcher_squad_founder: {
+    title: 'Командир',
+    hint: 'Заведите поисковый отряд',
+    icon: 'flag',
+    tone: SEARCHER_TONE,
+    role: 'searcher',
+  },
+  searcher_trip_organizer: {
+    title: 'Организатор выезда',
+    hint: 'Объявите набор на выезд',
+    icon: 'campaign',
+    tone: SEARCHER_TONE,
+    role: 'searcher',
+  },
+  searcher_first_find: {
+    title: 'Первая находка',
+    hint: 'Отметьте место «Последнего боя»',
+    icon: 'person_search',
+    tone: SEARCHER_TONE,
+    role: 'searcher',
+  },
+  searcher_archive_confirmed: {
+    title: 'Подтверждено архивом',
+    hint: 'Ваше место подтвердил архив',
+    icon: 'fact_check',
+    tone: SEARCHER_TONE,
+    role: 'searcher',
+  },
+  searcher_remains_raised: {
+    title: 'Боец поднят',
+    hint: 'С вашего места подняли останки',
+    icon: 'local_florist',
+    tone: SEARCHER_TONE,
+    role: 'searcher',
+  },
+  searcher_goal_reached: {
+    title: 'Сбор закрыт',
+    hint: 'Сбор вашего отряда собрал всю сумму',
+    icon: 'savings',
+    tone: SEARCHER_TONE,
+    role: 'searcher',
   },
 }
 
