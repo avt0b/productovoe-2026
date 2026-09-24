@@ -37,6 +37,21 @@ class ProfileOut(BaseModel):
     created_at: datetime
 
 
+class ProfileBriefOut(BaseModel):
+    """Публичная карточка автора — для подписи в лентах (GET /profiles/batch).
+
+    Намеренно без home_lat/home_lon, радиуса оповещений и подписок: батч
+    отдаётся без токена, по любым id."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    display_name: str
+    avatar_url: str | None
+    role: str
+    is_verified: bool
+
+
 class ProfileUpdate(BaseModel):
     """Все поля опциональны — обновляется только присланное."""
 

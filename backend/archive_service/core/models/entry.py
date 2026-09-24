@@ -37,7 +37,10 @@ class ArchiveEntry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     event_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     date_text: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    # Фото к записи. Имя историческое — поле было единственным вложением.
     media_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Аудиовоспоминание — может быть у записи вместе с фото.
+    audio_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     submitted_by: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
 

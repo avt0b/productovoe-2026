@@ -17,7 +17,10 @@ class EntryCreate(BaseModel):
     lon: Lon | None = None
     event_date: date | None = None
     date_text: str = Field(default="", max_length=120)
+    # Фото (имя поля историческое) и аудиовоспоминание — оба загружаются через
+    # media_service POST /uploads, сюда приходят готовые ссылки.
     media_url: str | None = Field(default=None, max_length=500)
+    audio_url: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
     def _coords_together(self):
@@ -35,6 +38,7 @@ class EntryUpdate(BaseModel):
     event_date: date | None = None
     date_text: str | None = Field(default=None, max_length=120)
     media_url: str | None = Field(default=None, max_length=500)
+    audio_url: str | None = Field(default=None, max_length=500)
 
     def to_update_dict(self) -> dict:
         return self.model_dump(exclude_unset=True)
@@ -56,6 +60,7 @@ class EntryOut(BaseModel):
     event_date: date | None
     date_text: str
     media_url: str | None
+    audio_url: str | None
     submitted_by: str
     status: EntryStatus
     verified_by: str | None
@@ -93,6 +98,7 @@ class EntryPublicOut(BaseModel):
     event_date: date | None
     date_text: str
     media_url: str | None
+    audio_url: str | None
     submitted_by: str
     status: EntryStatus
     verified_by: str | None

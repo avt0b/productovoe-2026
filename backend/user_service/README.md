@@ -54,6 +54,7 @@ main.py        # сборка FastAPI
 | GET | `/profiles/me` | любой авторизованный — создаёт профиль лениво при первом обращении (`get_or_create_own`) |
 | PUT | `/profiles/me` | любой авторизованный — обновляет только присланные поля |
 | GET | `/profiles` `?role&limit&offset` | только `is_root` |
+| GET | `/profiles/batch` `?ids=id1,id2,…` | публично — короткие карточки авторов для ленты (см. ниже) |
 | GET | `/profiles/{id}` | любой авторизованный |
 | PATCH | `/profiles/{id}/verify` | `local_historian` / `mentor` / `moderator` / root |
 | GET | `/achievements/me` | любой авторизованный — свои значки (`code`, `earned_at`) |
@@ -69,6 +70,14 @@ main.py        # сборка FastAPI
 токена может прочитать чужой профиль целиком (`city`, `bio`,
 `subscribed_to_search`, `alert_radius_km` и т.д.) по id. Это осознанное
 упрощение MVP, а не баг: скрывать данные постранично здесь пока незачем.
+
+**`GET /profiles/batch?ids=…`** — имена авторов для публичной ленты «Живой
+памяти» одним запросом вместо N запросов `/profiles/{id}`. Без токена, поэтому
+отдаёт только `ProfileBriefOut`: `id`, `display_name`, `avatar_url`, `role`,
+`is_verified`. Домашних координат, радиуса оповещений и подписок в ответе нет.
+До 200 id за запрос (иначе `422`), повторы схлопываются. Кого нет (профиль
+создаётся лениво при первом `GET /profiles/me`), того нет и в ответе: фронт
+показывает таким «Участник платформы».
 
 `PATCH /profiles/{id}/verify` — доступ шире, чем можно предположить из
 названия: не только `moderator`, но и `local_historian`/`mentor` тоже могут

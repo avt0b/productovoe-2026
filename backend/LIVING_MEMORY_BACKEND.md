@@ -118,3 +118,28 @@ archive_entries ADD COLUMN audio_url VARCHAR(500)`), два поля в
 3. **Пробел 2, вариант B** (`audio_url` в `ArchiveEntry`) — зависит от
    пробела 1 (аудио сначала нужно куда-то загрузить).
 4. Пробел 4 — только если продукт явно попросит различать роли отдельно.
+
+## Статус реализации (бэк готов, ветка `feature/living-memory-backend`)
+
+1. **Пробел 1 — сделано.** `POST /api/media/uploads` принимает аудио:
+   `audio/mpeg`, `audio/ogg`, `audio/wav` (+ `audio/x-wav`, `audio/wave`),
+   `audio/mp4` (+ `audio/x-m4a`), `audio/webm` (запись с микрофона в Chrome).
+   Лимиты раздельные: фото 15 МБ, аудио 30 МБ. Расширение в ключе MinIO
+   берётся из имени файла, покрыто тестом.
+2. **Пробел 3, вариант A — сделано, с одним отличием.**
+   `GET /api/users/profiles/batch?ids=id1,id2,...`, без токена, до 200 id.
+   Отдаёт **не `ProfileOut`**, а короткую карточку `ProfileBriefOut`:
+   `id`, `display_name`, `avatar_url`, `role`, `is_verified`. В `ProfileOut`
+   есть домашние координаты (`home_lat`/`home_lon`) и подписки — раздавать
+   их без токена по любому id нельзя. Кого нет, того нет в ответе, так что
+   «Участник платформы» остаётся фолбэком. (Кстати, `GET /profiles/{id}` на
+   деле требует токен, а не открыт.)
+3. **Пробел 2, вариант B — сделано, `media_url` не переименован.** Добавлено
+   `audio_url` в `EntryCreate`/`EntryUpdate`/`EntryOut`/`EntryPublicOut`.
+   `media_url` остался и означает фото: фронт уже шлёт именно его, так что
+   в `createEntry()` достаточно добавить `audio_url` рядом. Колонку в живой БД
+   сервис досоздаёт сам при старте, ручная миграция не нужна.
+4. **Пробел 4 — не делали**, как и рекомендовано. Уточнение: ролей `mentor`
+   и `moderator` в `auth_service` больше нет, есть только `family`,
+   `searcher`, `local_historian` и флаг `is_root`. Верифицировать записи
+   могут `searcher`, `local_historian` и root (`VERIFIER_ROLES`).

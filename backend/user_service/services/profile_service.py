@@ -31,6 +31,11 @@ class ProfileService:
             raise ProfileNotFound
         return profile
 
+    def get_many(self, profile_ids: Sequence[str]) -> Sequence[Profile]:
+        """Несуществующие id просто пропускаются: профиль создаётся лениво, и
+        у автора, ни разу не открывавшего профиль, его может ещё не быть."""
+        return self.profiles.get_many(list(dict.fromkeys(profile_ids)))
+
     def search(
         self, *, role: str | None = None, limit: int = 50, offset: int = 0
     ) -> Sequence[Profile]:
