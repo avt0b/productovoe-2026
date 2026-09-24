@@ -10,6 +10,7 @@ import DemoDataBadge from '@/ui/DemoDataBadge.vue'
 import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import SegmentTabs from '@/ui/SegmentTabs.vue'
+import { ChatSheet } from '@/features/chat'
 import SheetDialog from '@/ui/SheetDialog.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
@@ -48,6 +49,7 @@ type Sheet =
   | { kind: 'squad'; squad?: Squad }
   | { kind: 'trip'; trip?: Trip }
   | { kind: 'need'; need?: Need }
+  | { kind: 'chat'; trip: Trip }
   | { kind: 'account'; text: string }
 
 const route = useRoute()
@@ -430,6 +432,7 @@ function isRegistered(tripId: string): boolean | null {
           @register="register(trip)"
           @cancel="cancel(trip)"
           @edit="sheet = { kind: 'trip', trip }"
+          @chat="sheet = { kind: 'chat', trip }"
         />
         <StateBlock
           v-if="!visibleTrips.length"
@@ -477,6 +480,11 @@ function isRegistered(tripId: string): boolean | null {
       :squads="managedSquads"
       :need="sheet.need ?? null"
       @created="(need) => created(sheet?.kind === 'need' && sheet.need ? `Обновлено: ${need.title}` : `Опубликовано: ${need.title}`, 'funds')"
+      @close="sheet = null"
+    />
+    <ChatSheet
+      v-else-if="sheet?.kind === 'chat'"
+      :subject="{ kind: 'trip', id: sheet.trip.id, title: sheet.trip.title }"
       @close="sheet = null"
     />
     <SheetDialog v-else-if="sheet?.kind === 'account'" title="Нужен аккаунт" @close="sheet = null">

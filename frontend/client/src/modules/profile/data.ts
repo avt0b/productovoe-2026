@@ -27,6 +27,8 @@ export interface Profile {
   home_lon?: number | null
   /** Значки, выданные сервисами. Старый сервис их не присылает — тогда пусто. */
   achievements?: Achievement[]
+  /** Семейное древо — приходит вместе с профилем, отдельный запрос не нужен. */
+  heroes?: FamilyHero[]
   routes_completed?: number
   excursions_completed?: number
   finds_count?: number
@@ -36,6 +38,54 @@ export interface Profile {
 export interface Achievement {
   code: string
   earned_at: string
+}
+
+/** Судьба героя семейного древа — как `HeroStatus` в user_service. */
+export type HeroStatus = 'killed_in_action' | 'missing_in_action' | 'died_of_wounds' | 'veteran'
+
+export interface FamilyHero {
+  id: string
+  owner_id: string
+  name: string
+  status: HeroStatus
+  birth_year: number | null
+  death_year: number | null
+  unit: string
+  note: string
+  photo_url: string | null
+  /** Карточка бойца в народном архиве, если она заведена. */
+  archive_entry_id: string | null
+  created_at: string
+}
+
+export type HeroDraft = Omit<FamilyHero, 'id' | 'owner_id' | 'created_at'>
+
+/** Как подписываем судьбу героя. Порядок — от «дожил» к «пропал без вести». */
+export const HERO_STATUS: Record<HeroStatus, { title: string; icon: string; tone: string }> = {
+  veteran: { title: 'Дожил до Победы', icon: 'military_tech', tone: 'bg-secondary-container text-on-secondary-container' },
+  killed_in_action: { title: 'Погиб в бою', icon: 'local_florist', tone: 'bg-tertiary-fixed text-on-tertiary-fixed' },
+  died_of_wounds: { title: 'Умер от ран', icon: 'local_hospital', tone: 'bg-tertiary-fixed text-on-tertiary-fixed' },
+  missing_in_action: { title: 'Пропал без вести', icon: 'person_search', tone: 'bg-surface-container-high text-on-surface-variant' },
+}
+
+export const HERO_STATUS_ORDER: readonly HeroStatus[] = [
+  'veteran',
+  'killed_in_action',
+  'died_of_wounds',
+  'missing_in_action',
+]
+
+/** Семейное древо: его ведёт сам человек, чужие герои никому не видны. */
+export function createHero(draft: HeroDraft): Promise<FamilyHero> {
+  return apiRequest('POST', 'users', '/family-heroes', { body: draft, auth: true })
+}
+
+export function updateHero(heroId: string, patch: Partial<HeroDraft>): Promise<FamilyHero> {
+  return apiRequest('PATCH', 'users', `/family-heroes/${encodeURIComponent(heroId)}`, { body: patch, auth: true })
+}
+
+export function deleteHero(heroId: string): Promise<void> {
+  return apiRequest('DELETE', 'users', `/family-heroes/${encodeURIComponent(heroId)}`, { auth: true })
 }
 
 export type ProfilePatch = Partial<

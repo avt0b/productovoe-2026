@@ -18,7 +18,7 @@ const props = defineProps<{
   focused?: boolean
 }>()
 
-defineEmits<{ register: []; cancel: []; edit: [] }>()
+defineEmits<{ register: []; cancel: []; edit: []; chat: [] }>()
 
 const day = computed(() => tripDay(props.trip.starts_on))
 
@@ -185,15 +185,24 @@ const seatsPercent = computed(() =>
       </div>
     </div>
 
-    <button
-      v-if="canManage"
-      type="button"
-      class="flex items-center justify-center gap-space-xs self-center rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
-      @click="$emit('edit')"
-    >
-      <MsIcon name="edit" :size="18" />
-      Изменить выезд
-    </button>
+    <div v-if="canManage" class="flex flex-wrap items-center justify-center gap-space-xs">
+      <button
+        type="button"
+        class="flex items-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+        @click="$emit('edit')"
+      >
+        <MsIcon name="edit" :size="18" />
+        Изменить выезд
+      </button>
+      <button
+        type="button"
+        class="flex items-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+        @click="$emit('chat')"
+      >
+        <MsIcon name="chat" :size="18" />
+        Чат выезда
+      </button>
+    </div>
 
     <button
       v-if="!registered"
@@ -213,14 +222,24 @@ const seatsPercent = computed(() =>
         <MsIcon name="check_circle" :size="18" filled />
         Вы в экспедиции!
       </p>
-      <button
-        type="button"
-        class="self-center font-label-md text-label-md text-on-surface-variant underline-offset-2 hover:underline disabled:opacity-60"
-        :disabled="busy"
-        @click="$emit('cancel')"
-      >
-        Отменить запись
-      </button>
+      <div class="flex items-center justify-center gap-space-sm">
+        <button
+          type="button"
+          class="flex items-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+          @click="$emit('chat')"
+        >
+          <MsIcon name="chat" :size="18" />
+          Чат выезда
+        </button>
+        <button
+          type="button"
+          class="font-label-md text-label-md text-on-surface-variant underline-offset-2 hover:underline disabled:opacity-60"
+          :disabled="busy"
+          @click="$emit('cancel')"
+        >
+          Отменить запись
+        </button>
+      </div>
     </div>
   </article>
 </template>

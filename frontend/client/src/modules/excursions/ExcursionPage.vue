@@ -6,6 +6,7 @@ import { useAsync } from '@/core/async'
 import { errorText } from '@/core/format'
 import type { GeoMarker } from '@/core/geo'
 import { useSessionStore } from '@/core/session'
+import { ChatSheet } from '@/features/chat'
 import GeoMap from '@/ui/geo/GeoMap.vue'
 import AccountRequired from '@/ui/AccountRequired.vue'
 import InlineNotice from '@/ui/InlineNotice.vue'
@@ -34,6 +35,9 @@ import { formatStart } from './format'
 const props = defineProps<{ excursionId: string }>()
 
 const router = useRouter()
+
+/** Чат сбора: читать и писать может краевед и тот, кто записался. */
+const chatOpen = ref(false)
 const session = useSessionStore()
 
 const { data: excursion, loading, error, retry } = useAsync(() =>
@@ -243,6 +247,14 @@ function openWalk(): void {
             Вы ведёте эту экскурсию
           </p>
           <button
+            type="button"
+            class="flex items-center justify-center gap-space-xs self-start rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+            @click="chatOpen = true"
+          >
+            <MsIcon name="chat" :size="18" />
+            Чат сбора
+          </button>
+          <button
             v-if="excursion.status === 'scheduled' || excursion.status === 'gathering'"
             type="button"
             class="flex w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99]"
@@ -300,6 +312,14 @@ function openWalk(): void {
             <MsIcon :name="excursion.viewer?.checked_in_at ? 'task_alt' : 'how_to_reg'" :size="20" class="text-secondary" />
             {{ excursion.viewer?.checked_in_at ? 'Вы в группе — отметились на месте' : 'Вы записаны' }}
           </p>
+          <button
+            type="button"
+            class="flex items-center justify-center gap-space-xs self-start rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+            @click="chatOpen = true"
+          >
+            <MsIcon name="chat" :size="18" />
+            Чат сбора
+          </button>
           <button
             v-if="excursion.status === 'gathering' && !excursion.viewer?.checked_in_at"
             type="button"
@@ -382,7 +402,12 @@ function openWalk(): void {
         <InlineNotice v-if="actionError" tone="error">{{ actionError }}</InlineNotice>
       </section>
 
-      <RegisterSheet
+      <ChatSheet
+      v-if="chatOpen && excursion"
+      :subject="{ kind: 'excursion', id: excursion.id, title: excursion.title }"
+      @close="chatOpen = false"
+    />
+    <RegisterSheet
         v-if="sheet === 'register'"
         :seats-left="seatsLeft"
         :busy="busy"
