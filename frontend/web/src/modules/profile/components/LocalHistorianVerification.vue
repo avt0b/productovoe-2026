@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { useAuthSession } from '@modules/auth'
 import { useProfileStore } from '../profileStore.js'
 import { uploadVerificationDocument } from '../api.js'
@@ -36,8 +36,6 @@ watch(
   },
   { immediate: true },
 )
-
-const isLocalHistorian = computed(() => profile.data?.role === 'local_historian')
 
 const file = ref(null)
 const docType = ref('membership')
@@ -89,7 +87,7 @@ const DOC_TYPE_LABELS = {
 
 <template>
   <div
-    v-if="session.status === 'authenticated' && isLocalHistorian"
+    v-if="session.status === 'authenticated'"
     class="bg-surface-container-lowest p-6 rounded-2xl shadow-document flex flex-col"
   >
     <div class="flex items-center gap-3 mb-2">
@@ -109,8 +107,9 @@ const DOC_TYPE_LABELS = {
 
     <template v-else>
       <p class="font-body-sm text-body-sm text-on-surface-variant mb-3">
-        Приложите фото документа (членский билет краеведческого общества или диплом/документ об образовании) —
-        это станет основанием, чтобы модератор подтвердил ваш статус.
+        Любой пользователь может подать заявку на статус краеведа. Приложите фото документа (членский билет
+        краеведческого общества или диплом/документ об образовании) — это станет основанием, чтобы модератор
+        подтвердил ваш статус.
         <span class="font-bold">
           Демо: очереди модерации документов на бэкенде пока нет, заявка сохраняется только в этом браузере.
         </span>
