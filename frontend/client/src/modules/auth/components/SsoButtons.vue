@@ -53,7 +53,7 @@ const buttons = computed(() =>
         <span v-else-if="button.mark" class="font-label-md text-label-md font-extrabold leading-none" aria-hidden="true">
           {{ button.mark }}
         </span>
-        <MsIcon v-else :name="button.icon ?? 'login'" :size="15" />
+        <MsIcon v-else :name="button.icon ?? 'account_circle'" :size="15" />
       </div>
       <span
         class="ribbon-shimmer w-full truncate text-center font-label-sm text-label-sm text-white"
