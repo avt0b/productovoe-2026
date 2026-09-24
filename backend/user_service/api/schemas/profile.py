@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from api.schemas.achievement import AchievementOut
+from api.schemas.family_hero import FamilyHeroOut
 
 
 class ProfileOut(BaseModel):
@@ -30,6 +31,9 @@ class ProfileOut(BaseModel):
     routes_completed: int = 0
     excursions_completed: int = 0
     finds_count: int = 0
+    # Семейное древо — та же логика: заполняется явно в GET /profiles/me и
+    # GET /profiles/{id}, видно и на своём, и на чужом профиле.
+    heroes: list[FamilyHeroOut] = []
     created_at: datetime
 
 

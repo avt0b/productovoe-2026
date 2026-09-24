@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from core.db import get_db
 from core.security import Principal, decode_access_token, principal_from_payload
 from services.achievement_service import AchievementService
+from services.family_hero_service import FamilyHeroService
 from services.notification_service import NotificationService
 from services.profile_service import ProfileService
 from services.stats_service import StatsService
@@ -58,7 +59,12 @@ def get_stats_service(db: DbSession) -> StatsService:
     return StatsService(db)
 
 
+def get_family_hero_service(db: DbSession) -> FamilyHeroService:
+    return FamilyHeroService(db)
+
+
 ProfileServiceDep = Annotated[ProfileService, Depends(get_profile_service)]
 NotificationServiceDep = Annotated[NotificationService, Depends(get_notification_service)]
 AchievementServiceDep = Annotated[AchievementService, Depends(get_achievement_service)]
 StatsServiceDep = Annotated[StatsService, Depends(get_stats_service)]
+FamilyHeroServiceDep = Annotated[FamilyHeroService, Depends(get_family_hero_service)]

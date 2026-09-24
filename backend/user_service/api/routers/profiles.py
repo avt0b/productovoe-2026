@@ -5,28 +5,38 @@ from fastapi import APIRouter, Depends, Query
 from api.deps import (
     AchievementServiceDep,
     CurrentPrincipal,
+    FamilyHeroServiceDep,
     ProfileServiceDep,
     StatsServiceDep,
     require_root,
 )
 from api.schemas.achievement import AchievementOut
+from api.schemas.family_hero import FamilyHeroOut
 from api.schemas.profile import ProfileOut, ProfileUpdate, VerifyRequest
 from core.models import Profile
 from services.achievement_service import AchievementService
+from services.family_hero_service import FamilyHeroService
 from services.stats_service import StatsService
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 
-def _full_profile(profile: Profile, achievements: AchievementService, stats: StatsService) -> ProfileOut:
+def _full_profile(
+    profile: Profile,
+    achievements: AchievementService,
+    stats: StatsService,
+    heroes: FamilyHeroService,
+) -> ProfileOut:
     badges = [AchievementOut.model_validate(a) for a in achievements.list_for(profile.id)]
     by_metric = stats.for_user(profile.id)
+    family = [FamilyHeroOut.model_validate(h) for h in heroes.for_owner(profile.id)]
     return ProfileOut.model_validate(profile).model_copy(
         update={
             "achievements": badges,
             "routes_completed": by_metric.get("routes_completed", 0),
             "excursions_completed": by_metric.get("excursions_completed", 0),
             "finds_count": by_metric.get("finds_count", 0),
+            "heroes": family,
         }
     )
 
@@ -37,8 +47,9 @@ def get_my_profile(
     service: ProfileServiceDep,
     achievements: AchievementServiceDep,
     stats: StatsServiceDep,
+    heroes: FamilyHeroServiceDep,
 ) -> ProfileOut:
-    return _full_profile(service.get_or_create_own(principal), achievements, stats)
+    return _full_profile(service.get_or_create_own(principal), achievements, stats, heroes)
 
 
 @router.put("/me", response_model=ProfileOut)
@@ -66,8 +77,9 @@ def get_profile(
     service: ProfileServiceDep,
     achievements: AchievementServiceDep,
     stats: StatsServiceDep,
+    heroes: FamilyHeroServiceDep,
 ) -> ProfileOut:
-    return _full_profile(service.get(profile_id), achievements, stats)
+    return _full_profile(service.get(profile_id), achievements, stats, heroes)
 
 
 @router.patch("/{profile_id}/verify", response_model=ProfileOut)
