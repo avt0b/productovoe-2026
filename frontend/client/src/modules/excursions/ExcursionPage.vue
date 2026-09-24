@@ -404,7 +404,7 @@ function openWalk(): void {
 
       <ChatSheet
       v-if="chatOpen && excursion"
-      :subject="{ kind: 'excursion', id: excursion.id, title: excursion.title }"
+      :subject="{ kind: 'excursion', id: excursion.id, title: excursion.title, hostId: excursion.guide_id }"
       @close="chatOpen = false"
     />
     <RegisterSheet

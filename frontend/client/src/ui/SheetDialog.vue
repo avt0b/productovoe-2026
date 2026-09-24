@@ -66,8 +66,12 @@ onBeforeUnmount(() => {
           <MsIcon name="close" :size="22" />
         </button>
       </div>
-      <div class="overflow-y-auto px-space-md pb-space-lg">
+      <div class="overflow-y-auto px-space-md" :class="$slots.footer ? 'pb-space-sm' : 'pb-space-lg'">
         <slot />
+      </div>
+      <!-- Низ окна, который не уезжает при прокрутке: поле ввода чата, кнопки формы. -->
+      <div v-if="$slots.footer" class="shrink-0 border-t border-outline-variant/40 px-space-md pb-space-md pt-space-sm">
+        <slot name="footer" />
       </div>
     </div>
   </div>

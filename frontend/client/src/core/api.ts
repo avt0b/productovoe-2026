@@ -96,10 +96,7 @@ export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  if (options.auth && !options.token && authHandlers) {
-    const expiresAt = authHandlers.expiresAt()
-    if (expiresAt !== null && expiresAt - Date.now() < REFRESH_AHEAD_MS) await authHandlers.refresh()
-  }
+  if (options.auth && !options.token) await refreshIfExpiring()
 
   let response = await send(method, service, path, options)
 
@@ -111,6 +108,35 @@ export async function apiRequest<T>(
   if (!response.ok) throw new ApiError(response.status, await errorMessage(response))
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
+}
+
+async function refreshIfExpiring(): Promise<void> {
+  const expiresAt = authHandlers?.expiresAt() ?? null
+  if (authHandlers && expiresAt !== null && expiresAt - Date.now() < REFRESH_AHEAD_MS) await authHandlers.refresh()
+}
+
+/**
+ * Поток событий от сервиса (Server-Sent Events) от имени человека. Тело читает
+ * вызывающий, таймаута нет: поток живёт, пока открыт экран, и закрывается
+ * через `signal`. `EventSource` тут не годится — он не передаёт заголовок
+ * `Authorization`, а токен в адресе осел бы в журналах шлюза.
+ */
+export async function apiStream(service: ServiceName, path: string, signal: AbortSignal): Promise<Response> {
+  await refreshIfExpiring()
+  const token = authHandlers?.accessToken()
+  if (!token) throw new ApiError(401, 'Нужно войти по почте и паролю')
+  let response: Response
+  try {
+    response = await fetch(`${serviceBaseUrl(service)}${path}`, {
+      headers: { Accept: 'text/event-stream', Authorization: `Bearer ${token}` },
+      signal,
+    })
+  } catch (reason) {
+    if (signal.aborted) throw reason
+    throw new ServiceUnavailableError(service)
+  }
+  if (!response.ok) throw new ApiError(response.status, await errorMessage(response))
+  return response
 }
 
 async function send(method: HttpMethod, service: ServiceName, path: string, options: RequestOptions): Promise<Response> {
