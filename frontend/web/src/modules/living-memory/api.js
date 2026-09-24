@@ -1,6 +1,7 @@
 import { http } from '@shared/utils/httpClient.js'
 
 const ARCHIVE_BASE = '/api/archive/entries'
+const PROFILES_BASE = '/api/users/profiles'
 
 // «Живая память» — народный архив (archive_service): малоизвестные подвиги,
 // локальные события, карточки бойцов, не попавшие в федеральные базы.
@@ -34,10 +35,20 @@ export function rejectEntry(token, entryId, note = '') {
   return http.post(`${ARCHIVE_BASE}/${entryId}/reject`, { note }, { token })
 }
 
-// Та же ручка, что и для фото документа/героя семьи — media_service
-// принимает только изображения (JPEG/PNG/WebP, ≤15МБ). Аудиовоспоминания
-// пока приложить нельзя — см. LIVING_MEMORY_BACKEND.md, media_service не
-// принимает аудио.
 export function uploadEntryPhoto(token, file) {
   return http.upload('/api/media/uploads', file, { token })
+}
+
+// Та же ручка /uploads — media_service сам определяет аудио по content-type
+// файла (mp3/ogg/wav/m4a/webm, ≤30МБ) и кладёт результат в audio_url записи.
+export function uploadEntryAudio(token, file) {
+  return http.upload('/api/media/uploads', file, { token })
+}
+
+// Публичная ручка user_service без токена — имена авторов для ленты одним
+// запросом, без N+1. Кого нет в ответе — тот не найден (удалённый аккаунт).
+export function getAuthorsBatch(ids) {
+  const unique = [...new Set(ids)].filter(Boolean)
+  if (unique.length === 0) return Promise.resolve([])
+  return http.get(`${PROFILES_BASE}/batch?ids=${unique.join(',')}`)
 }
