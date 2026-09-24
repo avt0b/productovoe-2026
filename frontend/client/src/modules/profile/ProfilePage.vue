@@ -76,7 +76,7 @@ const counters = computed<HeroCounter[]>(() => [
       <template v-if="data">
         <ExpeditionStatusCard :trip="nextTrip(data.trips)" />
         <RolesSection v-if="session.user" :user="session.user" @open-token="tokenOpen = true" />
-        <RoleRequestSection v-if="session.user" :user="session.user" :profile="data.profile" />
+        <RoleRequestSection v-if="session.user" :user="session.user" :profile="data.profile" :organizations="data.squads" />
         <BadgesSection
           :achievements="data.profile.achievements ?? []"
           :trips="data.trips"

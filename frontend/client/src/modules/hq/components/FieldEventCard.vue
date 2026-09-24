@@ -205,14 +205,14 @@ const seatsPercent = computed(() =>
     </div>
 
     <div v-if="canManage" class="flex flex-wrap items-center justify-center gap-space-xs">
+      <!-- У отменённого выезда править нечего — окно остаётся ради удаления. -->
       <button
-        v-if="!cancelled"
         type="button"
         class="flex items-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
         @click="$emit('edit')"
       >
-        <MsIcon name="edit" :size="18" />
-        Изменить выезд
+        <MsIcon :name="cancelled ? 'delete' : 'edit'" :size="18" />
+        {{ cancelled ? 'Удалить выезд' : 'Изменить выезд' }}
       </button>
       <button
         type="button"

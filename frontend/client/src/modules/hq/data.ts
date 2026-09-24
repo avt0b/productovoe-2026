@@ -2,6 +2,7 @@ import { ApiError, apiRequest, withDemoFallback, type DataSource } from '@/core/
 import { plural } from '@/core/format'
 import { OREL_CENTER, type LatLon } from '@/core/geo'
 import { listLastStand } from '@/core/services/map'
+import type { OrganizationKind } from '@/core/services/organizations'
 
 import { DEMO_HQ } from './demo'
 
@@ -20,6 +21,8 @@ export type NeedStatus = 'open' | 'closed'
 export interface Squad {
   id: string
   name: string
+  /** Поисковый отряд, музей или школа. Нет у старого сервиса — отряд. */
+  kind?: OrganizationKind
   region: string
   description: string
   contact: string
@@ -173,6 +176,7 @@ export function fetchTripRegistrations(tripId: string): Promise<Registration[]> 
 
 export interface SquadDraft {
   name: string
+  kind: OrganizationKind
   region: string
   description: string
   contact: string
@@ -215,6 +219,21 @@ export interface NeedDraft {
 /** Поправить выезд — командир отряда или администратор. */
 export function updateTrip(tripId: string, patch: Partial<TripDraft>): Promise<Trip> {
   return apiRequest('PATCH', 'hq', tripPath(tripId), { body: patch, auth: true })
+}
+
+/** Отменить выезд: он останется в истории отряда, записавшимся придёт уведомление. */
+export function cancelTrip(tripId: string, reason: string): Promise<Trip> {
+  return apiRequest('POST', 'hq', tripPath(tripId, '/cancel'), { body: { reason }, auth: true })
+}
+
+/** Убрать выезд совсем — вместе с записями и перепиской. Для созданного по ошибке. */
+export function deleteTrip(tripId: string): Promise<void> {
+  return apiRequest('DELETE', 'hq', tripPath(tripId), { auth: true })
+}
+
+/** Убрать сбор. Если взносы уже пришли, сервис откажет (409) — такой сбор только закрывают. */
+export function deleteNeed(needId: string): Promise<void> {
+  return apiRequest('DELETE', 'hq', needPath(needId), { auth: true })
 }
 
 /** Поправить сбор — тоже командир или администратор. Закрывает сбор отдельная ручка. */

@@ -145,7 +145,8 @@ const managedSquads = computed<Squad[]>(() => {
   const all = data.value?.squads ?? []
   return can.moderate(user) ? all : all.filter((squad) => squad.leader_id === user.id)
 })
-const canCreateSquad = computed(() => session.hasAccount && can.createSquad(session.user))
+/** Отряд заводит поисковик, музей или школу — ещё и краевед. */
+const canCreateSquad = computed(() => session.hasAccount && can.createOrganization(session.user))
 
 function canManage(squadId: string): boolean {
   const user = session.user
@@ -282,9 +283,9 @@ function isRegistered(tripId: string): boolean | null {
             <MsIcon name="shield_person" :size="22" />
           </span>
           <div class="min-w-0">
-            <p class="font-archival text-archival uppercase text-on-surface-variant">Штаб отряда</p>
+            <p class="font-archival text-archival uppercase text-on-surface-variant">Ваш штаб</p>
             <p class="truncate font-headline-sm text-headline-sm text-on-surface">
-              {{ managedSquads.length ? managedSquads.map((squad) => squad.name).join(', ') : 'У вас пока нет отряда' }}
+              {{ managedSquads.length ? managedSquads.map((squad) => squad.name).join(', ') : 'Вы пока не ведёте организацию' }}
             </p>
           </div>
         </div>
@@ -321,15 +322,19 @@ function isRegistered(tripId: string): boolean | null {
         </template>
         <template v-else>
           <p class="font-body-sm text-body-sm text-on-surface-variant">
-            Заведите отряд — и сможете объявлять выезды, собирать на экспедиции и искать людей.
+            {{
+              can.createSquad(session.user)
+                ? 'Заведите отряд, музей или школьный клуб — и сможете объявлять выезды, собирать на экспедиции и искать людей.'
+                : 'Добавьте свой музей или школьный клуб — к нему смогут относить себя в заявках, а вы — объявлять выезды и сборы.'
+            }}
           </p>
           <button
             type="button"
             class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] short:py-2.5"
             @click="sheet = { kind: 'squad' }"
           >
-            <MsIcon name="flag" :size="18" />
-            <span>Создать отряд</span>
+            <MsIcon name="add_circle" :size="18" />
+            <span>{{ can.createSquad(session.user) ? 'Создать отряд или клуб' : 'Добавить музей или школу' }}</span>
           </button>
         </template>
       </section>
@@ -422,7 +427,14 @@ function isRegistered(tripId: string): boolean | null {
             <p class="font-archival text-archival uppercase text-on-surface-variant">Без денег</p>
             <h2 class="font-headline-md text-headline-md text-on-surface">Нужна помощь руками</h2>
           </div>
-          <NeedsList :needs="otherNeeds" :squads="squads" :next-trips="nextTrips" @trip="showTrip" />
+          <NeedsList
+            :needs="otherNeeds"
+            :squads="squads"
+            :next-trips="nextTrips"
+            :can-manage="canManage"
+            @trip="showTrip"
+            @edit="(need) => (sheet = { kind: 'need', need })"
+          />
         </div>
       </section>
 
@@ -484,8 +496,8 @@ function isRegistered(tripId: string): boolean | null {
     <NewSquadSheet
       v-else-if="sheet?.kind === 'squad'"
       :squad="sheet.squad ?? null"
-      @created="(squad) => created(sheet?.kind === 'squad' && sheet.squad ? `${squad.name}: сведения обновлены` : `${squad.name}: отряд создан, вы его командир`)"
-      @removed="(squad) => created(`${squad.name}: отряд распущен`)"
+      @created="(squad) => created(sheet?.kind === 'squad' && sheet.squad ? `${squad.name}: сведения обновлены` : `${squad.name}: добавлено, вы командир`)"
+      @removed="(squad) => created(`${squad.name}: удалено вместе со сборами и выездами`)"
       @close="sheet = null"
     />
     <NewTripSheet
@@ -493,6 +505,7 @@ function isRegistered(tripId: string): boolean | null {
       :squads="managedSquads"
       :trip="sheet.trip ?? null"
       @created="(trip) => created(sheet?.kind === 'trip' && sheet.trip ? `Выезд обновлён: ${trip.title}` : `Набор объявлен: ${trip.title}`, 'trips')"
+      @done="(text) => created(text, 'trips')"
       @close="sheet = null"
     />
     <NewNeedSheet
@@ -500,11 +513,12 @@ function isRegistered(tripId: string): boolean | null {
       :squads="managedSquads"
       :need="sheet.need ?? null"
       @created="(need) => created(sheet?.kind === 'need' && sheet.need ? `Обновлено: ${need.title}` : `Опубликовано: ${need.title}`, 'funds')"
+      @done="(text) => created(text, 'funds')"
       @close="sheet = null"
     />
     <ChatSheet
       v-else-if="sheet?.kind === 'chat'"
-      :subject="{ kind: 'trip', id: sheet.trip.id, title: sheet.trip.title }"
+      :subject="{ kind: 'trip', id: sheet.trip.id, title: sheet.trip.title, hostId: squads.get(sheet.trip.squad_id)?.leader_id }"
       @close="sheet = null"
     />
     <SheetDialog v-else-if="sheet?.kind === 'account'" title="Нужен аккаунт" @close="sheet = null">

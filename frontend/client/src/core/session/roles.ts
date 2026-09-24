@@ -16,6 +16,8 @@ const ARCHIVE_VERIFIERS = rule('searcher', 'local_historian')
 const LAST_STAND_CONTRIBUTORS = rule('searcher', 'local_historian')
 /** Создаёт отряды — `SQUAD_CREATOR_ROLES` в search_hq_service. */
 const SQUAD_CREATORS = rule('searcher')
+/** Заводит музей или школьный клуб — `ORGANIZATION_CREATOR_ROLES` в search_hq_service. */
+const ORGANIZATION_CREATORS = rule('searcher', 'local_historian')
 /** Водит экскурсии — `GUIDE_ROLES` в search_hq_service. */
 const GUIDES = rule('local_historian')
 /** Ведёт маршруты: черновики, точки, публикация — `AUTHOR_ROLES` в route_service. */
@@ -36,6 +38,8 @@ export const can = {
   /** Стафф-права: стадии мест, правка чужого, снятие клипа — только администратор (`is_root`). */
   moderate: (user: SessionUser | null | undefined) => user?.isRoot === true,
   createSquad: (user: SessionUser | null | undefined) => allowed(user, SQUAD_CREATORS),
+  /** Музей или школу — ещё и краевед; поисковый отряд — только `createSquad`. */
+  createOrganization: (user: SessionUser | null | undefined) => allowed(user, ORGANIZATION_CREATORS),
   guide: (user: SessionUser | null | undefined) => allowed(user, GUIDES),
   authorRoute: (user: SessionUser | null | undefined) => allowed(user, ROUTE_AUTHORS),
   addPoi: (user: SessionUser | null | undefined) => allowed(user, POI_CONTRIBUTORS),

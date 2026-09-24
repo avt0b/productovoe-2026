@@ -118,9 +118,13 @@ export interface HeroCounter {
   accent?: boolean
 }
 
+/** Отряд, музей или школа из «Штаба» — для настроек профиля и заявки на роль. */
 export interface SquadOption {
   id: string
   name: string
+  /** Нет у старого сервиса — тогда это отряд. */
+  kind?: string
+  region?: string
 }
 
 export interface ProfileOverview {

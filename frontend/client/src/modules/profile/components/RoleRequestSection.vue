@@ -2,12 +2,15 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { ApiError } from '@/core/api'
+import { ORGANIZATION_KINDS, organizationKind, type OrganizationKind } from '@/core/services/organizations'
 import { errorText, formatDate } from '@/core/format'
 import type { SessionUser, UserRole } from '@/core/session'
 import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import SegmentTabs from '@/ui/SegmentTabs.vue'
 import FormInput from '@/ui/form/FormInput.vue'
+
+import OrganizationPicker from './OrganizationPicker.vue'
 import FormSelect from '@/ui/form/FormSelect.vue'
 import FormTextarea from '@/ui/form/FormTextarea.vue'
 
@@ -20,6 +23,7 @@ import {
   uploadRoleDocument,
   type Profile,
   type RoleApplication,
+  type SquadOption,
 } from '../data'
 
 /**
@@ -32,9 +36,17 @@ import {
  */
 const props = defineProps<{
   user: SessionUser
-  /** Профиль — из него берём имя, чтобы человек не вводил его снова. */
+  /** Профиль — из него берём имя, чтобы человек не вводил его снова, и город. */
   profile: Profile | null
+  /** Отряды, музеи и школы из «Штаба». */
+  organizations: SquadOption[]
 }>()
+
+/** Поисковику первыми нужны отряды, краеведу — музеи. */
+const ORDER: Record<string, readonly OrganizationKind[]> = {
+  searcher: ['squad', 'school', 'museum'],
+  local_historian: ['museum', 'school', 'squad'],
+}
 
 const role = ref<UserRole>(REQUESTABLE_ROLES[0].role)
 
@@ -60,7 +72,11 @@ const pending = computed(() => application.value?.status === 'pending')
 const document = ref(current.value.documents[0].id)
 const fullName = ref('')
 const contact = ref('')
+/** id выбранной организации, `other` — вписали свою. */
+const organizationId = ref<string | null>(null)
 const organization = ref('')
+const city = computed(() => props.profile?.city?.trim() || props.user.city || '')
+const chosenOrganization = computed(() => props.organizations.find((item) => item.id === organizationId.value) ?? null)
 const experience = ref('')
 const links = ref('')
 const documentUrl = ref<string | null>(null)
@@ -82,6 +98,10 @@ const documentOptions = computed(() => current.value.documents.map((item) => ({ 
 const missing = computed(() => {
   if (!fullName.value.trim()) return 'Укажите имя и фамилию — так администратор сверит их с документом'
   if (!contact.value.trim()) return 'Оставьте способ связи: телефон или телеграм'
+  // Поисковик — всегда из какого-то отряда, музея или клуба; краевед бывает и сам по себе.
+  if (role.value === 'searcher' && !chosenOrganization.value && !(organizationId.value === 'other' && organization.value.trim())) {
+    return 'Выберите свой отряд, музей или школу — или впишите название'
+  }
   if (experience.value.trim().length < 20) return 'Расскажите об опыте хотя бы парой предложений'
   return null
 })
@@ -96,6 +116,7 @@ function reset(): void {
   document.value = current.value.documents[0].id
   fullName.value = props.profile?.display_name || props.user.name
   contact.value = ''
+  organizationId.value = null
   organization.value = ''
   experience.value = ''
   links.value = ''
@@ -158,8 +179,14 @@ function removeDocument(): void {
 function evidenceText(): string {
   const documents = current.value.documents
   const title = documents.find((item) => item.id === document.value)?.title ?? 'Документ'
+  const chosen = chosenOrganization.value
+  const place = chosen
+    ? `${chosen.name} (${ORGANIZATION_KINDS[organizationKind(chosen.kind)].title}${chosen.region ? `, ${chosen.region}` : ''}, id ${chosen.id})`
+    : organizationId.value === 'other'
+      ? `${organization.value.trim()} — нет в списке «Штаба»`
+      : ''
   return [
-    organization.value.trim() ? `Отряд, музей, школа: ${organization.value.trim()}` : '',
+    place ? `Отряд, музей, школа: ${place}` : '',
     `Опыт: ${experience.value.trim()}`,
     links.value.trim() ? `Публикации и ссылки: ${links.value.trim()}` : '',
     `Документ: ${title}${documentUrl.value ? '' : ' — покажу отдельно'}`,
@@ -345,12 +372,12 @@ onBeforeUnmount(dropPreview)
                 @change="pickDocument"
               />
 
-              <FormInput
-                v-model="organization"
-                label="Отряд, музей или школа"
-                icon="flag"
-                :maxlength="200"
-                :placeholder="role === 'searcher' ? 'Поисковый отряд «Высота», Орёл' : 'Кромской краеведческий музей'"
+              <OrganizationPicker
+                v-model="organizationId"
+                v-model:other-name="organization"
+                :organizations="organizations"
+                :city="city"
+                :order="ORDER[role] ?? ORDER.searcher"
               />
               <FormTextarea
                 v-model="experience"

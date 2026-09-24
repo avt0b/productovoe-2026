@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
+import { ApiError } from '@/core/api'
 import { errorText } from '@/core/format'
+import ConfirmAction from '@/ui/ConfirmAction.vue'
 import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import SheetDialog from '@/ui/SheetDialog.vue'
@@ -14,6 +16,7 @@ import {
   NEED_KINDS,
   campaignTitle,
   createNeed,
+  deleteNeed,
   updateNeed,
   type CampaignKind,
   type Need,
@@ -27,11 +30,12 @@ import {
  *
  * Это же окно правит уже опубликованную потребность. Вид и отряд при правке не
  * меняются — сервис их не принимает, — а заголовок правится как есть, без
- * повторной приставки вида сбора.
+ * повторной приставки вида сбора. Ошибочную потребность можно удалить; сбор,
+ * в который уже пришли деньги, — только закрыть.
  */
 const props = withDefaults(defineProps<{ squads: Squad[]; need?: Need | null }>(), { need: null })
 
-const emit = defineEmits<{ close: []; created: [need: Need] }>()
+const emit = defineEmits<{ close: []; created: [need: Need]; done: [text: string] }>()
 
 /** Лимит сервиса на заголовок. */
 const TITLE_MAX = 255
@@ -92,6 +96,25 @@ async function submit(): Promise<void> {
     }
   } catch (reason) {
     error.value = errorText(reason)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function remove(): Promise<void> {
+  const need = props.need
+  if (!need || saving.value) return
+  saving.value = true
+  error.value = null
+  try {
+    await deleteNeed(need.id)
+    emit('done', `«${need.title}» удалено`)
+  } catch (reason) {
+    // Взносы уже пришли — деньги не исчезают вместе со сбором, его закрывают.
+    error.value =
+      reason instanceof ApiError && reason.status === 409
+        ? 'В сбор уже пришли взносы — удалить его нельзя. Закройте сбор кнопкой на его карточке.'
+        : errorText(reason)
   } finally {
     saving.value = false
   }
@@ -178,6 +201,21 @@ async function submit(): Promise<void> {
         <MsIcon :name="saving ? 'progress_activity' : 'add_circle'" :size="18" :class="{ 'animate-spin': saving }" />
         <span>{{ need ? 'Сохранить' : 'Опубликовать' }}</span>
       </button>
+
+      <ConfirmAction
+        v-if="need"
+        class="border-t border-outline-variant/40 pt-space-sm"
+        :label="need.kind === 'funds' ? 'Удалить сбор' : 'Удалить потребность'"
+        icon="delete"
+        :warning="
+          need.kind === 'funds'
+            ? 'Сбор исчезнет из штаба и с карты. Если взносы уже пришли, удалить не выйдет — такой сбор закрывают.'
+            : 'Потребность исчезнет из штаба и с карты потребностей.'
+        "
+        confirm-label="Удалить"
+        :busy="saving"
+        @confirm="remove"
+      />
     </form>
   </SheetDialog>
 </template>

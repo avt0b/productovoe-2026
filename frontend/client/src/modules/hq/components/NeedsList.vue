@@ -15,9 +15,11 @@ const props = defineProps<{
   squads: Map<string, Squad>
   /** Ближайший выезд каждого отряда. */
   nextTrips: Map<string, Trip>
+  /** Может ли человек править потребность этого отряда: командир или администратор. */
+  canManage?: (squadId: string) => boolean
 }>()
 
-const emit = defineEmits<{ trip: [tripId: string] }>()
+const emit = defineEmits<{ trip: [tripId: string]; edit: [need: Need] }>()
 
 const rows = computed(() =>
   props.needs.map((need) => {
@@ -30,6 +32,7 @@ const rows = computed(() =>
       trip,
       tripLabel: day ? `К выезду ${day.day} ${day.month}` : '',
       contact: contactLink(squad?.contact ?? ''),
+      manage: props.canManage?.(need.squad_id) ?? false,
     }
   }),
 )
@@ -38,7 +41,7 @@ const rows = computed(() =>
 <template>
   <ul class="flex flex-col gap-space-sm">
     <li
-      v-for="{ need, squad, trip, tripLabel, contact } in rows"
+      v-for="{ need, squad, trip, tripLabel, contact, manage } in rows"
       :key="need.id"
       class="flex flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document"
     >
@@ -60,7 +63,16 @@ const rows = computed(() =>
         </div>
       </div>
 
-      <div v-if="trip || contact" class="flex flex-wrap gap-space-xs">
+      <div v-if="trip || contact || manage" class="flex flex-wrap gap-space-xs">
+        <button
+          v-if="manage"
+          type="button"
+          class="flex items-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+          @click="emit('edit', need)"
+        >
+          <MsIcon name="edit" :size="18" />
+          Изменить
+        </button>
         <button
           v-if="trip"
           type="button"

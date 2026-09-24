@@ -22,8 +22,9 @@ const props = withDefaults(
     hint?: string
     required?: boolean
     maxlength?: number
-    min?: number
-    max?: number
+    /** Число — у `number`, дата `YYYY-MM-DD` или `YYYY-MM-DDTHH:mm` — у дат. */
+    min?: number | string
+    max?: number | string
     step?: number | 'any'
     inputmode?: 'text' | 'numeric' | 'decimal' | 'url' | 'email'
   }>(),
