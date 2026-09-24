@@ -3,8 +3,8 @@ import type { CapacitorConfig } from '@capacitor/cli'
 /**
  * APK клиента: та же сборка Vite, завёрнутая в Android WebView.
  *
- * Приложение открывается с `https://localhost` — этот origin разрешён в
- * CORS_ORIGINS у `map_service` и `route_service`.
+ * Приложение открывается с `https://localhost` — этот origin (и
+ * `capacitor://localhost`) разрешён в CORS_ORIGINS у всех сервисов.
  */
 const config: CapacitorConfig = {
   appId: 'ru.marshruty.client',
