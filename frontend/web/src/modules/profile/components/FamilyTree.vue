@@ -4,6 +4,7 @@ import SmartImage from '@shared/components/SmartImage.vue'
 import { useAuthSession } from '@modules/auth'
 import { useProfileStore } from '../profileStore.js'
 import FamilyHeroModal from './FamilyHeroModal.vue'
+import HeroDossierModal from './HeroDossierModal.vue'
 
 // user_service: FamilyHero — приватная история семьи (не путать с
 // «Живой памятью»/народным архивом: там публичные записи с верификацией
@@ -29,6 +30,8 @@ function yearsLabel(hero) {
 
 const modalOpen = ref(false)
 const editingHero = ref(null)
+const dossierOpen = ref(false)
+const dossierHero = ref(null)
 
 function openCreate() {
   editingHero.value = null
@@ -36,8 +39,14 @@ function openCreate() {
 }
 
 function openEdit(hero) {
+  dossierOpen.value = false
   editingHero.value = hero
   modalOpen.value = true
+}
+
+function openDossier(hero) {
+  dossierHero.value = hero
+  dossierOpen.value = true
 }
 
 // Проще перечитать профиль целиком, чем вести отдельное состояние списка —
@@ -77,10 +86,12 @@ function onChanged() {
     </p>
 
     <div v-else class="flex flex-col gap-4">
-      <div
+      <button
         v-for="hero in profile.data.heroes"
         :key="hero.id"
-        class="bg-surface-container-low p-4 rounded-DEFAULT flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-surface-container transition-colors"
+        type="button"
+        class="text-left bg-surface-container-low p-4 rounded-DEFAULT flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-surface-container transition-colors"
+        @click="openDossier(hero)"
       >
         <div class="flex items-center gap-4 min-w-0">
           <div class="w-16 h-16 rounded-DEFAULT overflow-hidden bg-surface-container-high shrink-0 shadow-sm">
@@ -97,16 +108,17 @@ function onChanged() {
             <p v-if="hero.note" class="font-label-sm text-label-sm font-bold text-secondary mt-2">{{ hero.note }}</p>
           </div>
         </div>
-        <button
+        <span
           class="bg-surface-container-lowest text-on-surface hover:bg-surface-container-high px-3.5 py-1.5 rounded-full font-label-sm text-label-sm font-bold shadow-sm flex items-center gap-1 shrink-0"
-          @click="openEdit(hero)"
+          @click.stop="openEdit(hero)"
         >
           <span>Изменить</span>
           <span class="material-symbols-outlined text-[16px]">edit</span>
-        </button>
-      </div>
+        </span>
+      </button>
     </div>
 
+    <HeroDossierModal v-model="dossierOpen" :hero="dossierHero" @edit="openEdit" />
     <FamilyHeroModal v-model="modalOpen" :hero="editingHero" @saved="onChanged" @deleted="onChanged" />
   </div>
 </template>
