@@ -68,9 +68,17 @@ export interface RequestOptions {
  */
 export interface AuthHandlers {
   accessToken(): string | null
+  /** Когда истекает access-токен, мс unix-времени. `null` — токена нет. */
+  expiresAt(): number | null
   /** Обновить токен. `true` — получилось, запрос можно повторить. */
   refresh(): Promise<boolean>
 }
+
+/**
+ * Токен обновляем заранее, а не по 401: запрос с просроченным токеном браузер
+ * показывает в консоли красной ошибкой, хотя ничего не сломалось.
+ */
+const REFRESH_AHEAD_MS = 30_000
 
 let authHandlers: AuthHandlers | null = null
 
@@ -88,6 +96,11 @@ export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
+  if (options.auth && !options.token && authHandlers) {
+    const expiresAt = authHandlers.expiresAt()
+    if (expiresAt !== null && expiresAt - Date.now() < REFRESH_AHEAD_MS) await authHandlers.refresh()
+  }
+
   let response = await send(method, service, path, options)
 
   // access-токен живёт 15 минут: истёк — обновляем один раз и повторяем запрос.
