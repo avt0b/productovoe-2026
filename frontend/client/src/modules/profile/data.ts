@@ -180,13 +180,17 @@ export const EVERYONE_CAN = [
 /**
  * Роли и что они дают. Списки повторяют правила ядра (`core/session/roles.ts`)
  * и сервисов — меняются там, меняются и здесь.
+ *
+ * В интерфейсе ролей четыре (`ROLE_ORDER`), но «наставник» остаётся в словаре:
+ * в `auth_service` такая роль всё ещё есть, и у старого аккаунта экран должен
+ * открыться, а не упасть на пустой карточке.
  */
 export const ROLES: Record<UserRole, RoleInfo> = {
   family: { title: 'Семья', icon: 'family_restroom', gives: [] },
   searcher: {
     title: 'Поисковик',
     icon: 'person_search',
-    gives: ['Отмечать места «Последнего боя»', 'Заводить отряд, выезды и сборы'],
+    gives: ['Отмечать места «Последнего боя»', 'Заводить отряд, выезды и сборы', 'Проверять народный архив'],
   },
   local_historian: {
     title: 'Краевед',
@@ -205,7 +209,8 @@ export const ROLES: Record<UserRole, RoleInfo> = {
   },
 }
 
-export const ROLE_ORDER: readonly UserRole[] = ['family', 'searcher', 'local_historian', 'mentor', 'moderator']
+/** Роли, которые показываем: «наставника» в интерфейсе платформы больше нет. */
+export const ROLE_ORDER: readonly UserRole[] = ['family', 'searcher', 'local_historian', 'moderator']
 
 /** Чужой профиль по номеру жетона — краевед смотрит, кого подтверждает. */
 export function fetchProfileById(profileId: string): Promise<Profile> {
@@ -220,30 +225,120 @@ export function verifyProfile(profileId: string, isVerified: boolean): Promise<P
   })
 }
 
-/** Выдать роль — только администратору платформы (`require_root` в auth_service). */
-export function setUserRole(userId: string, role: UserRole): Promise<unknown> {
-  return apiRequest('PATCH', 'auth', `/admin/users/${encodeURIComponent(userId)}/role`, { body: { role }, auth: true })
-}
-
-export interface RoleApplication {
-  experience: string
-  organization: string
-  links: string
-}
-
 /**
- * Текст заявки на роль краеведа. Отдельной ручки для заявок в сервисах нет:
- * роль выдаёт администратор платформы, и заявка уходит ему сообщением.
+ * Заявка на роль.
+ *
+ * Роли выдаёт только администратор платформы (`require_root` в `auth_service`),
+ * и очереди заявок в сервисах нет — ни ручки, ни таблицы. Поэтому заявка
+ * собирается здесь, уходит администратору сообщением, а её след остаётся на
+ * устройстве: приложение помнит, что человек уже подавался, и не даёт собирать
+ * всё заново. Появится ручка — сюда встанет обычный `apiRequest`.
  */
-export function applicationText(name: string, userId: string, city: string, application: RoleApplication): string {
+
+export interface DocumentKind {
+  id: string
+  title: string
+}
+
+export interface RequestableRole {
+  role: UserRole
+  /** Кому роль, человеческим языком: «музейщикам, учителям, краеведам». */
+  who: string
+  /** Чем подтверждают, что человек тот, за кого себя выдаёт. */
+  documents: readonly DocumentKind[]
+}
+
+/** На что можно подать заявку. Модератора администратор назначает сам. */
+export const REQUESTABLE_ROLES: readonly RequestableRole[] = [
+  {
+    role: 'local_historian',
+    who: 'Учителям, музейщикам, членам краеведческих обществ',
+    documents: [
+      { id: 'membership', title: 'Членский билет краеведческого общества' },
+      { id: 'diploma', title: 'Диплом или документ об образовании' },
+      { id: 'work', title: 'Справка с места работы: музей, школа, архив' },
+      { id: 'other', title: 'Другой документ' },
+    ],
+  },
+  {
+    role: 'searcher',
+    who: 'Участникам поисковых отрядов и «Вахты Памяти»',
+    documents: [
+      { id: 'squad', title: 'Удостоверение поискового отряда' },
+      { id: 'certificate', title: 'Сертификат участника «Вахты Памяти»' },
+      { id: 'order', title: 'Приказ или выписка о зачислении в отряд' },
+      { id: 'other', title: 'Другой документ' },
+    ],
+  },
+]
+
+/** Лимит `media_service` на файл — 15 МБ, как у фото в «Живой памяти». */
+export const DOCUMENT_MAX_MB = 15
+
+/** Что человек написал в заявке. */
+export interface RoleRequest {
+  role: UserRole
+  /** id из `documents` выбранной роли. */
+  document: string
+  /** Адрес снимка документа в хранилище. `null` — приложить не удалось. */
+  documentUrl: string | null
+  organization: string
+  experience: string
+  links: string
+  /** Когда заявку отправили, ISO. */
+  sentAt: string
+}
+
+function requestKey(role: UserRole, userId: string): string {
+  return `marshruty.client.role-request.${role}.${userId}`
+}
+
+/** Поданная заявка — `null`, если её не было или хранилище недоступно. */
+export function readRoleRequest(role: UserRole, userId: string): RoleRequest | null {
+  try {
+    return JSON.parse(localStorage.getItem(requestKey(role, userId)) ?? 'null') as RoleRequest | null
+  } catch {
+    return null
+  }
+}
+
+export function saveRoleRequest(userId: string, request: RoleRequest): void {
+  try {
+    localStorage.setItem(requestKey(request.role, userId), JSON.stringify(request))
+  } catch {
+    /* приватный режим — отметка проживёт до закрытия приложения */
+  }
+}
+
+export function clearRoleRequest(role: UserRole, userId: string): void {
+  try {
+    localStorage.removeItem(requestKey(role, userId))
+  } catch {
+    /* нечего убирать */
+  }
+}
+
+/** Снимок документа — в хранилище `media_service`; в заявку уходит адрес. */
+export async function uploadRoleDocument(file: File): Promise<string> {
+  const body = new FormData()
+  body.append('file', file)
+  const { url } = await apiRequest<{ url: string }>('POST', 'media', '/uploads', { body, auth: true })
+  return url
+}
+
+/** Текст заявки — его администратор и получает сообщением. */
+export function applicationText(request: RoleRequest, name: string, userId: string, city: string): string {
+  const documents = REQUESTABLE_ROLES.find((item) => item.role === request.role)?.documents ?? []
+  const document = documents.find((item) => item.id === request.document)?.title ?? 'Документ'
   return [
-    'Заявка на роль краеведа в «Маршрутах победы»',
+    `Заявка на роль «${ROLES[request.role].title}» в «Маршрутах победы»`,
     `Имя: ${name}`,
     city ? `Город: ${city}` : '',
     `Номер жетона: ${userId}`,
-    application.organization.trim() ? `Музей, школа, организация: ${application.organization.trim()}` : '',
-    `Опыт: ${application.experience.trim()}`,
-    application.links.trim() ? `Публикации и ссылки: ${application.links.trim()}` : '',
+    request.organization.trim() ? `Отряд, музей, школа: ${request.organization.trim()}` : '',
+    `Опыт: ${request.experience.trim()}`,
+    request.links.trim() ? `Публикации и ссылки: ${request.links.trim()}` : '',
+    request.documentUrl ? `${document}: ${request.documentUrl}` : `${document}: пришлю отдельно`,
   ]
     .filter(Boolean)
     .join('\n')

@@ -34,6 +34,13 @@ const sinceLabel = computed(() => {
 
 const role = computed(() => (props.user?.role ? ROLES[props.user.role] : null))
 
+/**
+ * Длинное имя в колонку между аватаром и кнопкой правки не влезает даже одним
+ * словом, и браузер рвёт фамилию посередине. Такому имени даём кегль поменьше —
+ * лучше мельче, но целиком.
+ */
+const longName = computed(() => (props.user?.name ?? '').split(' ').some((part) => part.length > 10))
+
 /** Всё о человеке — в одной карточке: отдельных разделов «данные» и «учётная запись» на экране больше нет. */
 const rows = computed(() =>
   props.canEdit
@@ -70,7 +77,12 @@ const rows = computed(() =>
           {{ role ? role.title : 'Исследователь' }}{{ verified ? ' · подтверждён' : '' }}
         </p>
         <h1
-          class="ribbon-shimmer font-headline-lg [overflow-wrap:anywhere] text-headline-lg text-on-surface [--shimmer-base:theme(colors.ink.DEFAULT)] short:text-headline-lg-mobile"
+          class="ribbon-shimmer hyphens-auto break-words text-on-surface [--shimmer-base:theme(colors.ink.DEFAULT)]"
+          :class="
+            longName
+              ? 'font-headline-md text-headline-md'
+              : 'font-headline-lg text-headline-lg short:text-headline-lg-mobile'
+          "
         >
           {{ user?.name ?? 'Гость' }}
         </h1>

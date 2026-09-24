@@ -12,6 +12,7 @@ import HeroesSection from './components/HeroesSection.vue'
 import ProfileEditSheet from './components/ProfileEditSheet.vue'
 import ResearcherHeroCard from './components/ResearcherHeroCard.vue'
 import ResearcherTokenModal from './components/ResearcherTokenModal.vue'
+import RoleRequestSection from './components/RoleRequestSection.vue'
 import RolesSection from './components/RolesSection.vue'
 import SettingsSection from './components/SettingsSection.vue'
 import SupportSection from './components/SupportSection.vue'
@@ -72,7 +73,8 @@ const counters = computed<HeroCounter[]>(() => [
 
       <template v-if="data">
         <ExpeditionStatusCard :trip="nextTrip(data.trips)" />
-        <RolesSection v-if="session.user" :user="session.user" :profile="data.profile" @open-token="tokenOpen = true" />
+        <RolesSection v-if="session.user" :user="session.user" @open-token="tokenOpen = true" />
+        <RoleRequestSection v-if="session.user" :user="session.user" :profile="data.profile" />
         <BadgesSection
           :achievements="data.profile.achievements ?? []"
           :trips="data.trips"

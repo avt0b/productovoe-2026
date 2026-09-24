@@ -11,7 +11,9 @@ type Rule = ReadonlySet<UserRole>
 const rule = (...roles: UserRole[]): Rule => new Set(roles)
 
 /** Проверяет записи народного архива — `VERIFIER_ROLES` в archive_service. */
-const VERIFIERS = rule('local_historian', 'mentor', 'moderator')
+const ARCHIVE_VERIFIERS = rule('searcher', 'local_historian', 'mentor', 'moderator')
+/** Подтверждает профиль исследователя — `_VERIFIER_ROLES` в user_service; поисковика там нет. */
+const PROFILE_VERIFIERS = rule('local_historian', 'mentor', 'moderator')
 /** Добавляет места «Последнего боя» — `_CONTRIBUTOR_ROLES` в map_service. */
 const LAST_STAND_CONTRIBUTORS = rule('searcher', 'local_historian', 'mentor', 'moderator')
 /** Создаёт отряды — `SQUAD_CREATOR_ROLES` в search_hq_service. */
@@ -25,7 +27,8 @@ function allowed(user: SessionUser | null | undefined, roles: Rule): boolean {
 }
 
 export const can = {
-  verifyArchive: (user: SessionUser | null | undefined) => allowed(user, VERIFIERS),
+  verifyArchive: (user: SessionUser | null | undefined) => allowed(user, ARCHIVE_VERIFIERS),
+  verifyProfile: (user: SessionUser | null | undefined) => allowed(user, PROFILE_VERIFIERS),
   addLastStand: (user: SessionUser | null | undefined) => allowed(user, LAST_STAND_CONTRIBUTORS),
   moderate: (user: SessionUser | null | undefined) => allowed(user, rule('moderator')),
   createSquad: (user: SessionUser | null | undefined) => allowed(user, SQUAD_CREATORS),
