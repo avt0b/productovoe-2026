@@ -10,7 +10,7 @@ from core.models.excursion import (
 from core.models.need import Donation, DonationStatus, NeedKind, NeedStatus, SquadNeed
 from core.models.rating import GuideRating
 from core.models.squad import Squad
-from core.models.trip import RegistrationStatus, TripRegistration, VolunteerTrip
+from core.models.trip import RegistrationStatus, TripRegistration, TripStatus, VolunteerTrip
 
 __all__ = [
     "Base",
@@ -30,5 +30,6 @@ __all__ = [
     "Squad",
     "SquadNeed",
     "TripRegistration",
+    "TripStatus",
     "VolunteerTrip",
 ]

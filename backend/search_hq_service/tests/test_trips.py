@@ -130,3 +130,38 @@ def test_my_trips_lists_only_active_registrations(client, leader_header):
     assert {t["title"] for t in everything} == {"Разведка", "Прошлый"}
 
     assert client.get("/trips/mine").status_code == 401
+
+
+def test_cancel_trip_notifies_registered_and_blocks_further_actions(client, leader_header, monkeypatch):
+    import services.trip_service as trip_service_module
+
+    calls = []
+    monkeypatch.setattr(
+        trip_service_module.notify_client, "notify_users", lambda **kw: calls.append(kw)
+    )
+
+    squad = make_squad(client, leader_header)
+    trip = make_trip(client, leader_header, squad["id"]).json()
+    vol = auth_header(user_id="vol-a")
+    client.post(f"/trips/{trip['id']}/registrations", headers=vol)
+
+    other = auth_header(role="searcher")
+    assert (
+        client.post(f"/trips/{trip['id']}/cancel", headers=other, json={"reason": "дождь"}).status_code
+        == 403
+    )
+
+    r = client.post(f"/trips/{trip['id']}/cancel", headers=leader_header, json={"reason": "дождь"})
+    assert r.status_code == 200
+    assert r.json()["status"] == "cancelled"
+    assert r.json()["cancel_reason"] == "дождь"
+    assert calls and calls[0]["user_ids"] == ["vol-a"]
+
+    # повторная отмена — конфликт
+    assert client.post(f"/trips/{trip['id']}/cancel", headers=leader_header).status_code == 409
+    # на отменённый выезд нельзя записаться и нельзя его править
+    assert client.post(f"/trips/{trip['id']}/registrations", headers=auth_header()).status_code == 409
+    assert (
+        client.patch(f"/trips/{trip['id']}", headers=leader_header, json={"title": "x"}).status_code
+        == 409
+    )

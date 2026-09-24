@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.models import RegistrationStatus
+from core.models import RegistrationStatus, TripStatus
 
 
 class TripCreate(BaseModel):
@@ -26,6 +26,10 @@ class TripUpdate(BaseModel):
         return self.model_dump(exclude_unset=True)
 
 
+class TripCancelIn(BaseModel):
+    reason: str = Field(default="", max_length=500)
+
+
 class TripOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -37,6 +41,8 @@ class TripOut(BaseModel):
     capacity: int
     description: str
     checklist: str
+    status: TripStatus
+    cancel_reason: str
     created_at: datetime
 
 

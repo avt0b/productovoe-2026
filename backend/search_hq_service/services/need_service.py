@@ -57,6 +57,14 @@ class NeedService:
         self.db.refresh(need)
         return need
 
+    def delete(self, principal: Principal, need_id: str) -> None:
+        need = self.get(need_id)
+        self._ensure_squad_manager(principal, self._leader_of(need))
+        if self.repo.has_succeeded_donations(need_id):
+            raise Conflict("В сбор уже поступили взносы — его можно только закрыть")
+        self.repo.delete(need)
+        self.db.commit()
+
     def donate(
         self,
         principal: Principal,

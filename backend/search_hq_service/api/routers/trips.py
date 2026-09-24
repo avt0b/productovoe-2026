@@ -4,7 +4,7 @@ from fastapi import APIRouter, Query, status
 
 from api.deps import ChatServiceDep, CurrentPrincipal, TripServiceDep
 from api.schemas.chat import ChatMessageCreate, ChatMessageOut
-from api.schemas.trip import RegistrationOut, TripOut, TripUpdate
+from api.schemas.trip import RegistrationOut, TripCancelIn, TripOut, TripUpdate
 
 router = APIRouter(prefix="/trips", tags=["trips (Выходные с поисковиком)"])
 
@@ -43,6 +43,17 @@ def update_trip(
     return TripOut.model_validate(service.update(principal, trip_id, payload.to_update_dict()))
 
 
+@router.post("/{trip_id}/cancel", response_model=TripOut)
+def cancel_trip(
+    trip_id: str,
+    principal: CurrentPrincipal,
+    service: TripServiceDep,
+    payload: TripCancelIn | None = None,
+) -> TripOut:
+    reason = (payload or TripCancelIn()).reason
+    return TripOut.model_validate(service.cancel(principal, trip_id, reason=reason))
+
+
 @router.post(
     "/{trip_id}/registrations", response_model=RegistrationOut, status_code=status.HTTP_201_CREATED
 )
@@ -54,7 +65,7 @@ def register_for_trip(
 
 @router.delete("/{trip_id}/registrations/me", status_code=status.HTTP_204_NO_CONTENT)
 def cancel_registration(trip_id: str, principal: CurrentPrincipal, service: TripServiceDep) -> None:
-    service.cancel(principal, trip_id)
+    service.cancel_registration(principal, trip_id)
 
 
 @router.get("/{trip_id}/registrations", response_model=list[RegistrationOut])

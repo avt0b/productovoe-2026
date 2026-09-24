@@ -129,3 +129,33 @@ def test_needs_feed_defaults_to_open(client, leader_header):
     )
     open_feed = client.get("/needs").json()
     assert [n["title"] for n in open_feed] == ["Щупы"]
+
+
+def test_delete_need_requires_manager(client, leader_header):
+    squad = make_squad(client, leader_header)
+    need = client.post(
+        f"/squads/{squad['id']}/needs",
+        headers=leader_header,
+        json={"kind": "equipment", "title": "Щупы по ошибке"},
+    ).json()
+
+    assert (
+        client.delete(f"/needs/{need['id']}", headers=auth_header(role="searcher")).status_code == 403
+    )
+    assert client.delete(f"/needs/{need['id']}", headers=leader_header).status_code == 204
+    assert client.get(f"/needs/{need['id']}").status_code == 404
+
+
+def test_delete_need_blocked_after_donation(client, leader_header):
+    squad = make_squad(client, leader_header)
+    need = client.post(
+        f"/squads/{squad['id']}/needs",
+        headers=leader_header,
+        json={"kind": "funds", "title": "ГСМ", "target_amount": 100000},
+    ).json()
+    client.post(f"/needs/{need['id']}/donations", headers=auth_header(), json={"amount": 500})
+
+    r = client.delete(f"/needs/{need['id']}", headers=leader_header)
+    assert r.status_code == 409
+    # сбор остаётся — можно только закрыть
+    assert client.get(f"/needs/{need['id']}").status_code == 200

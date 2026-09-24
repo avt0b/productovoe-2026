@@ -18,6 +18,19 @@ class NeedRepository:
         self.db.flush()
         return need
 
+    def delete(self, need: SquadNeed) -> None:
+        self.db.delete(need)
+
+    def has_succeeded_donations(self, need_id: str) -> bool:
+        return (
+            self.db.scalar(
+                select(Donation.id).where(
+                    Donation.need_id == need_id, Donation.status == DonationStatus.succeeded
+                )
+            )
+            is not None
+        )
+
     def search(
         self,
         *,
