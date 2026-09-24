@@ -28,8 +28,10 @@ async function load() {
     const requests = [archiveApi.listVerifiedEntries()]
     if (session.status === 'authenticated') requests.push(archiveApi.listMyEntries(session.accessToken))
     const [verified, mine] = await Promise.all(requests)
-    publicEntries.value = verified
-    myEntries.value = mine ?? []
+    // Если archive_service недоступен, шлюз иногда всё равно отвечает 200
+    // не-JSON'ом (например SPA вместо API) — тело в этом случае не массив.
+    publicEntries.value = Array.isArray(verified) ? verified : []
+    myEntries.value = Array.isArray(mine) ? mine : []
     loadStatus.value = 'loaded'
   } catch {
     loadStatus.value = 'error'
