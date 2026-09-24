@@ -4,11 +4,11 @@ import { computed, ref, watch } from 'vue'
 import { useAsync } from '@/core/async'
 import { useGeolocation, type GeoMarker } from '@/core/geo'
 import { useSessionStore } from '@/core/session'
+import AccountRequired from '@/ui/AccountRequired.vue'
 import GeoMap from '@/ui/geo/GeoMap.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
-import AccountRequired from './components/AccountRequired.vue'
 import ExcursionCard from './components/ExcursionCard.vue'
 import { fetchExcursions, fetchMyExcursions, isGuideRole, type Excursion } from './data'
 

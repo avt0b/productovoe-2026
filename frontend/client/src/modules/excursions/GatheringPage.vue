@@ -7,11 +7,11 @@ import { errorText, plural } from '@/core/format'
 import { geolocationProblem, useGeolocation } from '@/core/geo'
 import { useSessionStore } from '@/core/session'
 import { BumpPad, TogetherOverlay, useBump } from '@/features/bump'
+import AccountRequired from '@/ui/AccountRequired.vue'
 import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
-import AccountRequired from './components/AccountRequired.vue'
 import DestinationPicker from './components/DestinationPicker.vue'
 import {
   fetchExcursion,

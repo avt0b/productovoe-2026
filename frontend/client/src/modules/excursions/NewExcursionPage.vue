@@ -7,10 +7,10 @@ import { errorText } from '@/core/format'
 import { geolocationProblem, useGeolocation, type GeoMarker } from '@/core/geo'
 import { listPoi } from '@/core/services/map'
 import { useSessionStore } from '@/core/session'
+import AccountRequired from '@/ui/AccountRequired.vue'
 import GeoMap from '@/ui/geo/GeoMap.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 
-import AccountRequired from './components/AccountRequired.vue'
 import { createExcursion, isGuideRole } from './data'
 
 type PlaceMode = 'here' | 'memorial'

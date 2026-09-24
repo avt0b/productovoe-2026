@@ -9,6 +9,7 @@ import AccountRequired from '@/ui/AccountRequired.vue'
 import DemoDataBadge from '@/ui/DemoDataBadge.vue'
 import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
+import SegmentTabs from '@/ui/SegmentTabs.vue'
 import SheetDialog from '@/ui/SheetDialog.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
@@ -21,7 +22,6 @@ import NewNeedSheet from './components/NewNeedSheet.vue'
 import NewSquadSheet from './components/NewSquadSheet.vue'
 import NewTripSheet from './components/NewTripSheet.vue'
 import SeasonImpactCard from './components/SeasonImpactCard.vue'
-import SegmentTabs from './components/SegmentTabs.vue'
 import TripCalendar from './components/TripCalendar.vue'
 import {
   CAMPAIGN_KINDS,
