@@ -57,6 +57,9 @@ main.py        # сборка FastAPI
 | GET | `/profiles/{id}` | любой авторизованный |
 | PATCH | `/profiles/{id}/verify` | `local_historian` / `mentor` / `moderator` / root |
 | GET | `/achievements/me` | любой авторизованный — свои значки (`code`, `earned_at`) |
+| GET | `/family-heroes/mine` | владелец — свой список героев семейного древа |
+| POST | `/family-heroes` | любой авторизованный — создаёт запись с `owner_id = себе` |
+| PATCH · DELETE | `/family-heroes/{id}` | владелец записи / root |
 | GET | `/notifications` `?unread_only&limit&offset` | владелец — своя лента |
 | POST | `/notifications/{id}/read` | владелец |
 | POST | `/notifications/devices` | любой авторизованный — регистрирует токен устройства (upsert по `token`) |
@@ -133,6 +136,35 @@ code)`) — значки за активность (геймификация и�
 (`routes_completed`/`excursions_completed`/`finds_count`), а не сырую карту
 метрик — незнакомая метрика в базе на выдачу не попадает, копится, но
 наружу не лезет. Видны на своём и чужом профиле, как и `achievements`.
+
+## Семейное древо
+
+`FamilyHero` (`owner_id`, `name`, `status`, `birth_year`/`death_year`, `unit`,
+`note`, `photo_url`, `archive_entry_id`) — личная запись о герое семьи
+(«Семейное древо и герои рода» на веб-фронте, раньше была демо-заглушкой
+с вымышленными именами — см. `frontend/web/BACKEND_INTEGRATION.md`).
+
+**Не путать с `archive_service` (`kind=soldier_card`).** Там — публичный
+«народный архив»: любой предлагает карточку бойца, краевед подтверждает,
+видно всем. Здесь — приватная история семьи: заводит и правит только сам
+владелец (`PATCH`/`DELETE /family-heroes/{id}` — `403`, если не автор и не
+`is_root`), верификации нет и не нужно. `archive_entry_id` — необязательная
+ручная связь с уже подтверждённой карточкой в архиве, если она заведена
+(не валидируется, тот же принцип, что `squad_id` у `Profile`).
+
+`status` — закрытый `enum HeroStatus` (`killed_in_action` / `missing_in_action`
+/ `died_of_wounds` / `veteran`), в отличие от `code` ачивок и `metric`
+статистики: набор исходов судьбы конечен и не растёт с новыми сервисами,
+заводить его свободной строкой незачем.
+
+Фото — тот же `POST /uploads`, что и у аватарки (тот же MinIO-бакет,
+JPEG/PNG/WebP ≤5 МБ): сначала загрузить файл, потом положить вернувшийся
+`url` в `photo_url` при создании/правке записи. Отдельной ручки загрузки
+для героев нет.
+
+Видно и на своём, и на чужом профиле: `ProfileOut.heroes` заполняется в
+`GET /profiles/me` и `GET /profiles/{id}`, как `achievements`/статистика —
+та же «не проверяет владение».
 
 ## Push-доставка
 
