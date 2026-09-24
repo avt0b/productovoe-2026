@@ -27,7 +27,7 @@ import PlacesList from './components/PlacesList.vue'
 import RouteFilters from './components/RouteFilters.vue'
 import RoutesSearchBar from './components/RoutesSearchBar.vue'
 import TimelineFilter from './components/TimelineFilter.vue'
-import { PLACE_KINDS, TIMELINE_YEARS, fetchRoutesOverview, type RouteStop } from './data'
+import { PLACE_KINDS, TIMELINE_YEARS, fetchRoutesOverview, type MapPlace, type RouteStop } from './data'
 
 const router = useRouter()
 const session = useSessionStore()
@@ -38,6 +38,19 @@ const canAuthor = computed(() => session.hasAccount && can.authorRoute(session.u
 /** Дополнять слой «ВОВ» могут ещё и поисковики (`_CONTRIBUTOR_ROLES` в map_service). */
 const canAddPlace = computed(() => session.hasAccount && can.addPoi(session.user))
 const addingPlace = ref(false)
+/** Правит и убирает точку её автор или модератор — так же, как решает сервис. */
+const editedPlace = ref<MapPlace | null>(null)
+
+function canEditPlace(place: MapPlace): boolean {
+  if (!session.hasAccount || data.value?.source === 'demo') return false
+  return can.moderate(session.user) || place.createdBy === session.user?.id
+}
+
+/** Точку убрали — карточку закрываем: показывать нечего. */
+async function placeRemoved(): Promise<void> {
+  selectedId.value = null
+  await retry()
+}
 
 /** Пройденные точки маршрута дня — только с аккаунтом и живыми данными: прогресс хранит `route_service`. */
 const completedIds = ref<string[] | null>(null)
@@ -203,7 +216,9 @@ function openStop(stop: RouteStop): void {
           :key="selectedPlace.id"
           :place="selectedPlace"
           :distance="distanceFromUser(selectedPlace)"
+          :can-edit="canEditPlace(selectedPlace)"
           @close="selectedId = null"
+          @edit="editedPlace = selectedPlace"
         />
 
         <!-- Список найденного: метки могут оказаться за краем карты, и без него кажется, что ничего не нашлось. -->
@@ -278,5 +293,12 @@ function openStop(stop: RouteStop): void {
     </template>
 
     <AddPlaceSheet v-if="addingPlace" @close="addingPlace = false" @created="retry" />
+    <AddPlaceSheet
+      v-else-if="editedPlace"
+      :place="editedPlace"
+      @close="editedPlace = null"
+      @created="retry"
+      @removed="placeRemoved"
+    />
   </div>
 </template>

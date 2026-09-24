@@ -85,3 +85,13 @@ export interface PoiDraft {
 export function createPoi(draft: PoiDraft): Promise<Poi> {
   return apiRequest('POST', 'map', '/poi', { body: draft, auth: true })
 }
+
+/** Поправить точку — её автор или модератор (`_ensure_can_edit` в map_service). */
+export function updatePoi(poiId: string, patch: Partial<PoiDraft>): Promise<Poi> {
+  return apiRequest('PATCH', 'map', `/poi/${encodeURIComponent(poiId)}`, { body: patch, auth: true })
+}
+
+/** Убрать точку со слоя — тоже только автор или модератор. */
+export function deletePoi(poiId: string): Promise<void> {
+  return apiRequest('DELETE', 'map', `/poi/${encodeURIComponent(poiId)}`, { auth: true })
+}

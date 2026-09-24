@@ -52,6 +52,8 @@ export interface MapPlace extends LatLon {
   description: string
   dateText: string
   source: string
+  /** Кто добавил точку: автор правит и убирает её сам (`_ensure_can_edit` в map_service). */
+  createdBy: string
   /** Год события. `null` — дата неизвестна: такие места в хронологию не попадают. */
   year: number | null
 }
@@ -118,6 +120,7 @@ function toPlace(poi: Poi): MapPlace {
     description: poi.description,
     dateText: poi.date_text,
     source: poi.source,
+    createdBy: poi.created_by,
     year: eventYear(poi),
     lat: poi.lat,
     lon: poi.lon,

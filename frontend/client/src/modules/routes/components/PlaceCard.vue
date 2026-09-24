@@ -7,9 +7,11 @@ defineProps<{
   place: MapPlace
   /** Расстояние от человека, если известно, где он. */
   distance: string | null
+  /** Место добавил этот человек (или он модератор) — его можно поправить и убрать. */
+  canEdit: boolean
 }>()
 
-defineEmits<{ close: [] }>()
+defineEmits<{ close: []; edit: [] }>()
 </script>
 
 <template>
@@ -53,5 +55,15 @@ defineEmits<{ close: [] }>()
       <MsIcon name="menu_book" :size="16" class="mt-0.5 shrink-0" />
       <span>{{ place.source }}</span>
     </p>
+
+    <button
+      v-if="canEdit"
+      type="button"
+      class="mt-space-xs flex items-center gap-space-xs self-start rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+      @click="$emit('edit')"
+    >
+      <MsIcon name="edit" :size="18" />
+      Поправить место
+    </button>
   </article>
 </template>
