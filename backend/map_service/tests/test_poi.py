@@ -68,7 +68,7 @@ def test_nearby_returns_distance_sorted(client):
     assert res_wide[0]["distance_km"] <= res_wide[1]["distance_km"]
 
 
-def test_only_author_or_moderator_edits(client):
+def test_only_author_or_root_edits(client):
     owner = auth_header(role="local_historian")
     poi = make_poi(client, owner).json()
 
@@ -81,10 +81,10 @@ def test_only_author_or_moderator_edits(client):
     assert (
         client.patch(f"/poi/{poi['id']}", headers=owner, json={"title": "fixed"}).status_code == 200
     )
-    mod = auth_header(role="moderator")
+    root = auth_header(is_root=True)
     assert (
         client.patch(
-            f"/poi/{poi['id']}", headers=mod, json={"description": "проверено"}
+            f"/poi/{poi['id']}", headers=root, json={"description": "проверено"}
         ).status_code
         == 200
     )

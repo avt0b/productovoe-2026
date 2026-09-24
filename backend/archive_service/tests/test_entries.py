@@ -56,7 +56,7 @@ def test_pending_entry_visible_to_author_and_verifier_only(client):
     assert client.get(f"/entries/{e['id']}", headers=author).status_code == 200
     # верификатор видит
     assert (
-        client.get(f"/entries/{e['id']}", headers=auth_header(role="moderator")).status_code == 200
+        client.get(f"/entries/{e['id']}", headers=auth_header(role="local_historian")).status_code == 200
     )
     # посторонний — 404
     assert (
@@ -77,7 +77,7 @@ def test_verify_permissions(client):
     )
     assert (
         client.post(
-            f"/entries/{e['id']}/verify", headers=auth_header(role="mentor"), json={}
+            f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian"), json={}
         ).status_code
         == 200
     )
@@ -93,7 +93,7 @@ def test_verify_awards_archive_helper_achievement(client, monkeypatch):
 
     e = create_entry(client, auth_header(user_id="author-1")).json()
     client.post(
-        f"/entries/{e['id']}/verify", headers=auth_header(role="moderator", user_id="mod-1"), json={}
+        f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian", user_id="mod-1"), json={}
     )
     assert calls == [{"user_id": "mod-1", "code": "archive_helper"}]
 
@@ -108,7 +108,7 @@ def test_reject_also_awards_archive_helper_achievement(client, monkeypatch):
 
     e = create_entry(client, auth_header(user_id="author-1")).json()
     client.post(
-        f"/entries/{e['id']}/reject", headers=auth_header(role="moderator", user_id="mod-1"), json={}
+        f"/entries/{e['id']}/reject", headers=auth_header(role="local_historian", user_id="mod-1"), json={}
     )
     assert calls == [{"user_id": "mod-1", "code": "archive_helper"}]
 
@@ -123,7 +123,7 @@ def test_verify_credits_finds_stat_to_author_not_verifier(client, monkeypatch):
 
     e = create_entry(client, auth_header(user_id="author-1")).json()
     client.post(
-        f"/entries/{e['id']}/verify", headers=auth_header(role="moderator", user_id="mod-1"), json={}
+        f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian", user_id="mod-1"), json={}
     )
     assert calls == [{"user_id": "author-1", "metric": "finds_count"}]
 
@@ -138,7 +138,7 @@ def test_reject_does_not_credit_finds_stat(client, monkeypatch):
 
     e = create_entry(client, auth_header(user_id="author-1")).json()
     client.post(
-        f"/entries/{e['id']}/reject", headers=auth_header(role="moderator", user_id="mod-1"), json={}
+        f"/entries/{e['id']}/reject", headers=auth_header(role="local_historian", user_id="mod-1"), json={}
     )
     assert calls == []
 
@@ -156,7 +156,7 @@ def test_reject_with_note(client):
     e = create_entry(client, auth_header(user_id="author-1")).json()
     r = client.post(
         f"/entries/{e['id']}/reject",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(role="local_historian"),
         json={"note": "нет источника"},
     )
     assert r.status_code == 200
@@ -188,7 +188,7 @@ def test_review_note_hidden_from_public_visible_to_author_and_verifier(client):
     assert author_single["review_note"] == "сверено с Книгой Памяти, но источник спорный"
 
     verifier_single = client.get(
-        f"/entries/{e['id']}", headers=auth_header(role="moderator")
+        f"/entries/{e['id']}", headers=auth_header(role="local_historian")
     ).json()
     assert verifier_single["review_note"] == "сверено с Книгой Памяти, но источник спорный"
 
@@ -202,7 +202,7 @@ def test_author_cannot_edit_after_verify(client):
         == 200
     )
 
-    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="moderator"), json={})
+    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian"), json={})
     assert (
         client.patch(
             f"/entries/{e['id']}", headers=author, json={"title": "ещё правка"}
@@ -223,7 +223,7 @@ def test_moderation_queue_lists_pending(client):
 def test_mine_lists_all_statuses(client):
     author = auth_header(user_id="author-1")
     e = create_entry(client, author).json()
-    client.post(f"/entries/{e['id']}/reject", headers=auth_header(role="moderator"), json={})
+    client.post(f"/entries/{e['id']}/reject", headers=auth_header(role="local_historian"), json={})
     mine = client.get("/entries/mine", headers=author).json()
     assert [x["status"] for x in mine] == ["rejected"]
 
@@ -250,7 +250,7 @@ def test_verifier_edit_after_review_restamps_reviewed_at(client):
 
     edited = client.patch(
         f"/entries/{e['id']}",
-        headers=auth_header(role="moderator", user_id="mod-1"),
+        headers=auth_header(role="local_historian", user_id="mod-1"),
         json={"title": "уточнённый заголовок"},
     ).json()
     assert edited["title"] == "уточнённый заголовок"
@@ -262,11 +262,11 @@ def test_verifier_edit_after_review_restamps_reviewed_at(client):
 
 def test_deleting_reviewed_entry_is_logged(client, caplog):
     e = create_entry(client, auth_header(user_id="author-1")).json()
-    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="moderator"), json={})
+    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian"), json={})
 
     with caplog.at_level("WARNING"):
         r = client.delete(
-            f"/entries/{e['id']}", headers=auth_header(role="moderator", user_id="mod-9")
+            f"/entries/{e['id']}", headers=auth_header(role="local_historian", user_id="mod-9")
         )
     assert r.status_code == 204
     assert any(

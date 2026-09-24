@@ -10,8 +10,7 @@ from repositories.route_repository import RouteRepository
 from services.map_client import fetch_poi_nearby
 
 # Кто может создавать и вести маршруты (кураторы контента).
-AUTHOR_ROLES = {"local_historian", "mentor", "moderator"}
-STAFF_ROLES = {"moderator"}
+AUTHOR_ROLES = {"local_historian"}
 
 
 def _can_author(principal: Principal) -> bool:
@@ -50,7 +49,7 @@ class RouteService:
 
     def create(self, principal: Principal, data: dict) -> Route:
         if not _can_author(principal):
-            raise PermissionDenied("Создавать маршруты могут краеведы, наставники и модераторы")
+            raise PermissionDenied("Создавать маршруты могут краеведы")
         route = self.repo.add(Route(created_by=principal.user_id, **data))
         self.db.commit()
         self.db.refresh(route)
@@ -62,7 +61,7 @@ class RouteService:
         Контент точек (задания/аудио/AR) остаётся пустым — это ручная работа
         автора уже после автогенерации, здесь только расстановка на карте."""
         if not _can_author(principal):
-            raise PermissionDenied("Создавать маршруты могут краеведы, наставники и модераторы")
+            raise PermissionDenied("Создавать маршруты могут краеведы")
 
         lat, lon, radius_km = data["lat"], data["lon"], data["radius_km"]
         candidates = await fetch_poi_nearby(
@@ -200,8 +199,9 @@ class RouteService:
             raise NotFound("Маршрут не найден")
         if self._is_staff(principal) or route.created_by == principal.user_id:
             return route
-        raise PermissionDenied("Редактировать маршрут может автор или модератор")
+        raise PermissionDenied("Редактировать маршрут может автор или администратор")
 
     @staticmethod
     def _is_staff(principal: Principal) -> bool:
-        return principal.is_root or principal.role in STAFF_ROLES
+        # Роль moderator убрана — стафф-права остались только у is_root.
+        return principal.is_root

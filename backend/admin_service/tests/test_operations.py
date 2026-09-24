@@ -57,7 +57,7 @@ def test_list_users_is_readable_by_viewer(client, superadmin, fake_upstream):
 def test_set_user_role_forbidden_for_viewer(client, superadmin, fake_upstream):
     headers = _viewer_headers(client)
     response = client.patch(
-        "/admin/ops/users/u1/role", headers=headers, json={"role": "mentor"}
+        "/admin/ops/users/u1/role", headers=headers, json={"role": "local_historian"}
     )
     assert response.status_code == 403
     assert fake_upstream.calls == []
@@ -79,14 +79,14 @@ def test_set_user_role_success_calls_upstream_and_writes_audit(
         "auth",
         "PATCH",
         f"/internal/users/{user_id}/role",
-        {"id": user_id, "email": "soldier@example.com", "role": "mentor"},
+        {"id": user_id, "email": "soldier@example.com", "role": "local_historian"},
     )
 
     response = client.patch(
-        f"/admin/ops/users/{user_id}/role", headers=headers, json={"role": "mentor"}
+        f"/admin/ops/users/{user_id}/role", headers=headers, json={"role": "local_historian"}
     )
     assert response.status_code == 200
-    assert response.json()["role"] == "mentor"
+    assert response.json()["role"] == "local_historian"
 
     patch_call = next(c for c in fake_upstream.calls if c["method"] == "PATCH")
     assert patch_call == {
@@ -95,7 +95,7 @@ def test_set_user_role_success_calls_upstream_and_writes_audit(
         "path": f"/internal/users/{user_id}/role",
         "actor_id": actor.id,
         "params": None,
-        "json": {"role": "mentor"},
+        "json": {"role": "local_historian"},
     }
 
     audit = client.get(
@@ -122,7 +122,7 @@ def test_set_user_role_upstream_failure_returns_error_and_no_audit(
     )
 
     response = client.patch(
-        f"/admin/ops/users/{user_id}/role", headers=headers, json={"role": "mentor"}
+        f"/admin/ops/users/{user_id}/role", headers=headers, json={"role": "local_historian"}
     )
     # UpstreamUnavailable — доменная ошибка с кодом 502, а не голый 500.
     assert response.status_code == 502

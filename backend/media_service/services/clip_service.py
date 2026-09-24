@@ -9,14 +9,14 @@ from core.security import Principal
 from repositories.clip_repository import ClipRepository
 from services.archive_client import fetch_entry
 
-STAFF_ROLES = {"moderator"}
 DEFAULT_NARRATION = "Я сделал это, чтобы ты жил и видел голубое небо. Помни меня."
 # Сколько текста подвига из archive_service дописываем к дефолтному монологу.
 MAX_FEAT_EXCERPT = 1500
 
 
 def _is_staff(principal: Principal) -> bool:
-    return principal.is_root or principal.role in STAFF_ROLES
+    # Роль moderator убрана — стафф-права остались только у is_root.
+    return principal.is_root
 
 
 class ClipService:
@@ -158,4 +158,4 @@ class ClipService:
         clip = self._require(clip_id)
         if _is_staff(principal) or clip.submitted_by == principal.user_id:
             return clip
-        raise PermissionDenied("Доступ только у автора клипа или модератора")
+        raise PermissionDenied("Доступ только у автора клипа или администратора")

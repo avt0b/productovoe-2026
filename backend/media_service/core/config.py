@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_issuer: str = "auth_service"
 
-    # Токен воркера рендера; пусто -> дёргать может moderator/root.
+    # Токен воркера рендера; пусто -> дёргать может только root.
     render_worker_token: str = ""
 
     # Внутренний служебный ключ: по нему admin_service ходит в /internal/*.
