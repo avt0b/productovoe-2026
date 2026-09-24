@@ -39,7 +39,7 @@ function formatDate(iso) {
 </script>
 
 <template>
-  <div class="bg-surface-container-lowest p-6 rounded-DEFAULT shadow-sm flex flex-col">
+  <div class="bg-surface-container-lowest p-6 rounded-2xl shadow-document flex flex-col">
     <div class="flex items-center gap-3 mb-6">
       <div class="w-10 h-10 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center">
         <span class="material-symbols-outlined text-[20px]">military_tech</span>
