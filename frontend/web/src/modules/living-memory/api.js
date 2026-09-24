@@ -38,3 +38,9 @@ export function retryClip(token, clipId) {
 export function shareClip(token, clipId, { recipient, note }) {
   return http.post(`${MEDIA_BASE}/${clipId}/shares`, { recipient, note }, { token })
 }
+
+// Та же ручка, что и для документа верификации краеведа/фото героя семьи —
+// media_service принимает только изображения (JPEG/PNG/WebP, ≤15МБ).
+export function uploadSourcePhoto(token, file) {
+  return http.upload('/api/media/uploads', file, { token })
+}
