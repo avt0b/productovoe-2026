@@ -5,6 +5,7 @@ import { routes as expeditionHqRoutes } from '@modules/expedition-hq'
 import { routes as excursionsRoutes } from '@modules/excursions'
 import { routes as fundraisingRoutes } from '@modules/fundraising'
 import { routes as livingMemoryRoutes } from '@modules/living-memory'
+import { routes as soldiersArchiveRoutes } from '@modules/soldiers-archive'
 import { routes as profileRoutes } from '@modules/profile'
 import { routes as authRoutes } from '@modules/auth'
 
@@ -18,6 +19,7 @@ const router = createRouter({
     ...excursionsRoutes,
     ...fundraisingRoutes,
     ...livingMemoryRoutes,
+    ...soldiersArchiveRoutes,
     ...profileRoutes,
     ...authRoutes,
   ],
