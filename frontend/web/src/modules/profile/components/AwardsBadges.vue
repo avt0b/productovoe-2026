@@ -1,9 +1,11 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
 import { useAuthSession } from '@modules/auth'
+import { useAchievementCelebration } from '@shared/composables/useAchievementCelebration.js'
 import * as profileApi from '../api.js'
 
 const { session } = useAuthSession()
+const { celebrate } = useAchievementCelebration()
 
 // Дублирует ACHIEVEMENT_TITLES в user_service/core/models/achievement.py —
 // бэкенд отдаёт только code и earned_at, иконку/подпись/подсказку рисует
@@ -43,8 +45,6 @@ const ALL_CODES = Object.keys(ACHIEVEMENT_META)
 
 const achievements = ref([])
 const status = ref('idle') // idle | loading | loaded | error
-// Свежеполученные значки — на них крутится салют пару секунд.
-const celebrating = ref(new Set())
 
 function seenKey(userId) {
   return `marshruty.achievements-seen.${userId}`
@@ -78,12 +78,11 @@ async function load() {
     // запоминаем текущие значки, не салютуем за то, что заслужено раньше.
     if (seen) {
       const newlyEarned = [...currentCodes].filter((code) => !seen.has(code))
-      if (newlyEarned.length) {
-        celebrating.value = new Set(newlyEarned)
-        setTimeout(() => {
-          celebrating.value = new Set()
-        }, 1600)
-      }
+      // Несколько заслужено за раз (например догнали двух ачивок между
+      // визитами) — салютуем каждой по очереди, а не сваливаем в кучу.
+      newlyEarned.forEach((code, i) => {
+        setTimeout(() => celebrate(ACHIEVEMENT_META[code]?.title ?? code), i * 2200)
+      })
     }
     saveSeen(userId, currentCodes)
   } catch {
@@ -107,8 +106,6 @@ function isEarned(code) {
 function earnedAt(code) {
   return achievements.value.find((a) => a.code === code)?.earned_at
 }
-
-const PARTICLE_COLORS = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-ribbon-orange', 'bg-error']
 </script>
 
 <template>
@@ -147,17 +144,6 @@ const PARTICLE_COLORS = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-ribbon
           <span class="material-symbols-outlined text-[28px]" :class="{ 'opacity-50': !isEarned(code) }">
             {{ isEarned(code) ? ACHIEVEMENT_META[code].icon : 'lock' }}
           </span>
-
-          <!-- Салют: разлетающиеся точки поверх значка при получении. -->
-          <template v-if="celebrating.has(code)">
-            <span
-              v-for="n in 12"
-              :key="n"
-              class="firework-particle absolute top-1/2 left-1/2 w-1.5 h-1.5 rounded-full"
-              :class="PARTICLE_COLORS[n % PARTICLE_COLORS.length]"
-              :style="{ '--angle': `${n * 30}deg`, animationDelay: `${(n % 4) * 40}ms` }"
-            />
-          </template>
         </div>
 
         <span
@@ -180,24 +166,3 @@ const PARTICLE_COLORS = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-ribbon
     </div>
   </div>
 </template>
-
-<style scoped>
-.firework-particle {
-  animation: firework-burst 900ms ease-out forwards;
-  transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0);
-}
-
-@keyframes firework-burst {
-  0% {
-    opacity: 1;
-    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0) scale(1);
-  }
-  70% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-34px) scale(0.4);
-  }
-}
-</style>
