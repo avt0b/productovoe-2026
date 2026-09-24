@@ -69,6 +69,13 @@ const localPreview = ref<string | null>(null)
 const uploading = ref(false)
 const sending = ref(false)
 const error = ref<string | null>(null)
+/**
+ * Нажали «Отправить», а графы не заполнены. Кнопка при этом не выключается:
+ * выключенная выглядела почти как обычная, и казалось, что она просто не
+ * нажимается, — лучше нажать и прочитать, чего не хватает.
+ */
+const tried = ref(false)
+const shownError = computed(() => error.value ?? (tried.value ? missing.value : null))
 
 const documentOptions = computed(() => current.value.documents.map((item) => ({ value: item.id, title: item.title })))
 
@@ -94,6 +101,7 @@ function reset(): void {
   links.value = ''
   documentUrl.value = null
   error.value = null
+  tried.value = false
   filling.value = false
 }
 
@@ -161,7 +169,11 @@ function evidenceText(): string {
 }
 
 async function send(): Promise<void> {
-  if (missing.value || uploading.value || sending.value) return
+  if (uploading.value || sending.value) return
+  if (missing.value) {
+    tried.value = true
+    return
+  }
   sending.value = true
   error.value = null
   try {
@@ -266,7 +278,7 @@ onBeforeUnmount(dropPreview)
             :class="filling && !pending ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
             :inert="!filling || pending"
           >
-            <form class="flex flex-col gap-space-md overflow-hidden" @submit.prevent="send">
+            <form class="flex flex-col gap-space-md overflow-hidden" novalidate @submit.prevent="send">
               <div class="flex flex-col gap-space-md pt-space-xs">
                 <FormInput
                   v-model="fullName"
@@ -354,7 +366,7 @@ onBeforeUnmount(dropPreview)
               />
               <FormInput v-model="links" label="Публикации и ссылки" icon="link" :maxlength="500" placeholder="Статьи, книги, страница отряда" />
 
-              <InlineNotice v-if="error" tone="error">{{ error }}</InlineNotice>
+              <InlineNotice v-if="shownError" tone="error">{{ shownError }}</InlineNotice>
               <p v-else class="text-center font-body-sm text-body-sm text-on-surface-variant">
                 {{
                   uploading
@@ -366,7 +378,7 @@ onBeforeUnmount(dropPreview)
               <button
                 type="submit"
                 class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-70 short:py-2.5"
-                :disabled="missing !== null || uploading || sending"
+                :disabled="uploading || sending"
               >
                 <MsIcon :name="sending ? 'progress_activity' : 'send'" :size="18" :class="{ 'animate-spin': sending }" />
                 <span>Отправить заявку</span>

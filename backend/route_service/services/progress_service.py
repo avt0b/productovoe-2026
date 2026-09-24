@@ -31,11 +31,10 @@ class ProgressService:
             self.db.refresh(progress)
         return progress
 
-    def get_mine(self, principal: Principal, route_id: str) -> RouteProgress:
-        progress = self.repo.get(route_id, principal.user_id)
-        if progress is None:
-            raise NotFound("Маршрут ещё не начат")
-        return progress
+    def get_mine(self, principal: Principal, route_id: str) -> RouteProgress | None:
+        """None — маршрут ещё не начат. Это обычное состояние, а не ошибка: клиент
+        спрашивает прогресс при каждом открытии карты."""
+        return self.repo.get(route_id, principal.user_id)
 
     def complete_waypoint(
         self, principal: Principal, route_id: str, waypoint_id: str, answer: str | None = None

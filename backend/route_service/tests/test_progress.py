@@ -64,14 +64,11 @@ def test_complete_unknown_waypoint_404(client, author_header):
     assert r.status_code == 404
 
 
-def test_progress_me_before_start_404(client, author_header):
+def test_progress_me_before_start_is_null(client, author_header):
     route_id, _ = published_route_with_waypoints(client, author_header)
-    assert (
-        client.get(
-            f"/routes/{route_id}/progress/me", headers=auth_header(user_id="mama-1")
-        ).status_code
-        == 404
-    )
+    r = client.get(f"/routes/{route_id}/progress/me", headers=auth_header(user_id="mama-1"))
+    assert r.status_code == 200
+    assert r.json() is None
 
 
 def test_riddle_answer_is_graded_but_does_not_block_progress(client, author_header):

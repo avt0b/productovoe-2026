@@ -148,11 +148,12 @@ def start_progress(
     return ProgressOut.model_validate(service.start(principal, route_id))
 
 
-@router.get("/{route_id}/progress/me", response_model=ProgressOut)
+@router.get("/{route_id}/progress/me", response_model=ProgressOut | None)
 def my_progress(
     route_id: str, principal: CurrentPrincipal, service: ProgressServiceDep
-) -> ProgressOut:
-    return ProgressOut.model_validate(service.get_mine(principal, route_id))
+) -> ProgressOut | None:
+    progress = service.get_mine(principal, route_id)
+    return ProgressOut.model_validate(progress) if progress else None
 
 
 @router.post("/{route_id}/progress/complete-waypoint", response_model=ProgressOut)
