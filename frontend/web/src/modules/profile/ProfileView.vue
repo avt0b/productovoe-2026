@@ -4,7 +4,7 @@ import ProfileHero from './components/ProfileHero.vue'
 import FamilyTree from './components/FamilyTree.vue'
 import AwardsBadges from './components/AwardsBadges.vue'
 import ResearcherDataForm from './components/ResearcherDataForm.vue'
-import LocalHistorianVerification from './components/LocalHistorianVerification.vue'
+import RoleRequestCard from './components/RoleRequestCard.vue'
 import { useAuthSession, roleLabel } from '@modules/auth'
 import { MyExcursions } from '@modules/excursions'
 import { useProfileStore } from './profileStore.js'
@@ -64,7 +64,7 @@ const heroProps = computed(() => {
       </div>
 
       <div class="lg:col-span-5 flex flex-col gap-8">
-        <LocalHistorianVerification />
+        <RoleRequestCard />
         <ResearcherDataForm />
       </div>
     </div>
