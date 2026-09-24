@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onBeforeUnmount, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { shareCurrentPage } from '@/core/share'
@@ -8,6 +9,23 @@ import UserAvatar from './UserAvatar.vue'
 
 const route = useRoute()
 const router = useRouter()
+
+/**
+ * Системного окна отправки в Android WebView нет — ссылка уходит в буфер.
+ * Без отметки на кнопке нажатие выглядит как «ничего не произошло».
+ */
+const copied = ref(false)
+let copiedTimer: ReturnType<typeof setTimeout> | undefined
+
+async function share(): Promise<void> {
+  const outcome = await shareCurrentPage(route.meta.title)
+  if (outcome !== 'copied') return
+  copied.value = true
+  clearTimeout(copiedTimer)
+  copiedTimer = setTimeout(() => (copied.value = false), 2000)
+}
+
+onBeforeUnmount(() => clearTimeout(copiedTimer))
 
 /** Открыли карточку по прямой ссылке — «назад» некуда, ведём на стартовый экран. */
 function goBack(): void {
@@ -38,11 +56,12 @@ function goBack(): void {
       <div class="flex items-center gap-space-xs">
         <button
           type="button"
-          aria-label="Поделиться"
-          class="flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:text-on-surface"
-          @click="shareCurrentPage(route.meta.title)"
+          :aria-label="copied ? 'Ссылка скопирована' : 'Поделиться'"
+          class="flex h-11 w-11 items-center justify-center rounded-full transition-colors"
+          :class="copied ? 'text-secondary' : 'text-on-surface-variant hover:text-on-surface'"
+          @click="share"
         >
-          <MsIcon name="share" :size="22" />
+          <MsIcon :name="copied ? 'check' : 'share'" :size="22" />
         </button>
         <UserAvatar />
       </div>

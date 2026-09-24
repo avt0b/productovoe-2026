@@ -18,6 +18,8 @@ interface ImportMetaEnv {
   readonly VITE_ARCHIVE_API_URL?: string
   /** Адрес `media_service`: «Живое фото». По умолчанию — http://127.0.0.1:8007. */
   readonly VITE_MEDIA_API_URL?: string
+  /** Адрес веб-версии для кнопки «Поделиться»: из APK ссылку на `https://localhost` получателю не открыть. */
+  readonly VITE_PUBLIC_WEB_URL?: string
   /** Шаблон тайлов подложки в формате Leaflet (`{z}/{x}/{y}`). По умолчанию — OpenStreetMap. */
   readonly VITE_MAP_TILES_URL?: string
   /** Подпись правообладателей подложки. Меняете тайлы — меняйте и её. */

@@ -39,7 +39,6 @@ src/modules/hq/**             поисковый штаб, сборы, выез�
 src/modules/memory/**         живая память, народный архив, живое фото
 src/modules/profile/**        профиль, роли, настройки
 src/modules/nfc/**  src/features/nfc/**
-src/modules/server/**
 src/features/notifications/**
 ```
 
