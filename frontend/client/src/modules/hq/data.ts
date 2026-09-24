@@ -205,6 +205,16 @@ export interface NeedDraft {
   target_amount: number | null
 }
 
+/** Поправить выезд — командир отряда или модератор. */
+export function updateTrip(tripId: string, patch: Partial<TripDraft>): Promise<Trip> {
+  return apiRequest('PATCH', 'hq', tripPath(tripId), { body: patch, auth: true })
+}
+
+/** Поправить сбор — тоже командир или модератор. Закрывает сбор отдельная ручка. */
+export function updateNeed(needId: string, patch: Partial<Omit<NeedDraft, 'kind'>>): Promise<Need> {
+  return apiRequest('PATCH', 'hq', needPath(needId), { body: patch, auth: true })
+}
+
 export function createNeed(squadId: string, draft: NeedDraft): Promise<Need> {
   return apiRequest('POST', 'hq', squadPath(squadId, '/needs'), { body: draft, auth: true })
 }

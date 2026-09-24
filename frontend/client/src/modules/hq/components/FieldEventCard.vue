@@ -18,7 +18,7 @@ const props = defineProps<{
   focused?: boolean
 }>()
 
-defineEmits<{ register: []; cancel: [] }>()
+defineEmits<{ register: []; cancel: []; edit: [] }>()
 
 const day = computed(() => tripDay(props.trip.starts_on))
 
@@ -184,6 +184,16 @@ const seatsPercent = computed(() =>
         </div>
       </div>
     </div>
+
+    <button
+      v-if="canManage"
+      type="button"
+      class="flex items-center justify-center gap-space-xs self-center rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+      @click="$emit('edit')"
+    >
+      <MsIcon name="edit" :size="18" />
+      Изменить выезд
+    </button>
 
     <button
       v-if="!registered"

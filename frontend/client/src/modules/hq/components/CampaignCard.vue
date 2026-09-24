@@ -14,7 +14,7 @@ const props = defineProps<{
   closing?: boolean
 }>()
 
-const emit = defineEmits<{ donate: []; close: [] }>()
+const emit = defineEmits<{ donate: []; close: []; edit: [] }>()
 
 const campaign = computed(() => campaignOf(props.need))
 const kind = computed(() => CAMPAIGN_KINDS[campaign.value.kind])
@@ -133,7 +133,15 @@ onBeforeUnmount(() => clearTimeout(sharedTimer))
       </button>
     </div>
 
-    <div v-if="isOpen && canManage" class="flex flex-col">
+    <div v-if="isOpen && canManage" class="flex flex-col gap-space-xs">
+      <button
+        type="button"
+        class="flex items-center justify-center gap-space-xs self-center rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+        @click="emit('edit')"
+      >
+        <MsIcon name="edit" :size="18" />
+        Изменить сбор
+      </button>
       <button
         type="button"
         class="self-center font-label-md text-label-md text-on-surface-variant underline-offset-2 hover:underline"

@@ -264,6 +264,14 @@ function openWalk(): void {
 
           <template v-if="excursion.status === 'scheduled'">
             <button
+              type="button"
+              class="flex items-center justify-center gap-space-xs self-start rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+              @click="router.push({ name: 'excursion-edit', params: { excursionId: excursion.id } })"
+            >
+              <MsIcon name="edit" :size="18" />
+              Изменить экскурсию
+            </button>
+            <button
               v-if="confirming !== 'cancel'"
               type="button"
               class="font-label-md text-label-md text-error"

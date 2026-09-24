@@ -24,6 +24,12 @@ export default defineModule({
       meta: { title: 'Новая экскурсия', layout: 'detail', tab: 'excursions' },
     },
     {
+      path: '/excursions/:excursionId/edit',
+      name: 'excursion-edit',
+      component: () => import('./NewExcursionPage.vue'),
+      meta: { title: 'Изменить экскурсию', layout: 'detail', tab: 'excursions' },
+    },
+    {
       path: '/excursions/:excursionId',
       name: 'excursion',
       component: () => import('./ExcursionPage.vue'),

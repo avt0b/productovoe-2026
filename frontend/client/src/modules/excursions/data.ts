@@ -105,6 +105,11 @@ export function createExcursion(draft: ExcursionDraft): Promise<Excursion> {
   return apiRequest('POST', 'hq', '/excursions', { body: draft, auth: true })
 }
 
+/** Поправить экскурсию — краевед, который её ведёт, или модератор. */
+export function updateExcursion(excursionId: string, patch: Partial<ExcursionDraft>): Promise<Excursion> {
+  return apiRequest('PATCH', 'hq', path(excursionId), { body: patch, auth: true })
+}
+
 export function cancelExcursion(excursionId: string): Promise<Excursion> {
   return apiRequest('POST', 'hq', path(excursionId, '/cancel'), { auth: true })
 }

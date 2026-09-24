@@ -46,8 +46,8 @@ const TABS: readonly Tab[] = ['funds', 'trips', 'squads']
 type Sheet =
   | { kind: 'donate'; need: Need }
   | { kind: 'squad'; squad?: Squad }
-  | { kind: 'trip' }
-  | { kind: 'need' }
+  | { kind: 'trip'; trip?: Trip }
+  | { kind: 'need'; need?: Need }
   | { kind: 'account'; text: string }
 
 const route = useRoute()
@@ -354,6 +354,7 @@ function isRegistered(tripId: string): boolean | null {
             :closing="closingNeedId === need.id"
             @donate="openDonation(need)"
             @close="finishNeed(need)"
+            @edit="sheet = { kind: 'need', need }"
           />
           <div
             v-if="restFunds.length"
@@ -371,6 +372,7 @@ function isRegistered(tripId: string): boolean | null {
                 :closing="closingNeedId === need.id"
                 @donate="openDonation(need)"
                 @close="finishNeed(need)"
+                @edit="sheet = { kind: 'need', need }"
               />
             </div>
           </div>
@@ -427,6 +429,7 @@ function isRegistered(tripId: string): boolean | null {
           :focused="focusedTripId === trip.id"
           @register="register(trip)"
           @cancel="cancel(trip)"
+          @edit="sheet = { kind: 'trip', trip }"
         />
         <StateBlock
           v-if="!visibleTrips.length"
@@ -465,13 +468,15 @@ function isRegistered(tripId: string): boolean | null {
     <NewTripSheet
       v-else-if="sheet?.kind === 'trip'"
       :squads="managedSquads"
-      @created="(trip) => created(`Набор объявлен: ${trip.title}`, 'trips')"
+      :trip="sheet.trip ?? null"
+      @created="(trip) => created(sheet?.kind === 'trip' && sheet.trip ? `Выезд обновлён: ${trip.title}` : `Набор объявлен: ${trip.title}`, 'trips')"
       @close="sheet = null"
     />
     <NewNeedSheet
       v-else-if="sheet?.kind === 'need'"
       :squads="managedSquads"
-      @created="(need) => created(`Опубликовано: ${need.title}`, 'funds')"
+      :need="sheet.need ?? null"
+      @created="(need) => created(sheet?.kind === 'need' && sheet.need ? `Обновлено: ${need.title}` : `Опубликовано: ${need.title}`, 'funds')"
       @close="sheet = null"
     />
     <SheetDialog v-else-if="sheet?.kind === 'account'" title="Нужен аккаунт" @close="sheet = null">
