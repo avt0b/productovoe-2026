@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { useAsync } from '@/core/async'
 import { errorText } from '@/core/format'
 import {
   distanceKm,
@@ -18,7 +19,7 @@ import GeoMap from '@/ui/geo/GeoMap.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 
 import DestinationPicker from './components/DestinationPicker.vue'
-import { finishWalk, leadWalk, type WalkTarget } from './data'
+import { fetchExcursion, finishWalk, leadWalk, nextStop, sameSpot, stopTargets, type WalkTarget } from './data'
 import { useWalk } from './useWalk'
 
 /**
@@ -37,6 +38,11 @@ const { walk, loadError, route, position, geoStatus, metersLeft, arrived, refres
 
 const isGuide = computed(() => walk.value?.is_guide ?? false)
 const destination = computed(() => walk.value?.destination ?? null)
+
+/** Маршрут экскурсии — план, по которому краевед ведёт группу. Не загрузился — ведёт как раньше, по выбору. */
+const plan = useAsync(() => fetchExcursion(props.excursionId, true))
+const routeStops = computed(() => stopTargets(plan.data.value?.stops))
+const next = computed(() => nextStop(routeStops.value, destination.value))
 const others = computed(() => (walk.value?.members ?? []).filter((member) => !member.is_me))
 const guide = computed(() => others.value.find((member) => member.is_guide) ?? null)
 
@@ -46,6 +52,11 @@ const markers = computed<GeoMarker[]>(() => {
       ? { id: member.user_id, lat: member.lat, lon: member.lon, label: 'Краевед', icon: 'hiking', tone: 'tertiary' }
       : { id: member.user_id, lat: member.lat, lon: member.lon, label: 'Участник', icon: 'person', tone: 'secondary' },
   )
+  // Остальные точки маршрута — номерами: видно, что впереди и сколько осталось.
+  routeStops.value.forEach((stop, index) => {
+    if (destination.value && sameSpot(stop, destination.value)) return
+    list.push({ id: `stop-${index}`, lat: stop.lat, lon: stop.lon, label: stop.name, icon: 'flag', tone: 'neutral', badge: String(index + 1) })
+  })
   const target = destination.value
   if (target) {
     list.push({
@@ -252,6 +263,18 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
             {{ actionError }}
           </p>
 
+          <!-- Следующая точка маршрута — одним нажатием: краевед идёт впереди группы, ему не до списков. -->
+          <button
+            v-if="isGuide && next"
+            type="button"
+            class="flex min-h-11 items-center justify-center gap-space-xs rounded-full border border-white/20 bg-white/15 px-space-md py-2 font-label-lg text-label-lg text-white backdrop-blur-sm transition-colors hover:bg-white/25 active:scale-[0.98] disabled:opacity-60"
+            :disabled="busy"
+            @click="changeDestination(next.target)"
+          >
+            <MsIcon :name="busy ? 'progress_activity' : 'arrow_forward'" :size="18" :class="{ 'animate-spin': busy }" />
+            <span class="truncate">Дальше — точка {{ next.number }}: {{ next.target.name }}</span>
+          </button>
+
           <div class="flex gap-space-xs">
             <button
               type="button"
@@ -269,7 +292,7 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
               @click="picking = true"
             >
               <MsIcon name="alt_route" :size="18" />
-              Дальше
+              {{ next ? 'Другое место' : 'Дальше' }}
             </button>
           </div>
 
@@ -290,7 +313,8 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
     <DestinationPicker
       v-if="picking"
       :from="pickFrom"
-      :current-poi-id="destination?.poi_id"
+      :current="destination"
+      :stops="routeStops"
       :busy="busy"
       @close="picking = false"
       @pick="changeDestination"

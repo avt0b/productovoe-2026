@@ -19,6 +19,18 @@ export interface ExcursionViewer {
   checked_in_at: string | null
 }
 
+/** Точка маршрута: после сбора краевед ведёт группу по ним по порядку. */
+export interface ExcursionStop {
+  id: string
+  position: number
+  name: string
+  lat: number
+  lon: number
+  poi_id: string | null
+  /** Что здесь рассказать или сделать. */
+  note: string
+}
+
 export interface Excursion {
   id: string
   guide_id: string
@@ -37,6 +49,8 @@ export interface Excursion {
   checked_in_count: number
   /** Кем экскурсия приходится смотрящему. `null` — запрос без аккаунта. */
   viewer: ExcursionViewer | null
+  /** Маршрут после сбора. Нет у старого сервиса — экскурсия на одном месте. */
+  stops?: ExcursionStop[]
   created_at: string
 }
 
@@ -64,6 +78,14 @@ export interface Position {
   accuracy_m: number | null
 }
 
+export interface StopDraft {
+  name: string
+  lat: number
+  lon: number
+  poi_id: string | null
+  note: string
+}
+
 export interface ExcursionDraft {
   title: string
   description: string
@@ -73,6 +95,16 @@ export interface ExcursionDraft {
   poi_id: string | null
   starts_at: string
   capacity: number
+  /** Маршрут целиком: при правке заменяет прежний. */
+  stops: StopDraft[]
+}
+
+/** Больше точек сервис не примет (`MAX_STOPS`). */
+export const MAX_STOPS = 20
+
+/** Та же ли это точка: цель прогулки приходит без id точки маршрута. */
+export function sameSpot(a: { lat: number; lon: number }, b: { lat: number; lon: number }): boolean {
+  return Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lon - b.lon) < 1e-5
 }
 
 /** Кто водит экскурсии — как `GUIDE_ROLES` в search_hq_service. */
@@ -247,3 +279,21 @@ export function finishWalk(excursionId: string): Promise<Walk> {
   return apiRequest('POST', 'hq', path(excursionId, '/walk/finish'), { auth: true })
 }
 
+
+/** Точки маршрута экскурсии как цели прогулки. */
+export function stopTargets(stops: ExcursionStop[] | undefined): WalkTarget[] {
+  return (stops ?? []).map((stop) => ({ lat: stop.lat, lon: stop.lon, name: stop.name, poi_id: stop.poi_id }))
+}
+
+/**
+ * Куда вести дальше по маршруту. Цели ещё нет — к первой точке; идём к точке
+ * маршрута — к следующей за ней. Краевед свернул к месту не из маршрута или
+ * точки кончились — `null`: дальше он выбирает сам.
+ */
+export function nextStop(stops: WalkTarget[], current: { lat: number; lon: number } | null): { target: WalkTarget; number: number } | null {
+  if (!stops.length) return null
+  const at = current ? stops.findIndex((stop) => sameSpot(stop, current)) : -1
+  if (current && at < 0) return null
+  const index = at + 1
+  return index < stops.length ? { target: stops[index], number: index + 1 } : null
+}

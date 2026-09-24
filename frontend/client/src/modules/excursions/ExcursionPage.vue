@@ -3,8 +3,8 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
-import { errorText } from '@/core/format'
-import type { GeoMarker } from '@/core/geo'
+import { errorText, plural } from '@/core/format'
+import { distanceKm, formatDistance, type GeoMarker, type GeoPath } from '@/core/geo'
 import { useSessionStore } from '@/core/session'
 import { ChatSheet } from '@/features/chat'
 import GeoMap from '@/ui/geo/GeoMap.vue'
@@ -128,11 +128,41 @@ const seatsLeft = computed(() =>
   excursion.value ? Math.max(0, excursion.value.capacity - excursion.value.registered_count) : 0,
 )
 
+const stops = computed(() => excursion.value?.stops ?? [])
+
 const markers = computed<GeoMarker[]>(() => {
   const item = excursion.value
   if (!item) return []
-  return [{ id: item.id, lat: item.lat, lon: item.lon, label: item.place_name || item.title, icon: 'groups', tone: 'primary' }]
+  return [
+    { id: item.id, lat: item.lat, lon: item.lon, label: item.place_name || item.title, icon: 'groups', tone: 'primary' },
+    ...stops.value.map((stop, index) => ({
+      id: stop.id,
+      lat: stop.lat,
+      lon: stop.lon,
+      label: stop.name,
+      icon: 'flag',
+      tone: 'secondary' as const,
+      badge: String(index + 1),
+    })),
+  ]
 })
+
+/** Путь от места сбора по точкам — пунктиром: это план, а не проложенная тропа. */
+const routePaths = computed<GeoPath[]>(() => {
+  const item = excursion.value
+  if (!item || !stops.value.length) return []
+  return [{ id: 'route', points: [{ lat: item.lat, lon: item.lon }, ...stops.value], tone: 'secondary', dashed: true }]
+})
+
+const routeKm = computed(() => {
+  const item = excursion.value
+  if (!item) return 0
+  const line = [{ lat: item.lat, lon: item.lon }, ...stops.value]
+  return line.slice(1).reduce((sum, point, index) => sum + distanceKm(line[index], point), 0)
+})
+
+const selectedPoint = ref<string | null>(null)
+watch(excursion, (item) => (selectedPoint.value = item?.id ?? null), { immediate: true })
 
 async function act(action: () => Promise<unknown>): Promise<void> {
   if (busy.value) return
@@ -214,7 +244,43 @@ function openWalk(): void {
         </p>
       </div>
 
-      <GeoMap :markers="markers" :selected="excursion.id" class="h-44 w-full rounded-2xl shadow-document" />
+      <GeoMap v-model:selected="selectedPoint" :markers="markers" :paths="routePaths" class="h-44 w-full rounded-2xl shadow-document" />
+
+      <!-- Маршрут после сбора: куда краевед поведёт группу и что там будет. -->
+      <section v-if="stops.length" class="flex flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
+        <div class="flex items-baseline justify-between gap-space-sm">
+          <p class="font-archival text-archival uppercase text-on-surface-variant">Маршрут</p>
+          <p class="font-label-sm text-label-sm text-on-surface-variant">
+            {{ stops.length }} {{ plural(stops.length, ['точка', 'точки', 'точек']) }} · ≈ {{ formatDistance(routeKm) }}
+          </p>
+        </div>
+        <ol class="relative flex flex-col gap-space-sm">
+          <!-- Вертикальная нить, на которую нанизаны точки. -->
+          <span class="absolute bottom-4 left-[1.1rem] top-4 w-0.5 bg-secondary/25" aria-hidden="true" />
+          <li class="relative flex items-start gap-space-sm">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary" aria-hidden="true">
+              <MsIcon name="groups" :size="18" />
+            </span>
+            <button type="button" class="min-w-0 pt-1.5 text-left" @click="selectedPoint = excursion.id">
+              <span class="block font-label-lg text-label-lg text-on-surface">Сбор</span>
+              <span class="block font-body-sm text-body-sm text-on-surface-variant">{{ excursion.place_name || 'Место сбора' }}</span>
+            </button>
+          </li>
+          <li v-for="(stop, index) in stops" :key="stop.id" class="relative flex items-start gap-space-sm">
+            <span
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-label-lg text-label-lg"
+              :class="selectedPoint === stop.id ? 'bg-secondary text-on-secondary' : 'bg-secondary-container text-on-secondary-container'"
+              aria-hidden="true"
+            >
+              {{ index + 1 }}
+            </span>
+            <button type="button" class="flex min-w-0 flex-col pt-1.5 text-left" @click="selectedPoint = stop.id">
+              <span class="font-label-lg text-label-lg text-on-surface">{{ stop.name }}</span>
+              <span v-if="stop.note" class="whitespace-pre-line font-body-sm text-body-sm text-on-surface-variant">{{ stop.note }}</span>
+            </button>
+          </li>
+        </ol>
+      </section>
 
       <!-- Рейтинг краеведа из ТЗ: по нему выбирают, к кому идти -->
       <GuideRatingBadge :summary="guideRating" />

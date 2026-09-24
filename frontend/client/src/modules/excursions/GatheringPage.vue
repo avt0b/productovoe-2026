@@ -18,7 +18,9 @@ import {
   fetchGathering,
   finishGathering,
   leadWalk,
+  nextStop,
   startGathering,
+  stopTargets,
   toPosition,
   type Gathering,
   type Position,
@@ -210,6 +212,10 @@ async function leadGroup(target: WalkTarget): Promise<void> {
   }
 }
 
+/** Маршрут экскурсии: после сбора краевед ведёт к первой точке одним нажатием. */
+const routeStops = computed(() => stopTargets(excursion.value?.stops))
+const firstStop = computed(() => nextStop(routeStops.value, null))
+
 /** Откуда считать «ближайшие места»: где краевед сейчас, а без GPS — место сбора. */
 const pickFrom = computed(() => position.value ?? (excursion.value ? { lat: excursion.value.lat, lon: excursion.value.lon } : { lat: 52.9686, lon: 36.0694 }))
 
@@ -323,15 +329,24 @@ const pickFrom = computed(() => position.value ?? (excursion.value ? { lat: excu
           </ul>
 
           <template v-if="gathering.is_open">
-            <!-- Главное действие после сбора: повести всех к памятному месту. -->
+            <!-- Главное действие после сбора: повести всех по маршруту или к выбранному месту. -->
             <button
               type="button"
-              class="flex h-11 items-center justify-center gap-space-xs rounded-full bg-primary-container font-label-lg text-label-lg text-white shadow-stamp transition-colors hover:bg-primary active:scale-[0.98] disabled:opacity-60"
+              class="flex min-h-11 items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-md py-2 font-label-lg text-label-lg text-white shadow-stamp transition-colors hover:bg-primary active:scale-[0.98] disabled:opacity-60"
+              :disabled="leading || gathering.checked_in_count === 0"
+              @click="firstStop ? leadGroup(firstStop.target) : (picking = true)"
+            >
+              <MsIcon :name="leading ? 'progress_activity' : 'directions_walk'" :size="18" :class="{ 'animate-spin': leading }" />
+              <span class="truncate">{{ firstStop ? `Повести к точке 1: ${firstStop.target.name}` : 'Повести группу' }}</span>
+            </button>
+            <button
+              v-if="firstStop"
+              type="button"
+              class="self-center rounded-full px-space-md py-2 font-label-md text-label-md text-on-surface-variant active:scale-95 disabled:opacity-60"
               :disabled="leading || gathering.checked_in_count === 0"
               @click="picking = true"
             >
-              <MsIcon name="directions_walk" :size="18" />
-              Повести группу
+              Начать с другого места
             </button>
             <p v-if="gathering.checked_in_count === 0" class="font-body-sm text-body-sm text-on-surface-variant">
               Сначала отметьте хотя бы одного — встряхните телефоны вместе.
@@ -362,6 +377,7 @@ const pickFrom = computed(() => position.value ?? (excursion.value ? { lat: excu
     <DestinationPicker
       v-if="picking"
       :from="pickFrom"
+      :stops="routeStops"
       :busy="leading"
       @close="picking = false"
       @pick="leadGroup"
