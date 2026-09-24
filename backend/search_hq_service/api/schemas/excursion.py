@@ -18,6 +18,32 @@ AccuracyM = Annotated[float | None, Field(default=None, ge=0, le=10_000)]
 UtcDatetime = Annotated[datetime, AfterValidator(as_utc)]
 
 
+# Больше — уже не прогулка, а поход на несколько дней.
+MAX_STOPS = 20
+
+
+class StopIn(BaseModel):
+    """Точка маршрута, как её прислал краевед. Порядок — порядок в списке."""
+
+    name: str = Field(min_length=1, max_length=255)
+    lat: Lat
+    lon: Lon
+    poi_id: str | None = Field(default=None, max_length=36)
+    note: str = Field(default="", max_length=2000)
+
+
+class StopOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    position: int
+    name: str
+    lat: float
+    lon: float
+    poi_id: str | None
+    note: str
+
+
 class ExcursionCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     description: str = ""
@@ -27,6 +53,8 @@ class ExcursionCreate(BaseModel):
     poi_id: str | None = Field(default=None, max_length=36)
     starts_at: datetime
     capacity: int = Field(default=20, ge=1, le=500)
+    # Куда группа пойдёт после сбора. Пусто — экскурсия на одном месте.
+    stops: list[StopIn] = Field(default_factory=list, max_length=MAX_STOPS)
 
 
 class ExcursionUpdate(BaseModel):
@@ -38,6 +66,8 @@ class ExcursionUpdate(BaseModel):
     poi_id: str | None = Field(default=None, max_length=36)
     starts_at: datetime | None = None
     capacity: int | None = Field(default=None, ge=1, le=500)
+    # Прислали — маршрут заменяется целиком; не прислали — остаётся прежним.
+    stops: list[StopIn] | None = Field(default=None, max_length=MAX_STOPS)
 
     def to_update_dict(self) -> dict:
         return self.model_dump(exclude_unset=True)
@@ -67,6 +97,7 @@ class ExcursionOut(BaseModel):
     checked_in_count: int
     # Роль того, кто смотрит. None — запрос без входа.
     viewer: ViewerOut | None
+    stops: list[StopOut]
     created_at: UtcDatetime
 
     @classmethod
@@ -89,6 +120,7 @@ class ExcursionOut(BaseModel):
             registered_count=view.registered_count,
             checked_in_count=view.checked_in_count,
             viewer=ViewerOut(**asdict(view.viewer)) if view.viewer else None,
+            stops=[StopOut.model_validate(stop) for stop in excursion.stops],
             created_at=excursion.created_at,
         )
 

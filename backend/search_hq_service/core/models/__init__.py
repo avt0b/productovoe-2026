@@ -5,6 +5,7 @@ from core.models.excursion import (
     ExcursionParticipant,
     ExcursionPosition,
     ExcursionStatus,
+    ExcursionStop,
     ExcursionWalk,
 )
 from core.models.need import Donation, DonationStatus, NeedKind, NeedStatus, SquadNeed
@@ -22,6 +23,7 @@ __all__ = [
     "ExcursionParticipant",
     "ExcursionPosition",
     "ExcursionStatus",
+    "ExcursionStop",
     "ExcursionWalk",
     "GuideRating",
     "NeedKind",

@@ -65,6 +65,35 @@ class Excursion(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     participants: Mapped[list["ExcursionParticipant"]] = relationship(
         back_populates="excursion", cascade="all, delete-orphan"
     )
+    # Маршрут после сбора. selectin — точки всех экскурсий списка приходят одним
+    # запросом, а не по запросу на каждую.
+    stops: Mapped[list["ExcursionStop"]] = relationship(
+        cascade="all, delete-orphan",
+        order_by="ExcursionStop.position",
+        lazy="selectin",
+    )
+
+
+class ExcursionStop(UUIDPrimaryKeyMixin, Base):
+    """Точка маршрута экскурсии: краевед ведёт группу от места сбора по ним по порядку.
+
+    Своя таблица, а не колонки в `excursions`: `create_all` новую таблицу на
+    развёрнутой базе просто создаст, а колонку в старую не добавит.
+    """
+
+    __tablename__ = "excursion_stops"
+
+    excursion_id: Mapped[str] = mapped_column(
+        ForeignKey("excursions.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    lat: Mapped[float] = mapped_column(Float, nullable=False)
+    lon: Mapped[float] = mapped_column(Float, nullable=False)
+    # Та же точка на слое «ВОВ» в map_service, если её выбрали оттуда.
+    poi_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    # Что здесь рассказать или сделать: история места, задание группе.
+    note: Mapped[str] = mapped_column(Text, default="", nullable=False)
 
 
 class ExcursionParticipant(UUIDPrimaryKeyMixin, Base):

@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session
 from core.config import settings
 from core.exceptions import Conflict, NotFound, PermissionDenied
 from core.geo import distance_m
-from core.models import Excursion, ExcursionParticipant, ExcursionStatus, RegistrationStatus
+from core.models import (
+    Excursion,
+    ExcursionParticipant,
+    ExcursionStatus,
+    ExcursionStop,
+    RegistrationStatus,
+)
 from core.security import Principal
 from core.timeutil import as_utc, utcnow
 from repositories.excursion_repository import ExcursionRepository
@@ -17,6 +23,9 @@ from services.permissions import can_guide, is_staff
 
 # Вид уведомления «краевед открыл сбор» — по нему приложение решает, куда вести.
 KIND_GATHERING_STARTED = "excursion_gathering_started"
+
+# Часы телефона краеведа могут отставать: экскурсию «на сейчас» не отвергаем.
+PAST_GRACE = timedelta(minutes=5)
 
 
 @dataclass(frozen=True)
@@ -78,8 +87,12 @@ class ExcursionService:
     def create(self, principal: Principal, data: dict) -> ExcursionView:
         if not can_guide(principal):
             raise PermissionDenied("Создать экскурсию может краевед, наставник или модератор")
+        stops = data.pop("stops", None) or []
         data["starts_at"] = as_utc(data["starts_at"])
-        excursion = self.repo.add(Excursion(guide_id=principal.user_id, **data))
+        self._ensure_not_past(data["starts_at"])
+        excursion = Excursion(guide_id=principal.user_id, **data)
+        excursion.stops = self._stops(stops)
+        excursion = self.repo.add(excursion)
         self.db.commit()
         self.db.refresh(excursion)
         return self._views(principal, [excursion])[0]
@@ -93,6 +106,12 @@ class ExcursionService:
             raise Conflict("Мест не может быть меньше, чем уже записалось")
         if data.get("starts_at") is not None:
             data["starts_at"] = as_utc(data["starts_at"])
+            # Уже назначенную дату не трогаем, а новую в прошлом не принимаем.
+            if data["starts_at"] != as_utc(excursion.starts_at):
+                self._ensure_not_past(data["starts_at"])
+        stops = data.pop("stops", None)
+        if stops is not None:
+            excursion.stops = self._stops(stops)
         for field, value in data.items():
             setattr(excursion, field, value)
         self.db.commit()
@@ -340,6 +359,15 @@ class ExcursionService:
             excursion.status = ExcursionStatus.finished
             return True
         return False
+
+    @staticmethod
+    def _stops(stops: list[dict]) -> list[ExcursionStop]:
+        return [ExcursionStop(position=index, **stop) for index, stop in enumerate(stops)]
+
+    @staticmethod
+    def _ensure_not_past(starts_at: datetime) -> None:
+        if starts_at < utcnow() - PAST_GRACE:
+            raise Conflict("Экскурсия не может начинаться в прошлом — выберите время позже")
 
     @staticmethod
     def _ensure_guide(principal: Principal, excursion: Excursion) -> None:
