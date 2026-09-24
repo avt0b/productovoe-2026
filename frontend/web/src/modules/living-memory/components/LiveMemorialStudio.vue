@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import SmartImage from '@shared/components/SmartImage.vue'
 import { useAuthSession } from '@modules/auth'
 import * as api from '../api.js'
@@ -33,7 +33,31 @@ async function loadMine() {
   }
 }
 
-onMounted(loadMine)
+// media_render_worker реально разбирает очередь (claim -> SpeechKit ->
+// Replicate/SadTalker -> MinIO -> ready/failed), но опрашивает media_service
+// сам по себе — здесь никто не узнает о готовности, пока не перечитает
+// список. Пока есть заявки в queued/processing, тихо обновляем список раз в
+// 4 секунды; как только все разошлись по ready/failed — опрос сам стихает.
+let pollTimer = null
+
+function hasPending() {
+  return myClips.value.some((c) => c.status === 'queued' || c.status === 'processing')
+}
+
+async function pollIfNeeded() {
+  if (!hasPending()) return
+  try {
+    myClips.value = await api.listMyClips(session.accessToken)
+  } catch {
+    // сбой опроса — не страшно, следующий тик попробует снова
+  }
+}
+
+onMounted(async () => {
+  await loadMine()
+  pollTimer = setInterval(pollIfNeeded, 4000)
+})
+onUnmounted(() => clearInterval(pollTimer))
 
 const form = reactive({
   soldierName: '',
@@ -43,30 +67,49 @@ const form = reactive({
   isPublic: false,
   consent: false,
 })
-const submitStatus = ref('idle')
+const submitStatus = ref('idle') // idle | uploading | pending | done
 const error = ref('')
+const photoFile = ref(null)
 
 const canSubmit = computed(() => session.status === 'authenticated')
+
+const previewUrl = ref('')
+
+function onPhotoChange(event) {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+  photoFile.value = event.target.files?.[0] ?? null
+  previewUrl.value = photoFile.value ? URL.createObjectURL(photoFile.value) : ''
+  form.sourcePhotoUrl = ''
+}
+onUnmounted(() => {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+})
 
 async function submit() {
   if (!canSubmit.value) {
     error.value = 'Войдите, чтобы отправить заявку'
     return
   }
-  if (!form.sourcePhotoUrl) {
-    error.value = 'Укажите ссылку на фотографию бойца'
+  if (!photoFile.value && !form.sourcePhotoUrl) {
+    error.value = 'Приложите фотографию бойца'
     return
   }
   if (!form.consent) {
     error.value = 'Подтвердите согласие на мемориальное использование'
     return
   }
-  submitStatus.value = 'pending'
   error.value = ''
   try {
+    let photoUrl = form.sourcePhotoUrl
+    if (photoFile.value) {
+      submitStatus.value = 'uploading'
+      const { url } = await api.uploadSourcePhoto(session.accessToken, photoFile.value)
+      photoUrl = url
+    }
+    submitStatus.value = 'pending'
     const clip = await api.createClip(session.accessToken, {
       soldier_name: form.soldierName,
-      source_photo_url: form.sourcePhotoUrl,
+      source_photo_url: photoUrl,
       narration_text: form.narrationText,
       voice_style: form.voiceStyle,
       is_public: form.isPublic,
@@ -74,6 +117,10 @@ async function submit() {
     })
     myClips.value.unshift(clip)
     submitStatus.value = 'done'
+    if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
+    photoFile.value = null
+    previewUrl.value = ''
+    form.sourcePhotoUrl = ''
     setTimeout(() => (submitStatus.value = 'idle'), 1200)
   } catch (err) {
     submitStatus.value = 'idle'
@@ -132,8 +179,10 @@ async function sendShare(clip) {
       <div class="flex flex-col">
         <span class="font-headline-sm text-headline-sm text-on-surface">Своё «живое фото»</span>
         <span class="font-body-sm text-body-sm text-on-surface-variant">
-          Заявка уходит в media_service — реальную AI-генерацию выполняет внешний воркер, которого
-          в этом окружении нет, поэтому статус останется «В очереди»
+          media_render_worker реально разбирает очередь: озвучивает текст через Yandex SpeechKit и
+          анимирует фото под голос через Replicate (SadTalker). Без настроенных ключей на этом
+          стенде шаг генерации честно завершится ошибкой — заявку можно будет отправить в очередь
+          заново кнопкой «Повторить»
         </span>
       </div>
     </div>
@@ -146,12 +195,17 @@ async function sendShare(clip) {
           placeholder="Имя бойца (если известно)"
           class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
         />
-        <input
-          v-model="form.sourcePhotoUrl"
-          type="text"
-          placeholder="Ссылка на фотографию бойца"
-          class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
-        />
+        <div>
+          <label class="block font-label-sm text-label-sm text-on-surface-variant uppercase mb-1 font-bold">
+            Фотография бойца
+          </label>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            class="w-full font-body-sm text-body-sm text-on-surface-variant file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-primary file:text-on-primary file:font-label-sm file:text-label-sm file:font-bold"
+            @change="onPhotoChange"
+          />
+        </div>
         <textarea
           v-model="form.narrationText"
           rows="3"
@@ -188,19 +242,38 @@ async function sendShare(clip) {
 
         <button
           type="submit"
-          class="h-11 rounded-full font-label-md text-label-md font-bold shadow-sm transition-all flex items-center justify-center gap-2 self-start px-6"
+          class="h-11 rounded-full font-label-md text-label-md font-bold shadow-sm transition-all flex items-center justify-center gap-2 self-start px-6 disabled:opacity-60"
           :class="submitStatus === 'done' ? 'bg-secondary text-on-secondary' : 'bg-primary text-on-primary'"
-          :disabled="submitStatus === 'pending'"
+          :disabled="submitStatus === 'uploading' || submitStatus === 'pending'"
         >
-          <span class="material-symbols-outlined text-[18px]" :class="{ 'animate-spin': submitStatus === 'pending' }">
-            {{ submitStatus === 'done' ? 'check_circle' : submitStatus === 'pending' ? 'sync' : 'send' }}
+          <span
+            class="material-symbols-outlined text-[18px]"
+            :class="{ 'animate-spin': submitStatus === 'uploading' || submitStatus === 'pending' }"
+          >
+            {{
+              submitStatus === 'done'
+                ? 'check_circle'
+                : submitStatus === 'uploading' || submitStatus === 'pending'
+                  ? 'sync'
+                  : 'send'
+            }}
           </span>
-          <span>{{ submitStatus === 'done' ? 'Заявка отправлена' : 'Отправить заявку' }}</span>
+          <span>
+            {{
+              submitStatus === 'done'
+                ? 'Заявка отправлена'
+                : submitStatus === 'uploading'
+                  ? 'Загружаем фото...'
+                  : submitStatus === 'pending'
+                    ? 'Отправляем...'
+                    : 'Отправить заявку'
+            }}
+          </span>
         </button>
       </div>
 
       <div class="w-full aspect-[4/3] rounded-DEFAULT overflow-hidden bg-surface-container-high">
-        <SmartImage :src="form.sourcePhotoUrl" icon="portrait" />
+        <SmartImage :src="previewUrl" icon="portrait" />
       </div>
     </form>
 
@@ -245,6 +318,13 @@ async function sendShare(clip) {
             </button>
           </div>
         </div>
+
+        <video
+          v-if="clip.status === 'ready' && clip.video_url"
+          :src="clip.video_url"
+          controls
+          class="w-full max-h-72 bg-ink"
+        />
 
         <div v-if="shareOpenId === clip.id" class="p-3.5 pt-0 flex flex-col gap-2">
           <input

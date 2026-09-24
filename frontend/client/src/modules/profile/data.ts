@@ -110,6 +110,21 @@ export function updateProfile(patch: ProfilePatch): Promise<Profile> {
   return apiRequest('PUT', 'users', '/profiles/me', { body: patch, auth: true })
 }
 
+/** Лимит `user_service` на фото профиля — `MAX_UPLOAD_BYTES` в `api/routers/uploads.py`. */
+export const AVATAR_MAX_MB = 5
+
+/**
+ * Фото профиля — в хранилище `user_service`; обратно приходит адрес, который и
+ * уходит в `avatar_url`. Хранилище не поднято — ручка отвечает 503, а остальной
+ * профиль сохраняется как обычно.
+ */
+export async function uploadAvatar(file: File): Promise<string> {
+  const body = new FormData()
+  body.append('file', file)
+  const { url } = await apiRequest<{ url: string }>('POST', 'users', '/uploads', { body, auth: true })
+  return url
+}
+
 /** Ближайший выезд, на который человек записан. */
 export function nextTrip(trips: MyTrip[] | null): MyTrip | null {
   const today = new Date().toISOString().slice(0, 10)

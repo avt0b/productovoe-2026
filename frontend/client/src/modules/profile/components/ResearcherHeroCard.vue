@@ -14,10 +14,14 @@ const props = defineProps<{
   verified: boolean
   /** Когда профиль заведён — «В проекте с сентября 2026». */
   since: string | null
+  /** «О себе» из профиля. Карточка — единственное место, где это видно. */
+  bio: string
   counters: HeroCounter[]
+  /** Есть ли что править: профиль живёт в аккаунте, у демо-входа его нет. */
+  canEdit: boolean
 }>()
 
-defineEmits<{ 'open-token': [] }>()
+defineEmits<{ edit: [] }>()
 
 const sinceLabel = computed(() => {
   if (!props.since) return null
@@ -29,6 +33,16 @@ const sinceLabel = computed(() => {
 })
 
 const role = computed(() => (props.user?.role ? ROLES[props.user.role] : null))
+
+/** Всё о человеке — в одной карточке: отдельных разделов «данные» и «учётная запись» на экране больше нет. */
+const rows = computed(() =>
+  props.canEdit
+    ? [
+        { id: 'bio', icon: 'description', label: 'О себе', value: props.bio || 'Пока ничего', multiline: true },
+        { id: 'email', icon: 'mail', label: 'Почта для входа', value: props.user?.email ?? 'Демо-режим без аккаунта', multiline: false },
+      ]
+    : [],
+)
 </script>
 
 <template>
@@ -76,15 +90,26 @@ const role = computed(() => (props.user?.role ? ROLES[props.user.role] : null))
       </div>
 
       <button
-        v-if="user"
+        v-if="canEdit"
         type="button"
-        aria-label="Жетон исследователя"
+        aria-label="Изменить фото, имя и «о себе»"
         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-on-surface active:scale-95"
-        @click="$emit('open-token')"
+        @click="$emit('edit')"
       >
-        <MsIcon name="badge" :size="20" />
+        <MsIcon name="edit" :size="20" />
       </button>
     </div>
+
+    <dl v-if="rows.length" class="flex flex-col gap-space-sm border-t border-outline-variant/60 pt-space-md">
+      <div v-for="row in rows" :key="row.id" class="flex items-start gap-space-sm">
+        <MsIcon :name="row.icon" :size="18" class="mt-0.5 shrink-0 text-on-surface-variant" />
+        <div class="min-w-0">
+          <dt class="font-label-sm text-label-sm text-on-surface-variant">{{ row.label }}</dt>
+          <!-- «О себе» человек пишет абзацами, почта — одна строка, которой лучше обрезаться. -->
+          <dd class="font-body-md text-body-md text-on-surface" :class="row.multiline ? 'whitespace-pre-line' : 'truncate'">{{ row.value }}</dd>
+        </div>
+      </div>
+    </dl>
 
     <dl class="grid grid-cols-3 divide-x divide-outline-variant/60">
       <div v-for="counter in counters" :key="counter.label" class="flex flex-col-reverse items-center justify-end px-1 text-center">

@@ -281,7 +281,7 @@ async function grant(): Promise<void> {
         <div class="min-w-0">
           <p class="font-archival text-archival uppercase text-on-surface-variant">По жетону исследователя</p>
           <p class="font-headline-sm text-headline-sm text-on-surface">{{ user.isRoot ? 'Подтвердить и выдать роль' : 'Подтвердить исследователя' }}</p>
-          <p class="font-body-sm text-body-sm text-on-surface-variant">Попросите номер жетона — он в профиле человека, под значком жетона.</p>
+          <p class="font-body-sm text-body-sm text-on-surface-variant">Попросите номер жетона — человек откроет его в своём профиле кнопкой «Жетон для краеведа».</p>
         </div>
       </div>
 
