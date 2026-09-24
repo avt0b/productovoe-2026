@@ -29,6 +29,8 @@ import {
   fetchMyClips,
   fetchMyEntries,
   fetchPublicEntries,
+  deleteClip,
+  deleteEntry,
   retryClip,
   reviewEntry,
   setClipPublic,
@@ -41,7 +43,7 @@ import {
 type Tab = 'photo' | 'archive' | 'review'
 type Sheet =
   | { kind: 'clip' }
-  | { kind: 'propose'; entryKind: EntryKind; about?: NearbyPending }
+  | { kind: 'propose'; entryKind: EntryKind; about?: NearbyPending; entry?: ArchiveEntry }
   | { kind: 'share'; clip: Clip }
   | { kind: 'account'; text: string }
 
@@ -67,6 +69,8 @@ function tabFromQuery(): Tab {
   if (route.query.propose) return 'archive'
   return tab === 'archive' || (tab === 'review' && canReview.value) ? tab : 'photo'
 }
+
+
 
 const tab = ref<Tab>(tabFromQuery())
 watch(tab, (value) => void router.replace({ query: { ...route.query, tab: value, propose: undefined } }))
@@ -100,6 +104,22 @@ const photo = useAsync(async () => {
 })
 const selectedClipId = ref<string | null>(null)
 const busyClipId = ref<string | null>(null)
+
+/** Убрать свой клип: он исчезнет и из семейного архива, и из общего мемориала. */
+async function removeClip(clip: Clip): Promise<void> {
+  if (busyClipId.value) return
+  busyClipId.value = clip.id
+  try {
+    await deleteClip(clip.id)
+    if (selectedClipId.value === clip.id) selectedClipId.value = null
+    notice.value = { tone: 'success', text: `«${clip.soldier_name || 'Живое фото'}» убрано из архива` }
+    await photo.retry()
+  } catch (reason) {
+    notice.value = { tone: 'error', text: errorText(reason) }
+  } finally {
+    busyClipId.value = null
+  }
+}
 const publishing = ref(false)
 
 const myClips = computed(() => photo.data.value?.mine ?? [])
@@ -172,6 +192,12 @@ function openClipRequest(): void {
   sheet.value = session.hasAccount ? { kind: 'clip' } : { kind: 'account', text: 'Оживить фото можно с аккаунтом' }
 }
 
+// `?clip=1` — подсказка маршрута зовёт оживить фото бойца из этого захоронения.
+if (route.query.clip) {
+  openClipRequest()
+  void router.replace({ query: { ...route.query, clip: undefined } })
+}
+
 async function clipCreated(): Promise<void> {
   sheet.value = null
   notice.value = { tone: 'success', text: 'Заявка принята и стоит в очереди на оживление' }
@@ -230,10 +256,29 @@ function openPropose(entryKind: EntryKind = 'event', about?: NearbyPending): voi
 }
 
 async function entryCreated(entry: ArchiveEntry): Promise<void> {
+  const edited = sheet.value?.kind === 'propose' && sheet.value.entry !== undefined
   sheet.value = null
   tab.value = 'archive'
-  notice.value = { tone: 'success', text: `«${entry.title}» отправлено краеведу на проверку` }
+  notice.value = {
+    tone: 'success',
+    text: edited ? `«${entry.title}»: запись обновлена` : `«${entry.title}» отправлено краеведу на проверку`,
+  }
   await archive.retry()
+}
+
+/** Убрать свою запись, пока она на проверке. */
+async function removeEntry(entry: ArchiveEntry): Promise<void> {
+  if (busyEntryId.value) return
+  busyEntryId.value = entry.id
+  try {
+    await deleteEntry(entry.id)
+    notice.value = { tone: 'success', text: `«${entry.title}»: запись убрана из архива` }
+    await archive.retry()
+  } catch (reason) {
+    notice.value = { tone: 'error', text: errorText(reason) }
+  } finally {
+    busyEntryId.value = null
+  }
 }
 
 // --- проверка краеведом ---
@@ -387,6 +432,7 @@ const tabs = computed(() => [
             @watch="selectedClipId = clip.id"
             @retry="retry(clip)"
             @share="sheet = { kind: 'share', clip }"
+            @remove="removeClip(clip)"
           />
           <p v-if="!myClips.length" class="rounded-2xl bg-surface-container-low p-space-md font-body-sm text-body-sm text-on-surface-variant">
             Здесь будут ожившие портреты вашей семьи. Их видите только вы — в мемориал портрет попадёт, если вы разрешите.
@@ -483,7 +529,15 @@ const tabs = computed(() => [
             <p class="font-archival text-archival uppercase text-on-surface-variant">Вы предложили</p>
             <h2 class="font-headline-md text-headline-md text-on-surface">Мои записи</h2>
           </div>
-          <EntryCard v-for="entry in myEntries" :key="entry.id" :entry="entry" mine />
+          <EntryCard
+            v-for="entry in myEntries"
+            :key="entry.id"
+            :entry="entry"
+            mine
+            :busy="busyEntryId === entry.id"
+            @edit="sheet = { kind: 'propose', entryKind: entry.kind, entry }"
+            @remove="removeEntry(entry)"
+          />
         </div>
 
         <div class="flex flex-col gap-space-sm">
@@ -531,6 +585,7 @@ const tabs = computed(() => [
       v-else-if="sheet?.kind === 'propose'"
       :initial-kind="sheet.entryKind"
       :about="sheet.about ?? null"
+      :entry="sheet.entry ?? null"
       @created="entryCreated"
       @close="sheet = null"
     />

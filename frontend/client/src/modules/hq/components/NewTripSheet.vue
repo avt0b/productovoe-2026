@@ -9,14 +9,17 @@ import FormInput from '@/ui/form/FormInput.vue'
 import FormSelect from '@/ui/form/FormSelect.vue'
 import FormTextarea from '@/ui/form/FormTextarea.vue'
 
-import { createTrip, type Squad, type Trip } from '../data'
+import { createTrip, updateTrip, type Squad, type Trip } from '../data'
 
 /**
  * Набор волонтёров на выезд — сценарий кейса «Командир отряда «Высота» хочет
  * создать заявку на набор 10 волонтёров на завтра». Отсюда и значения по
  * умолчанию: завтра, 10 мест.
+ *
+ * Это же окно правит объявленный выезд: день, места и чек-лист меняются, а
+ * отряд остаётся прежним — перевесить выезд на другой сервис не даёт.
  */
-const props = defineProps<{ squads: Squad[] }>()
+const props = withDefaults(defineProps<{ squads: Squad[]; trip?: Trip | null }>(), { trip: null })
 
 const emit = defineEmits<{ close: []; created: [trip: Trip] }>()
 
@@ -27,13 +30,13 @@ function tomorrow(): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
-const squadId = ref<string>(props.squads[0]?.id ?? '')
-const title = ref('')
-const location = ref('')
-const startsOn = ref(tomorrow())
-const capacity = ref<number | null>(10)
-const description = ref('')
-const checklist = ref('Резиновые сапоги\nРабочие перчатки\nВода и перекус\nЗаряженный телефон')
+const squadId = ref<string>(props.trip?.squad_id ?? props.squads[0]?.id ?? '')
+const title = ref(props.trip?.title ?? '')
+const location = ref(props.trip?.location ?? '')
+const startsOn = ref(props.trip?.starts_on ?? tomorrow())
+const capacity = ref<number | null>(props.trip?.capacity ?? 10)
+const description = ref(props.trip?.description ?? '')
+const checklist = ref(props.trip?.checklist ?? 'Резиновые сапоги\nРабочие перчатки\nВода и перекус\nЗаряженный телефон')
 const saving = ref(false)
 const error = ref<string | null>(null)
 
@@ -50,16 +53,16 @@ async function submit(): Promise<void> {
   if (missing.value || saving.value) return
   saving.value = true
   error.value = null
+  const draft = {
+    title: title.value.trim(),
+    location: location.value.trim(),
+    starts_on: startsOn.value,
+    capacity: Math.round(capacity.value ?? 1),
+    description: description.value.trim(),
+    checklist: checklist.value.trim(),
+  }
   try {
-    const trip = await createTrip(squadId.value, {
-      title: title.value.trim(),
-      location: location.value.trim(),
-      starts_on: startsOn.value,
-      capacity: Math.round(capacity.value ?? 1),
-      description: description.value.trim(),
-      checklist: checklist.value.trim(),
-    })
-    emit('created', trip)
+    emit('created', props.trip ? await updateTrip(props.trip.id, draft) : await createTrip(squadId.value, draft))
   } catch (reason) {
     error.value = errorText(reason)
   } finally {
@@ -69,9 +72,13 @@ async function submit(): Promise<void> {
 </script>
 
 <template>
-  <SheetDialog title="Набрать волонтёров на выезд" subtitle="Выезд появится в «Выходных с поисковиком»" @close="emit('close')">
+  <SheetDialog
+    :title="trip ? 'Изменить выезд' : 'Набрать волонтёров на выезд'"
+    :subtitle="trip ? 'Записавшиеся увидят новые сведения' : 'Выезд появится в «Выходных с поисковиком»'"
+    @close="emit('close')"
+  >
     <form class="flex flex-col gap-space-md" @submit.prevent="submit">
-      <FormSelect v-if="squads.length > 1" v-model="squadId" label="Отряд" :options="squadOptions" />
+      <FormSelect v-if="!trip && squads.length > 1" v-model="squadId" label="Отряд" :options="squadOptions" />
       <FormInput v-model="title" label="Что делаем" :maxlength="255" placeholder="Раскопки у д. Семенково" required />
       <FormInput v-model="location" label="Где сбор" :maxlength="255" placeholder="д. Семенково, у школы" />
       <div class="grid grid-cols-[1fr_6rem] gap-space-sm">
@@ -90,7 +97,7 @@ async function submit(): Promise<void> {
         :disabled="missing !== null || saving"
       >
         <MsIcon :name="saving ? 'progress_activity' : 'campaign'" :size="18" :class="{ 'animate-spin': saving }" />
-        <span>Объявить набор</span>
+        <span>{{ trip ? 'Сохранить выезд' : 'Объявить набор' }}</span>
       </button>
     </form>
   </SheetDialog>

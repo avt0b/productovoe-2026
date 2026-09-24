@@ -36,8 +36,6 @@ const ROLE_TITLES: Record<UserRole, string> = {
   family: 'Участник маршрутов',
   searcher: 'Поисковик',
   local_historian: 'Краевед',
-  mentor: 'Наставник',
-  moderator: 'Модератор',
 }
 
 /** Имена, введённые при регистрации. В `auth_service` имён нет — профиль появится в `user_service`. */

@@ -8,10 +8,12 @@ import StateBlock from '@/ui/StateBlock.vue'
 
 import BadgesSection from './components/BadgesSection.vue'
 import ExpeditionStatusCard from './components/ExpeditionStatusCard.vue'
+import FamilySection from './components/FamilySection.vue'
 import HeroesSection from './components/HeroesSection.vue'
 import ProfileEditSheet from './components/ProfileEditSheet.vue'
 import ResearcherHeroCard from './components/ResearcherHeroCard.vue'
 import ResearcherTokenModal from './components/ResearcherTokenModal.vue'
+import RoleRequestSection from './components/RoleRequestSection.vue'
 import RolesSection from './components/RolesSection.vue'
 import SettingsSection from './components/SettingsSection.vue'
 import SupportSection from './components/SupportSection.vue'
@@ -43,8 +45,9 @@ watch(
 
 /** Сохранённый профиль — в экран; сессию догонит наблюдатель выше. */
 function applyProfile(profile: Profile): void {
-  // Значки и счётчики сервис заполняет только в GET — ответ PUT принёс бы пустые и затёр бы их.
-  const { achievements, routes_completed, excursions_completed, finds_count, ...fields } = profile
+  // Значки, счётчики и древо сервис заполняет только в GET — ответ PUT принёс
+  // бы пустые и затёр бы их.
+  const { achievements, heroes, routes_completed, excursions_completed, finds_count, ...fields } = profile
   if (data.value) data.value = { ...data.value, profile: { ...data.value.profile, ...fields } }
 }
 
@@ -72,7 +75,8 @@ const counters = computed<HeroCounter[]>(() => [
 
       <template v-if="data">
         <ExpeditionStatusCard :trip="nextTrip(data.trips)" />
-        <RolesSection v-if="session.user" :user="session.user" :profile="data.profile" @open-token="tokenOpen = true" />
+        <RolesSection v-if="session.user" :user="session.user" @open-token="tokenOpen = true" />
+        <RoleRequestSection v-if="session.user" :user="session.user" :profile="data.profile" />
         <BadgesSection
           :achievements="data.profile.achievements ?? []"
           :trips="data.trips"
@@ -80,7 +84,8 @@ const counters = computed<HeroCounter[]>(() => [
           :excursions="data.excursions"
           :routes-completed="data.profile.routes_completed ?? 0"
         />
-        <HeroesSection :entries="data.entries" />
+        <HeroesSection :heroes="data.profile.heroes ?? []" :entries="data.entries" @changed="retry" />
+        <FamilySection />
       </template>
       <AccountRequired v-else-if="session.isAuthenticated" text="Профиль, роль, герои семьи и значки хранятся в аккаунте" />
 

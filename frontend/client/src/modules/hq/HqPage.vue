@@ -10,6 +10,7 @@ import DemoDataBadge from '@/ui/DemoDataBadge.vue'
 import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import SegmentTabs from '@/ui/SegmentTabs.vue'
+import { ChatSheet } from '@/features/chat'
 import SheetDialog from '@/ui/SheetDialog.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
@@ -45,9 +46,10 @@ const TABS: readonly Tab[] = ['funds', 'trips', 'squads']
 
 type Sheet =
   | { kind: 'donate'; need: Need }
-  | { kind: 'squad' }
-  | { kind: 'trip' }
-  | { kind: 'need' }
+  | { kind: 'squad'; squad?: Squad }
+  | { kind: 'trip'; trip?: Trip }
+  | { kind: 'need'; need?: Need }
+  | { kind: 'chat'; trip: Trip }
   | { kind: 'account'; text: string }
 
 const route = useRoute()
@@ -121,7 +123,7 @@ const tabs = computed(() => [
   { value: 'squads' as const, title: 'Отряды', icon: 'map' },
 ])
 
-/** Отряды, которыми человек управляет: свои, а у модератора — все. */
+/** Отряды, которыми человек управляет: свои, а у администратора — все. */
 const managedSquads = computed<Squad[]>(() => {
   const user = session.user
   if (!session.hasAccount || !user) return []
@@ -268,6 +270,19 @@ function isRegistered(tripId: string): boolean | null {
           </div>
         </div>
         <template v-if="managedSquads.length">
+          <!-- Командир правит сведения отряда: их видят волонтёры на карте потребностей. -->
+          <div class="flex flex-wrap gap-space-xs">
+            <button
+              v-for="squad in managedSquads"
+              :key="squad.id"
+              type="button"
+              class="flex items-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+              @click="sheet = { kind: 'squad', squad }"
+            >
+              <MsIcon name="edit" :size="18" />
+              <span class="max-w-40 truncate">{{ squad.name }}</span>
+            </button>
+          </div>
           <button
             type="button"
             class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] short:py-2.5"
@@ -341,6 +356,7 @@ function isRegistered(tripId: string): boolean | null {
             :closing="closingNeedId === need.id"
             @donate="openDonation(need)"
             @close="finishNeed(need)"
+            @edit="sheet = { kind: 'need', need }"
           />
           <div
             v-if="restFunds.length"
@@ -358,6 +374,7 @@ function isRegistered(tripId: string): boolean | null {
                 :closing="closingNeedId === need.id"
                 @donate="openDonation(need)"
                 @close="finishNeed(need)"
+                @edit="sheet = { kind: 'need', need }"
               />
             </div>
           </div>
@@ -414,6 +431,8 @@ function isRegistered(tripId: string): boolean | null {
           :focused="focusedTripId === trip.id"
           @register="register(trip)"
           @cancel="cancel(trip)"
+          @edit="sheet = { kind: 'trip', trip }"
+          @chat="sheet = { kind: 'chat', trip }"
         />
         <StateBlock
           v-if="!visibleTrips.length"
@@ -442,17 +461,30 @@ function isRegistered(tripId: string): boolean | null {
       @donated="refresh"
       @close="sheet = null"
     />
-    <NewSquadSheet v-else-if="sheet?.kind === 'squad'" @created="(squad) => created(`${squad.name}: отряд создан, вы его командир`)" @close="sheet = null" />
+    <NewSquadSheet
+      v-else-if="sheet?.kind === 'squad'"
+      :squad="sheet.squad ?? null"
+      @created="(squad) => created(sheet?.kind === 'squad' && sheet.squad ? `${squad.name}: сведения обновлены` : `${squad.name}: отряд создан, вы его командир`)"
+      @removed="(squad) => created(`${squad.name}: отряд распущен`)"
+      @close="sheet = null"
+    />
     <NewTripSheet
       v-else-if="sheet?.kind === 'trip'"
       :squads="managedSquads"
-      @created="(trip) => created(`Набор объявлен: ${trip.title}`, 'trips')"
+      :trip="sheet.trip ?? null"
+      @created="(trip) => created(sheet?.kind === 'trip' && sheet.trip ? `Выезд обновлён: ${trip.title}` : `Набор объявлен: ${trip.title}`, 'trips')"
       @close="sheet = null"
     />
     <NewNeedSheet
       v-else-if="sheet?.kind === 'need'"
       :squads="managedSquads"
-      @created="(need) => created(`Опубликовано: ${need.title}`, 'funds')"
+      :need="sheet.need ?? null"
+      @created="(need) => created(sheet?.kind === 'need' && sheet.need ? `Обновлено: ${need.title}` : `Опубликовано: ${need.title}`, 'funds')"
+      @close="sheet = null"
+    />
+    <ChatSheet
+      v-else-if="sheet?.kind === 'chat'"
+      :subject="{ kind: 'trip', id: sheet.trip.id, title: sheet.trip.title }"
       @close="sheet = null"
     />
     <SheetDialog v-else-if="sheet?.kind === 'account'" title="Нужен аккаунт" @close="sheet = null">

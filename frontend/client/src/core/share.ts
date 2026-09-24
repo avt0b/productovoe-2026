@@ -36,3 +36,20 @@ export async function shareCurrentPage(title?: string, text?: string): Promise<'
     return 'failed'
   }
 }
+
+/**
+ * Поделиться коротким текстом — например кодом приглашения в семью. Ссылки
+ * здесь нет намеренно: код набирают руками в приложении, а не открывают.
+ */
+export async function shareText(title: string, text: string): Promise<'shared' | 'copied' | 'failed'> {
+  try {
+    if (navigator.share) {
+      await navigator.share({ title, text })
+      return 'shared'
+    }
+    await navigator.clipboard.writeText(text)
+    return 'copied'
+  } catch {
+    return 'failed'
+  }
+}

@@ -140,17 +140,26 @@ async function send(method: HttpMethod, service: ServiceName, path: string, opti
   }
 }
 
+/**
+ * Служебные ответы самого FastAPI — по-английски и не о деле: так отвечает
+ * сервис, до которого запрос дошёл, но ручки такой у него нет. Показывать их
+ * человеку незачем — ниже для каждого кода есть свои слова.
+ */
+const FRAMEWORK_DETAILS = new Set(['Not Found', 'Method Not Allowed', 'Internal Server Error', 'Unauthorized', 'Forbidden'])
+
 async function errorMessage(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as { detail?: unknown } | null
-    if (typeof body?.detail === 'string' && body.detail) return body.detail
+    if (typeof body?.detail === 'string' && body.detail && !FRAMEWORK_DETAILS.has(body.detail)) return body.detail
     // 422 от pydantic: в detail — список полей с ошибками.
     if (Array.isArray(body?.detail)) return 'Проверьте введённые данные'
   } catch {
     // Тело не JSON — хватит кода ответа.
   }
   if (response.status === 401) return 'Сессия истекла — войдите снова'
-  if (response.status === 404) return 'Не нашли — возможно, ссылка устарела'
+  if (response.status === 403) return 'Здесь нужны права другой роли'
+  if (response.status === 404) return 'Не нашли — возможно, ссылка устарела или сервис ещё не обновлён'
+  if (response.status >= 500) return 'Сервис ответил ошибкой — попробуйте позже'
   return `Сервис ответил ошибкой ${response.status}`
 }
 

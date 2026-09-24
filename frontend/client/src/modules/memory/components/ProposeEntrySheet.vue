@@ -10,7 +10,7 @@ import ToggleSwitch from '@/ui/ToggleSwitch.vue'
 import FormInput from '@/ui/form/FormInput.vue'
 import FormTextarea from '@/ui/form/FormTextarea.vue'
 
-import { ENTRY_KINDS, proposeEntry, type ArchiveEntry, type EntryKind, type NearbyPending } from '../data'
+import { ENTRY_KINDS, proposeEntry, updateEntry, type ArchiveEntry, type EntryKind, type NearbyPending } from '../data'
 import PhotoPicker from './PhotoPicker.vue'
 
 /**
@@ -20,10 +20,15 @@ import PhotoPicker from './PhotoPicker.vue'
  * `about` — «помочь проверить»: человек знает что-то о неподтверждённой записи
  * рядом. Его рассказ ложится в ту же точку и помогает краеведу решить.
  */
-const props = withDefaults(defineProps<{ initialKind?: EntryKind; about?: NearbyPending | null }>(), {
-  initialKind: 'event',
-  about: null,
-})
+const props = withDefaults(
+  defineProps<{
+    initialKind?: EntryKind
+    about?: NearbyPending | null
+    /** Правим свою запись — пока она на проверке. `null` — предлагаем новую. */
+    entry?: ArchiveEntry | null
+  }>(),
+  { initialKind: 'event', about: null, entry: null },
+)
 
 const emit = defineEmits<{ close: []; created: [entry: ArchiveEntry] }>()
 
@@ -37,11 +42,11 @@ const HINTS: Record<EntryKind, { title: string; body: string }> = {
 const kinds = Object.keys(ENTRY_KINDS) as EntryKind[]
 const aboutPlace = props.about?.lat != null && props.about.lon != null ? { lat: props.about.lat, lon: props.about.lon } : null
 
-const kind = ref<EntryKind>(props.about ? 'memory' : props.initialKind)
-const title = ref(props.about ? `О записи «${props.about.title}»` : '')
-const body = ref('')
-const dateText = ref('')
-const mediaUrl = ref('')
+const kind = ref<EntryKind>(props.entry?.kind ?? (props.about ? 'memory' : props.initialKind))
+const title = ref(props.entry?.title ?? (props.about ? `О записи «${props.about.title}»` : ''))
+const body = ref(props.entry?.body ?? '')
+const dateText = ref(props.entry?.date_text ?? '')
+const mediaUrl = ref(props.entry?.media_url ?? '')
 const uploading = ref(false)
 const attachPlace = ref(false)
 const saving = ref(false)
@@ -71,17 +76,21 @@ async function submit(): Promise<void> {
   if (missing.value || saving.value) return
   saving.value = true
   error.value = null
+  const fields = {
+    kind: kind.value,
+    title: title.value.trim(),
+    body: body.value.trim(),
+    date_text: dateText.value.trim(),
+    media_url: mediaUrl.value || null,
+  }
   try {
-    const entry = await proposeEntry({
-      kind: kind.value,
-      title: title.value.trim(),
-      body: body.value.trim(),
-      date_text: dateText.value.trim(),
-      media_url: mediaUrl.value || null,
-      lat: place.value?.lat ?? null,
-      lon: place.value?.lon ?? null,
-    })
-    emit('created', entry)
+    // У своей записи место уже стоит — при правке его не трогаем.
+    emit(
+      'created',
+      props.entry
+        ? await updateEntry(props.entry.id, fields)
+        : await proposeEntry({ ...fields, lat: place.value?.lat ?? null, lon: place.value?.lon ?? null }),
+    )
   } catch (reason) {
     error.value = errorText(reason)
   } finally {
@@ -92,8 +101,14 @@ async function submit(): Promise<void> {
 
 <template>
   <SheetDialog
-    :title="about ? 'Помочь проверить' : 'Предложить в народный архив'"
-    :subtitle="about ? 'Ваш рассказ увидит краевед, который проверяет запись' : 'Краевед проверит и подтвердит запись'"
+    :title="entry ? 'Изменить запись' : about ? 'Помочь проверить' : 'Предложить в народный архив'"
+    :subtitle="
+      entry
+        ? 'Пока запись на проверке, её можно поправить'
+        : about
+          ? 'Ваш рассказ увидит краевед, который проверяет запись'
+          : 'Краевед проверит и подтвердит запись'
+    "
     @close="emit('close')"
   >
     <form class="flex flex-col gap-space-md" @submit.prevent="submit">
@@ -139,7 +154,8 @@ async function submit(): Promise<void> {
           <span class="block font-body-sm text-body-sm text-on-surface-variant">{{ formatCoordinates(aboutPlace) }}</span>
         </span>
       </div>
-      <div v-else class="flex items-center justify-between gap-space-sm rounded-2xl bg-surface-container-low p-space-sm">
+      <!-- У своей записи место уже стоит: при правке его не двигаем. -->
+      <div v-else-if="!entry" class="flex items-center justify-between gap-space-sm rounded-2xl bg-surface-container-low p-space-sm">
         <span class="min-w-0">
           <span class="block font-label-md text-label-md text-on-surface">Привязать к месту, где я стою</span>
           <span class="block font-body-sm text-body-sm text-on-surface-variant">{{ placeText }}</span>
@@ -156,7 +172,7 @@ async function submit(): Promise<void> {
         :disabled="missing !== null || saving"
       >
         <MsIcon :name="saving ? 'progress_activity' : 'send'" :size="18" :class="{ 'animate-spin': saving }" />
-        <span>Отправить краеведу</span>
+        <span>{{ entry ? 'Сохранить запись' : 'Отправить краеведу' }}</span>
       </button>
     </form>
   </SheetDialog>
