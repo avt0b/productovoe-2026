@@ -1,7 +1,6 @@
 <script setup>
 import { computed, onMounted, watch } from 'vue'
 import ProfileHero from './components/ProfileHero.vue'
-import ProfileMetrics from './components/ProfileMetrics.vue'
 import FamilyTree from './components/FamilyTree.vue'
 import AwardsBadges from './components/AwardsBadges.vue'
 import ResearcherDataForm from './components/ResearcherDataForm.vue'
@@ -24,19 +23,24 @@ watch(
   },
 )
 
-// user_service ещё не хранит стаж/ранг/семейное древо — это остаётся демо-
-// данными компонентов (явно помечены как демо внутри самих компонентов),
-// пока эти поля не появятся на бэкенде. Значки (AwardsBadges) и экскурсии
-// (MyExcursions) уже реальные — свои API. Пока profile.data не загружен,
-// heroProps пуст — ProfileHero сам показывает нейтральные заглушки, а не
-// чьё-то чужое имя.
+// user_service ещё не хранит семейное древо — оно остаётся демо-данными
+// компонента (помечено как демо внутри самого компонента). Всё остальное в
+// шапке — реальные поля ProfileOut: is_verified/created_at (user_service),
+// routes_completed/excursions_completed/finds_count (заполняются через
+// stats_service). Пока profile.data не загружен, heroProps пуст —
+// ProfileHero сам показывает нейтральные заглушки, а не чьё-то чужое имя.
 const heroProps = computed(() => {
   if (!profile.data) return {}
   return {
     name: profile.data.display_name || session.user?.email || 'Без имени',
     role: roleLabel(profile.data.role),
-    squad: profile.data.city || '',
+    city: profile.data.city || '',
     avatarUrl: profile.data.avatar_url || '',
+    verified: profile.data.is_verified,
+    since: profile.data.created_at,
+    routesCompleted: profile.data.routes_completed,
+    excursionsCompleted: profile.data.excursions_completed,
+    findsCount: profile.data.finds_count,
   }
 })
 </script>
@@ -52,7 +56,6 @@ const heroProps = computed(() => {
     </p>
 
     <ProfileHero v-bind="heroProps" />
-    <ProfileMetrics />
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
       <div class="lg:col-span-7 flex flex-col gap-8">

@@ -28,7 +28,7 @@ const heroes = [
 </script>
 
 <template>
-  <div class="bg-surface-container-lowest p-6 rounded-DEFAULT shadow-sm flex flex-col">
+  <div class="bg-surface-container-lowest p-6 rounded-2xl shadow-document flex flex-col">
     <div class="flex items-center justify-between gap-4 mb-6">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center">

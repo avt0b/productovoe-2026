@@ -90,7 +90,7 @@ const DOC_TYPE_LABELS = {
 <template>
   <div
     v-if="session.status === 'authenticated' && isLocalHistorian"
-    class="bg-surface-container-lowest p-6 rounded-DEFAULT shadow-sm flex flex-col"
+    class="bg-surface-container-lowest p-6 rounded-2xl shadow-document flex flex-col"
   >
     <div class="flex items-center gap-3 mb-2">
       <div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center">

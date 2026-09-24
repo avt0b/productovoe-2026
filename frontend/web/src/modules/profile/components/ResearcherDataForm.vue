@@ -52,7 +52,7 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="bg-surface-container-lowest p-6 rounded-DEFAULT shadow-sm flex flex-col">
+  <div class="bg-surface-container-lowest p-6 rounded-2xl shadow-document flex flex-col">
     <div class="flex items-center gap-3 mb-6">
       <div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center">
         <span class="material-symbols-outlined text-[20px]">badge</span>
