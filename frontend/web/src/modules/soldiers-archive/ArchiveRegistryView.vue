@@ -63,6 +63,23 @@ function dateLabel(entry) {
   if (entry.event_date) return new Date(entry.event_date).toLocaleDateString('ru-RU')
   return ''
 }
+
+// Источник анкеты (moypolk.ru и т.п.) зашит текстом в body («Источник: <url>») —
+// вытаскиваем ссылку отдельно, чтобы показать её кнопкой, а не куском текста.
+const SOURCE_RE = /Источник:\s*(https?:\/\/\S+)/u
+
+function sourceUrl(entry) {
+  return entry.body?.match(SOURCE_RE)?.[1] ?? null
+}
+
+function bodyWithoutSource(entry) {
+  return (entry.body ?? '').replace(SOURCE_RE, '').trim()
+}
+
+function excerpt(entry) {
+  const text = bodyWithoutSource(entry)
+  return text.length > 110 ? `${text.slice(0, 110)}…` : text
+}
 </script>
 
 <template>
@@ -136,29 +153,64 @@ function dateLabel(entry) {
           {{ query ? 'По запросу ничего не нашлось.' : 'Карточек бойцов пока нет — предложите первую в «Живой памяти».' }}
         </p>
 
-        <div
-          v-for="entry in sorted"
-          :key="entry.id"
-          class="bg-surface-container-lowest rounded-2xl shadow-document overflow-hidden"
-        >
-          <button
-            type="button"
-            class="w-full text-left p-4 flex items-center justify-between gap-3 hover:bg-surface-container-low transition-colors"
-            @click="toggleExpand(entry.id)"
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div
+            v-for="entry in sorted"
+            :key="entry.id"
+            class="bg-surface-container-lowest rounded-2xl shadow-document overflow-hidden flex flex-col"
           >
-            <div class="flex flex-col min-w-0">
-              <span class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">{{ entry.title }}</span>
-              <span v-if="dateLabel(entry)" class="font-body-sm text-body-sm text-on-surface-variant">{{ dateLabel(entry) }}</span>
-            </div>
-            <span class="material-symbols-outlined text-[22px] text-on-surface-variant shrink-0" :class="{ 'rotate-180': expandedId === entry.id }">
-              expand_more
-            </span>
-          </button>
+            <button
+              type="button"
+              class="w-full text-left p-4 flex items-start gap-3 hover:bg-surface-container-low transition-colors"
+              @click="toggleExpand(entry.id)"
+            >
+              <img
+                v-if="entry.media_url"
+                :src="entry.media_url"
+                alt=""
+                class="w-14 h-14 rounded-full object-cover shrink-0 bg-surface-container-high"
+              />
+              <div
+                v-else
+                class="w-14 h-14 rounded-full shrink-0 bg-secondary-container text-on-secondary-container flex items-center justify-center"
+              >
+                <span class="material-symbols-outlined text-[28px]">military_tech</span>
+              </div>
 
-          <div v-if="expandedId === entry.id" class="px-4 pb-4 flex flex-col gap-3 border-t border-surface-container-high pt-4">
-            <p v-if="entry.body" class="font-body-md text-body-md text-on-surface [overflow-wrap:anywhere]">{{ entry.body }}</p>
-            <DirectionsButton v-if="entry.lat != null && entry.lon != null" :point="entry" />
-            <PointReviews :point="entry" />
+              <div class="flex flex-col min-w-0 flex-1">
+                <span class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">{{ entry.title }}</span>
+                <span v-if="dateLabel(entry)" class="font-label-sm text-label-sm text-tertiary font-bold">{{ dateLabel(entry) }}</span>
+                <p v-if="excerpt(entry)" class="mt-1 font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
+                  {{ excerpt(entry) }}
+                </p>
+                <span v-if="entry.lat != null && entry.lon != null" class="mt-1 flex items-center gap-1 font-label-sm text-label-sm text-on-surface-variant">
+                  <span class="material-symbols-outlined text-[14px]">location_on</span>
+                  Отмечено на карте
+                </span>
+              </div>
+
+              <span class="material-symbols-outlined text-[22px] text-on-surface-variant shrink-0" :class="{ 'rotate-180': expandedId === entry.id }">
+                expand_more
+              </span>
+            </button>
+
+            <div v-if="expandedId === entry.id" class="px-4 pb-4 flex flex-col gap-3 border-t border-surface-container-high pt-4">
+              <p v-if="bodyWithoutSource(entry)" class="font-body-md text-body-md text-on-surface [overflow-wrap:anywhere]">
+                {{ bodyWithoutSource(entry) }}
+              </p>
+              <a
+                v-if="sourceUrl(entry)"
+                :href="sourceUrl(entry)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="self-start flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-low font-label-sm text-label-sm font-bold text-on-surface-variant hover:bg-surface-container transition-colors"
+              >
+                <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+                Источник анкеты
+              </a>
+              <DirectionsButton v-if="entry.lat != null && entry.lon != null" :point="entry" />
+              <PointReviews :point="entry" />
+            </div>
           </div>
         </div>
       </div>
