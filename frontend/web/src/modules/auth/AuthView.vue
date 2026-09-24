@@ -9,11 +9,24 @@ import SsoButtons from './components/SsoButtons.vue'
 const router = useRouter()
 const { session, login, register } = useAuthSession()
 
+// Ровно SELF_ASSIGNABLE_ROLES в auth_service (api/schemas/user.py) — что
+// угодно ещё (moderator) регистрацией не выдаётся, 422 с бэка. Роль потом
+// можно сменить только через отдельную админ-панель, так что для проверки
+// того, как выглядит интерфейс под разными ролями, проще сразу завести
+// отдельный тестовый аккаунт с нужной ролью, чем гонять один туда-сюда.
+const ROLE_OPTIONS = [
+  { value: 'family', label: 'Родитель / семья' },
+  { value: 'searcher', label: 'Поисковик' },
+  { value: 'local_historian', label: 'Краевед' },
+  { value: 'mentor', label: 'Наставник' },
+]
+
 /** 'login' | 'register' */
 const mode = ref('login')
 const name = ref('')
 const contact = ref('')
 const password = ref('')
+const role = ref('family')
 const passwordVisible = ref(false)
 const signInError = ref('')
 /**
@@ -46,9 +59,7 @@ async function submit() {
     if (mode.value === 'login') {
       await login({ email: contact.value, password: password.value })
     } else {
-      // Роль по умолчанию: краеведом или наставником человека отмечают в
-      // профиле, на экране регистрации выбора роли нет.
-      await register({ email: contact.value, password: password.value, role: 'family' })
+      await register({ email: contact.value, password: password.value, role: role.value })
       // Имя — поле user_service (display_name), а не auth_service, поэтому
       // отдельным запросом сразу после того, как появился access-токен. Если
       // это упадёт — регистрацию не откатываем, имя дозаполнится в профиле.
@@ -157,6 +168,25 @@ async function submit() {
                 placeholder="Имя и фамилия"
                 autocomplete="name"
               />
+              <div class="mb-space-sm">
+                <span class="mb-1 block font-label-sm text-label-sm uppercase tracking-wide text-white/70">Роль</span>
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="opt in ROLE_OPTIONS"
+                    :key="opt.value"
+                    type="button"
+                    class="rounded-full border px-3 py-1.5 font-label-sm text-label-sm transition-colors"
+                    :class="
+                      role === opt.value
+                        ? 'border-white bg-white text-night'
+                        : 'border-white/20 bg-white/10 text-white/80 hover:bg-white/20'
+                    "
+                    @click="role = opt.value"
+                  >
+                    {{ opt.label }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
