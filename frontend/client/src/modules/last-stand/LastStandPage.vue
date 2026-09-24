@@ -74,6 +74,14 @@ async function pointAdded(): Promise<void> {
   await refresh()
 }
 
+/** Место убрали — снимаем выбор, иначе карточка осталась бы висеть над картой. */
+async function pointRemoved(): Promise<void> {
+  sheet.value = null
+  selectedId.value = null
+  notice.value = { tone: 'success', text: 'Место убрано со слоя «ВОВ»' }
+  await refresh()
+}
+
 /** Править место может тот, кто его отметил, и модератор — так решает map_service. */
 function canEditRecord(record: FindRecord): boolean {
   return canModerate.value || (session.hasAccount && record.raw.created_by === session.user?.id)
@@ -322,7 +330,13 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
     </template>
 
     <AddPointSheet v-if="sheet?.kind === 'add'" @created="pointAdded" @close="sheet = null" />
-    <AddPointSheet v-else-if="sheet?.kind === 'edit'" :record="sheet.record" @created="pointAdded" @close="sheet = null" />
+    <AddPointSheet
+      v-else-if="sheet?.kind === 'edit'"
+      :record="sheet.record"
+      @created="pointAdded"
+      @removed="pointRemoved"
+      @close="sheet = null"
+    />
     <EvidenceSheet v-else-if="sheet?.kind === 'evidence'" :record="sheet.record" @close="sheet = null" />
     <SubscriptionSheet v-else-if="sheet?.kind === 'subscribe'" @saved="subscriptionSaved" @close="sheet = null" />
     <SheetDialog v-else-if="sheet?.kind === 'account'" title="Нужен аккаунт" @close="sheet = null">

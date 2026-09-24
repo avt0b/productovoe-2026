@@ -128,6 +128,15 @@ export function updatePoint(pointId: string, patch: Partial<PointDraft>): Promis
   return apiRequest('PATCH', 'map', `/last-stand/${encodeURIComponent(pointId)}`, { body: patch, auth: true })
 }
 
+/**
+ * Убрать место — автор или модератор (тот же `_ensure_can_edit`). Нужно, когда
+ * точку поставили по ошибке: не туда нажали на карте или сведения оказались о
+ * другом месте.
+ */
+export function deletePoint(pointId: string): Promise<void> {
+  return apiRequest('DELETE', 'map', `/last-stand/${encodeURIComponent(pointId)}`, { auth: true })
+}
+
 /** Сменить стадию — только модератор. */
 export function setPointStatus(pointId: string, status: FindStatus): Promise<LastStandPoint> {
   return apiRequest('PATCH', 'map', `/last-stand/${encodeURIComponent(pointId)}/status`, {

@@ -10,7 +10,7 @@ import SheetDialog from '@/ui/SheetDialog.vue'
 import FormInput from '@/ui/form/FormInput.vue'
 import FormTextarea from '@/ui/form/FormTextarea.vue'
 
-import { createPoint, emptySource, formatSource, updatePoint, type FindRecord, type SourceDraft } from '../data'
+import { createPoint, deletePoint, emptySource, formatSource, updatePoint, type FindRecord, type SourceDraft } from '../data'
 import SourcePicker from './SourcePicker.vue'
 
 /**
@@ -23,7 +23,7 @@ import SourcePicker from './SourcePicker.vue'
  */
 const props = withDefaults(defineProps<{ record?: FindRecord | null }>(), { record: null })
 
-const emit = defineEmits<{ close: []; created: [] }>()
+const emit = defineEmits<{ close: []; created: []; removed: [] }>()
 
 const soldierName = ref(props.record?.raw.soldier_name ?? '')
 const unit = ref(props.record?.raw.unit ?? '')
@@ -34,6 +34,7 @@ const point = ref<LatLon | null>(props.record ? { lat: props.record.lat, lon: pr
 const lat = ref<number | null>(props.record?.lat ?? null)
 const lon = ref<number | null>(props.record?.lon ?? null)
 const saving = ref(false)
+const confirmingDelete = ref(false)
 const error = ref<string | null>(null)
 
 const { position, status: geoStatus, start: startLocating } = useGeolocation()
@@ -99,6 +100,21 @@ async function submit(): Promise<void> {
     if (props.record) await updatePoint(props.record.id, draft)
     else await createPoint(draft)
     emit('created')
+  } catch (reason) {
+    error.value = errorText(reason)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function remove(): Promise<void> {
+  const record = props.record
+  if (!record || saving.value) return
+  saving.value = true
+  error.value = null
+  try {
+    await deletePoint(record.id)
+    emit('removed')
   } catch (reason) {
     error.value = errorText(reason)
   } finally {
@@ -178,8 +194,55 @@ async function submit(): Promise<void> {
         :disabled="!valid || saving"
       >
         <MsIcon :name="saving ? 'progress_activity' : 'add_location_alt'" :size="18" :class="{ 'animate-spin': saving }" />
-        <span>Отметить место</span>
+        <span>{{ record ? 'Сохранить' : 'Отметить место' }}</span>
       </button>
+
+      <!-- Убрать место — в два нажатия: точка уже на общей карте, её видят все. -->
+      <template v-if="record">
+        <button
+          type="button"
+          class="self-center rounded-full px-space-md py-2 font-label-md text-label-md text-error active:scale-95"
+          :aria-expanded="confirmingDelete"
+          @click="confirmingDelete = !confirmingDelete"
+        >
+          Убрать место с карты
+        </button>
+        <div
+          class="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+          :class="confirmingDelete ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+          :inert="!confirmingDelete"
+        >
+          <div class="overflow-hidden">
+            <div
+              class="flex flex-col gap-space-sm rounded-2xl bg-surface-container-low p-space-md"
+              role="alertdialog"
+              aria-label="Подтверждение удаления места"
+            >
+              <p class="font-body-sm text-body-sm text-on-surface">
+                Убрать место со слоя «ВОВ»? Точка пропадёт с карты у всех. Это не отменить.
+              </p>
+              <div class="flex gap-space-sm">
+                <button
+                  type="button"
+                  class="flex-1 rounded-full bg-surface-container-high py-2.5 font-label-md text-label-md text-on-surface active:scale-95"
+                  @click="confirmingDelete = false"
+                >
+                  Оставить
+                </button>
+                <button
+                  type="button"
+                  class="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-error py-2.5 font-label-md text-label-md text-on-error active:scale-95 disabled:opacity-60"
+                  :disabled="saving"
+                  @click="remove"
+                >
+                  <MsIcon name="delete" :size="18" />
+                  Убрать
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
     </form>
   </SheetDialog>
 </template>
