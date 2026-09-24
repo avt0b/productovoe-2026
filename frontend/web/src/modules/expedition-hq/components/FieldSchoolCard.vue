@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useAuthSession } from '@modules/auth'
+import { checkForNewAchievements } from '@modules/profile'
 import * as hqApi from '../api.js'
 
 const { session } = useAuthSession()
@@ -51,6 +52,8 @@ async function enroll() {
   try {
     await hqApi.registerForTrip(session.accessToken, trip.value.id)
     enrollState.value = 'done'
+    // trip_volunteer начисляется сразу при регистрации — салютуем тут же.
+    checkForNewAchievements(session.accessToken, session.user?.id).catch(() => {})
   } catch (err) {
     enrollState.value = 'idle'
     enrollError.value = err.status === 409 ? 'Вы уже записаны на этот выезд' : (err.detail ?? 'Не удалось записаться')

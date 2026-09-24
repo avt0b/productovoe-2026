@@ -1,30 +1,59 @@
 <script setup>
+import { ref } from 'vue'
 import SmartImage from '@shared/components/SmartImage.vue'
+import { useAuthSession } from '@modules/auth'
+import { useProfileStore } from '../profileStore.js'
+import FamilyHeroModal from './FamilyHeroModal.vue'
+import HeroDossierModal from './HeroDossierModal.vue'
 
-// Ни в одном сервисе нет сущности «семейное древо» — демо-заглушка целиком,
-// имена и фото ниже вымышленные, не подставляются из данных пользователя.
-const heroes = [
-  {
-    name: 'Сержант Воронов А. Г.',
-    tag: 'Погиб в бою',
-    tagClass: 'bg-primary-fixed text-on-primary-fixed',
-    years: '1919 – 1944 • 120-й стрелковый полк, Орловский рубеж',
-    note: 'Подтверждено в ОБД «Мемориал»',
-    noteIcon: 'verified',
-    noteClass: 'text-secondary',
-    photoUrl: 'https://loremflickr.com/128/128/soldier,vintage,portrait?lock=102',
-  },
-  {
-    name: 'Рядовой Смирнов П. И.',
-    tag: 'Ветеран',
-    tagClass: 'bg-secondary-fixed text-on-secondary-fixed',
-    years: '1923 – 1989 • Связист, 3-я армия, Брянский фронт',
-    note: 'Медаль «За отвагу», Орден Красной Звезды',
-    noteIcon: 'military_tech',
-    noteClass: 'text-tertiary',
-    photoUrl: 'https://loremflickr.com/128/128/veteran,portrait,elderly?lock=103',
-  },
-]
+// user_service: FamilyHero — приватная история семьи (не путать с
+// «Живой памятью»/народным архивом: там публичные записи с верификацией
+// краеведом, тут видно только владельцу и его гостям на профиле, а
+// редактирует только владелец). Список приходит вместе с профилем
+// (ProfileOut.heroes).
+const { session } = useAuthSession()
+const { profile, loadMyProfile } = useProfileStore()
+
+const STATUS_META = {
+  killed_in_action: { label: 'Погиб в бою', class: 'bg-primary-fixed text-on-primary-fixed' },
+  missing_in_action: { label: 'Пропал без вести', class: 'bg-tertiary-fixed text-on-tertiary-fixed' },
+  died_of_wounds: { label: 'Умер от ран', class: 'bg-error-container text-on-error-container' },
+  veteran: { label: 'Ветеран', class: 'bg-secondary-fixed text-on-secondary-fixed' },
+}
+
+function yearsLabel(hero) {
+  const parts = []
+  if (hero.birth_year || hero.death_year) parts.push(`${hero.birth_year ?? '?'} – ${hero.death_year ?? '?'}`)
+  if (hero.unit) parts.push(hero.unit)
+  return parts.join(' • ')
+}
+
+const modalOpen = ref(false)
+const editingHero = ref(null)
+const dossierOpen = ref(false)
+const dossierHero = ref(null)
+
+function openCreate() {
+  editingHero.value = null
+  modalOpen.value = true
+}
+
+function openEdit(hero) {
+  dossierOpen.value = false
+  editingHero.value = hero
+  modalOpen.value = true
+}
+
+function openDossier(hero) {
+  dossierHero.value = hero
+  dossierOpen.value = true
+}
+
+// Проще перечитать профиль целиком, чем вести отдельное состояние списка —
+// он и так уже дружит с остальной шапкой профиля (счётчики и т.п.).
+function onChanged() {
+  loadMyProfile()
+}
 </script>
 
 <template>
@@ -35,54 +64,61 @@ const heroes = [
           <span class="material-symbols-outlined text-[20px]">diversity_3</span>
         </div>
         <div class="flex flex-col">
-          <h2 class="font-headline-sm text-headline-sm font-bold text-on-surface flex items-center gap-2 flex-wrap">
-            Семейное древо и герои рода
-            <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-bold normal-case">
-              демо — такой сущности нет ни в одном сервисе
-            </span>
-          </h2>
-          <span class="font-body-sm text-body-sm text-on-surface-variant">Пример того, как это могло бы выглядеть</span>
+          <h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Семейное древо и герои рода</h2>
+          <span class="font-body-sm text-body-sm text-on-surface-variant">user_service, family_heroes — видно только вам</span>
         </div>
       </div>
       <button
+        v-if="session.status === 'authenticated'"
         class="bg-secondary-fixed hover:bg-secondary-fixed-dim text-on-secondary-fixed font-label-md text-label-md font-bold px-4 py-2 rounded-full transition-all flex items-center gap-1.5 shadow-sm"
+        @click="openCreate"
       >
         <span class="material-symbols-outlined text-[18px]">add</span>
         <span class="hidden sm:inline">Добавить предка</span>
       </button>
     </div>
 
-    <div class="flex flex-col gap-4">
-      <div
-        v-for="hero in heroes"
-        :key="hero.name"
-        class="bg-surface-container-low p-4 rounded-DEFAULT flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-surface-container transition-colors"
+    <p v-if="session.status !== 'authenticated'" class="font-body-sm text-body-sm text-on-surface-variant">
+      Войдите, чтобы добавить героев своей семьи.
+    </p>
+    <p v-else-if="!profile.data?.heroes?.length" class="font-body-sm text-body-sm text-on-surface-variant">
+      Пока никого не добавили — начните с первого героя семьи.
+    </p>
+
+    <div v-else class="flex flex-col gap-4">
+      <button
+        v-for="hero in profile.data.heroes"
+        :key="hero.id"
+        type="button"
+        class="text-left bg-surface-container-low p-4 rounded-DEFAULT flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-surface-container transition-colors"
+        @click="openDossier(hero)"
       >
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-4 min-w-0">
           <div class="w-16 h-16 rounded-DEFAULT overflow-hidden bg-surface-container-high shrink-0 shadow-sm">
-            <SmartImage :src="hero.photoUrl" icon="portrait" />
+            <SmartImage :src="hero.photo_url" icon="portrait" />
           </div>
-          <div class="flex flex-col">
-            <div class="flex items-center gap-2">
-              <h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">{{ hero.name }}</h3>
-              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full uppercase" :class="hero.tagClass">
-                {{ hero.tag }}
+          <div class="flex flex-col min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">{{ hero.name }}</h3>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0" :class="STATUS_META[hero.status]?.class">
+                {{ STATUS_META[hero.status]?.label ?? hero.status }}
               </span>
             </div>
-            <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">{{ hero.years }}</p>
-            <div class="flex items-center gap-2 mt-2">
-              <span class="material-symbols-outlined text-[16px]" :class="hero.noteClass">{{ hero.noteIcon }}</span>
-              <span class="font-label-sm text-label-sm font-bold" :class="hero.noteClass">{{ hero.note }}</span>
-            </div>
+            <p v-if="yearsLabel(hero)" class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">{{ yearsLabel(hero) }}</p>
+            <p v-if="hero.note" class="font-label-sm text-label-sm font-bold text-secondary mt-2">{{ hero.note }}</p>
           </div>
         </div>
-        <button
+        <span
           class="bg-surface-container-lowest text-on-surface hover:bg-surface-container-high px-3.5 py-1.5 rounded-full font-label-sm text-label-sm font-bold shadow-sm flex items-center gap-1 shrink-0"
+          @click.stop="openEdit(hero)"
         >
-          <span>Карточка</span>
-          <span class="material-symbols-outlined text-[16px]">chevron_right</span>
-        </button>
-      </div>
+          <span>Изменить</span>
+          <span class="material-symbols-outlined text-[16px]">edit</span>
+        </span>
+      </button>
     </div>
+
+    <HeroDossierModal v-model="dossierOpen" :hero="dossierHero" @edit="openEdit" />
+    <FamilyHeroModal v-model="modalOpen" :hero="editingHero" @saved="onChanged" @deleted="onChanged" />
   </div>
 </template>

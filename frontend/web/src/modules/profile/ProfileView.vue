@@ -4,7 +4,6 @@ import ProfileHero from './components/ProfileHero.vue'
 import FamilyTree from './components/FamilyTree.vue'
 import AwardsBadges from './components/AwardsBadges.vue'
 import ResearcherDataForm from './components/ResearcherDataForm.vue'
-import ExpeditionSettings from './components/ExpeditionSettings.vue'
 import LocalHistorianVerification from './components/LocalHistorianVerification.vue'
 import { useAuthSession, roleLabel } from '@modules/auth'
 import { MyExcursions } from '@modules/excursions'
@@ -59,15 +58,14 @@ const heroProps = computed(() => {
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
       <div class="lg:col-span-7 flex flex-col gap-8">
+        <MyExcursions />
         <FamilyTree />
         <AwardsBadges />
       </div>
 
       <div class="lg:col-span-5 flex flex-col gap-8">
-        <MyExcursions />
         <LocalHistorianVerification />
         <ResearcherDataForm />
-        <ExpeditionSettings />
       </div>
     </div>
   </div>
