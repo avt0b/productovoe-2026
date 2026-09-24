@@ -206,3 +206,31 @@ export function reorderWaypoints(routeId: string, orderedIds: string[]): Promise
     auth: true,
   })
 }
+
+/**
+ * Подсказки на маршруте — интеграции из ТЗ:
+ * рядом с точкой есть непроверенная заметка народного архива (п. 6) и у точки
+ * нет «живого фото» (п. 7). Обе ручки публичные и считаются отдельно от точек,
+ * чтобы не тормозить обычный просмотр маршрута.
+ */
+export interface ArchivePrompt {
+  waypoint_id: string
+  entry_id: string
+  kind: string
+  title: string
+  distance_km: number
+}
+
+export interface MediaPrompt {
+  waypoint_id: string
+  poi_id: string
+  title: string
+}
+
+export function archivePrompts(routeId: string): Promise<ArchivePrompt[]> {
+  return apiRequest('GET', 'routes', `/routes/${encodeURIComponent(routeId)}/archive-prompts`)
+}
+
+export function mediaPrompts(routeId: string): Promise<MediaPrompt[]> {
+  return apiRequest('GET', 'routes', `/routes/${encodeURIComponent(routeId)}/media-prompts`)
+}

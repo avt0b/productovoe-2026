@@ -70,6 +70,8 @@ function tabFromQuery(): Tab {
   return tab === 'archive' || (tab === 'review' && canReview.value) ? tab : 'photo'
 }
 
+
+
 const tab = ref<Tab>(tabFromQuery())
 watch(tab, (value) => void router.replace({ query: { ...route.query, tab: value, propose: undefined } }))
 
@@ -188,6 +190,12 @@ async function togglePublic(clip: Clip, isPublic: boolean): Promise<void> {
 
 function openClipRequest(): void {
   sheet.value = session.hasAccount ? { kind: 'clip' } : { kind: 'account', text: 'Оживить фото можно с аккаунтом' }
+}
+
+// `?clip=1` — подсказка маршрута зовёт оживить фото бойца из этого захоронения.
+if (route.query.clip) {
+  openClipRequest()
+  void router.replace({ query: { ...route.query, clip: undefined } })
 }
 
 async function clipCreated(): Promise<void> {

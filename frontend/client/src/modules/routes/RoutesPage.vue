@@ -22,6 +22,7 @@ import StateBlock from '@/ui/StateBlock.vue'
 
 import AddPlaceSheet from './components/AddPlaceSheet.vue'
 import FeaturedRouteCard from './components/FeaturedRouteCard.vue'
+import RoutePromptsCard from './components/RoutePromptsCard.vue'
 import PlaceCard from './components/PlaceCard.vue'
 import PlacesList from './components/PlacesList.vue'
 import RouteFilters from './components/RouteFilters.vue'
@@ -240,6 +241,7 @@ function openStop(stop: RouteStop): void {
           @select-stop="selectedId = $event"
           @open-stop="openStop"
         />
+        <RoutePromptsCard v-if="data.route" :route="data.route" :prompts="data.prompts" />
         <StateBlock
           v-else
           :loading="false"
