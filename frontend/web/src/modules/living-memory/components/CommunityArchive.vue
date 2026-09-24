@@ -51,8 +51,27 @@ const feed = computed(() => {
   )
 })
 
+// Имена авторов — одним батч-запросом на все id, что сейчас на экране
+// (GET /profiles/batch публична, токен не нужен, до 200 id за раз).
+const authorsById = ref({})
+
+async function resolveAuthors(entries) {
+  const ids = entries.map((e) => e.submitted_by).filter((id) => id && !(id in authorsById.value))
+  if (!ids.length) return
+  try {
+    const profiles = await archiveApi.getAuthorsBatch(ids)
+    const patch = Object.fromEntries((Array.isArray(profiles) ? profiles : []).map((p) => [p.id, p]))
+    authorsById.value = { ...authorsById.value, ...patch }
+  } catch {
+    // Лента и без имён останется читаемой — просто откатимся к заглушке.
+  }
+}
+
+watch(feed, (entries) => resolveAuthors(entries))
+
 function authorLabel(entry) {
-  return entry.submitted_by === session.user?.id ? 'Вы' : 'Участник платформы'
+  if (entry.submitted_by === session.user?.id) return 'Вы'
+  return authorsById.value[entry.submitted_by]?.display_name ?? 'Участник платформы'
 }
 
 function formatDate(iso) {
@@ -79,6 +98,7 @@ async function loadModeration() {
 watch(activeTab, (tab) => {
   if (tab === 'moderation' && moderationStatus.value === 'idle') loadModeration()
 })
+watch(moderationEntries, (entries) => resolveAuthors(entries))
 
 const reviewingId = ref(null)
 const reviewError = ref('')
@@ -104,11 +124,16 @@ onMounted(loadFeed)
 const formOpen = ref(false)
 const form = reactive({ kind: 'event', title: '', body: '', dateText: '' })
 const photoFile = ref(null)
+const audioFile = ref(null)
 const submitStatus = ref('idle') // idle | uploading | pending | done
 const error = ref('')
 
 function onPhotoChange(event) {
   photoFile.value = event.target.files?.[0] ?? null
+}
+
+function onAudioChange(event) {
+  audioFile.value = event.target.files?.[0] ?? null
 }
 
 async function submit() {
@@ -123,10 +148,16 @@ async function submit() {
   error.value = ''
   try {
     let mediaUrl
+    let audioUrl
     if (photoFile.value) {
       submitStatus.value = 'uploading'
       const { url } = await archiveApi.uploadEntryPhoto(session.accessToken, photoFile.value)
       mediaUrl = url
+    }
+    if (audioFile.value) {
+      submitStatus.value = 'uploading'
+      const { url } = await archiveApi.uploadEntryAudio(session.accessToken, audioFile.value)
+      audioUrl = url
     }
     submitStatus.value = 'pending'
     const entry = await archiveApi.createEntry(session.accessToken, {
@@ -135,6 +166,7 @@ async function submit() {
       body: form.body.trim(),
       date_text: form.dateText.trim(),
       ...(mediaUrl ? { media_url: mediaUrl } : {}),
+      ...(audioUrl ? { audio_url: audioUrl } : {}),
     })
     myEntries.value.unshift(entry)
     submitStatus.value = 'done'
@@ -142,6 +174,7 @@ async function submit() {
     form.body = ''
     form.dateText = ''
     photoFile.value = null
+    audioFile.value = null
     setTimeout(() => {
       formOpen.value = false
       submitStatus.value = 'idle'
@@ -239,6 +272,12 @@ async function submit() {
               class="w-full font-body-sm text-body-sm text-on-surface-variant file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-secondary file:text-on-secondary file:font-label-sm file:text-label-sm file:font-bold"
               @change="onPhotoChange"
             />
+            <input
+              type="file"
+              accept="audio/mpeg,audio/ogg,audio/wav,audio/mp4,audio/x-m4a,audio/webm"
+              class="w-full font-body-sm text-body-sm text-on-surface-variant file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-secondary file:text-on-secondary file:font-label-sm file:text-label-sm file:font-bold"
+              @change="onAudioChange"
+            />
           </div>
           <p v-if="error" class="font-label-sm text-label-sm text-error font-bold">{{ error }}</p>
           <button
@@ -303,6 +342,7 @@ async function submit() {
         </div>
 
         <img v-if="entry.media_url" :src="entry.media_url" alt="" class="max-h-72 w-full object-cover rounded-DEFAULT" />
+        <audio v-if="entry.audio_url" :src="entry.audio_url" controls class="w-full" />
       </div>
     </template>
 
@@ -333,6 +373,7 @@ async function submit() {
         <span v-if="entry.date_text" class="font-label-sm text-label-sm text-tertiary font-bold">{{ entry.date_text }}</span>
         <p v-if="entry.body" class="font-body-md text-body-md text-on-surface [overflow-wrap:anywhere]">{{ entry.body }}</p>
         <img v-if="entry.media_url" :src="entry.media_url" alt="" class="max-h-72 w-full object-cover rounded-DEFAULT" />
+        <audio v-if="entry.audio_url" :src="entry.audio_url" controls class="w-full" />
 
         <div class="flex gap-2 pt-1">
           <button
