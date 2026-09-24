@@ -5,6 +5,7 @@ from core.models import ExcursionStatus, GuideRating
 from core.security import Principal
 from repositories.excursion_repository import ExcursionRepository
 from repositories.rating_repository import RatingRepository
+from services import achievement_client
 
 
 class RatingService:
@@ -34,6 +35,7 @@ class RatingService:
             existing.comment = comment
             self.db.commit()
             self.db.refresh(existing)
+            self._credit_guide(excursion.guide_id, rating)
             return existing
 
         created = self.repo.add(
@@ -47,7 +49,15 @@ class RatingService:
         )
         self.db.commit()
         self.db.refresh(created)
+        self._credit_guide(excursion.guide_id, rating)
         return created
+
+    @staticmethod
+    def _credit_guide(guide_id: str, rating: int) -> None:
+        if rating == 5:
+            achievement_client.award_achievement(
+                user_id=guide_id, code=achievement_client.HISTORIAN_FIVE_STARS
+            )
 
     def for_excursion(self, excursion_id: str) -> list[GuideRating]:
         if self.excursions.get(excursion_id) is None:

@@ -15,6 +15,9 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Значок краеведа — выдаёт этот сервис: маршрут публикуют здесь.
+HISTORIAN_ROUTE_AUTHOR = "historian_route_author"  # опубликовал свой маршрут
+
 
 def award_achievement(*, user_id: str, code: str) -> None:
     try:

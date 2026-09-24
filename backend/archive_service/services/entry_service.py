@@ -8,6 +8,7 @@ from core.exceptions import Conflict, NotFound, PermissionDenied
 from core.models import ArchiveEntry, EntryStatus
 from core.security import Principal
 from repositories.entry_repository import EntryRepository
+from services import achievement_client
 from services.achievement_client import award_achievement
 from services.stats_client import increment_stat
 
@@ -16,6 +17,8 @@ logger = logging.getLogger(__name__)
 # Кто может верифицировать записи (поисковик / краевед).
 VERIFIER_ROLES = {"searcher", "local_historian"}
 ACHIEVEMENT_ARCHIVE_HELPER = "archive_helper"
+# Сколько подтверждённых записей делает краеведа «Хранителем архива».
+ARCHIVE_KEEPER_THRESHOLD = 10
 STAT_FINDS_COUNT = "finds_count"
 
 
@@ -145,4 +148,8 @@ class EntryService:
         award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_ARCHIVE_HELPER)
         if status is EntryStatus.verified:
             increment_stat(user_id=entry.submitted_by, metric=STAT_FINDS_COUNT)
+            if self.repo.count_verified_by(principal.user_id) >= ARCHIVE_KEEPER_THRESHOLD:
+                achievement_client.award_achievement(
+                    user_id=principal.user_id, code=achievement_client.HISTORIAN_ARCHIVE_KEEPER
+                )
         return entry

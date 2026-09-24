@@ -24,7 +24,7 @@ from core.models import (
 from core.security import Principal
 from core.timeutil import as_utc, utcnow
 from repositories.excursion_repository import ExcursionRepository
-from services import notify_client
+from services import achievement_client, notify_client
 from services.excursion_service import ExcursionService
 from services.permissions import is_staff
 
@@ -105,6 +105,9 @@ class WalkService:
 
         if first_start:
             self._announce(excursion, name)
+            achievement_client.award_achievement(
+                user_id=excursion.guide_id, code=achievement_client.HISTORIAN_LED_GROUP
+            )
         return self.state(principal, excursion_id)
 
     def finish(self, principal: Principal, excursion_id: str) -> WalkState:

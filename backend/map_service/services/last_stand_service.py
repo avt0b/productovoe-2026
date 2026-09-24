@@ -8,10 +8,16 @@ from core.geo import bbox_around, haversine_km
 from core.models import LastStandPoint, LastStandStatus
 from core.security import Principal
 from repositories.last_stand_repository import LastStandRepository
+from services import achievement_client
 from services.notify_client import notify_nearby_subscribers
 from services.stats_client import increment_stat
 
 STAT_FINDS_COUNT = "finds_count"
+
+STATUS_BADGES = {
+    LastStandStatus.archive_confirmed: achievement_client.SEARCHER_ARCHIVE_CONFIRMED,
+    LastStandStatus.remains_raised: achievement_client.SEARCHER_REMAINS_RAISED,
+}
 
 # Кто может заводить точки «Последнего боя».
 _CONTRIBUTOR_ROLES = {"searcher", "local_historian"}
@@ -67,6 +73,9 @@ class LastStandService:
             body="Требуется помощь в идентификации.",
         )
         increment_stat(user_id=principal.user_id, metric=STAT_FINDS_COUNT)
+        achievement_client.award_achievement(
+            user_id=principal.user_id, code=achievement_client.SEARCHER_FIRST_FIND
+        )
         return point
 
     def update(self, principal: Principal, point_id: str, data: dict) -> LastStandPoint:
@@ -87,6 +96,10 @@ class LastStandService:
         point.status = status
         self.db.commit()
         self.db.refresh(point)
+        # Значок — тому, кто место нашёл, а не администратору, что сменил стадию.
+        code = STATUS_BADGES.get(status)
+        if code:
+            achievement_client.award_achievement(user_id=point.created_by, code=code)
         return point
 
     def delete(self, principal: Principal, point_id: str) -> None:

@@ -8,6 +8,7 @@ from core.models import Donation, DonationStatus, NeedKind, NeedStatus, SquadNee
 from core.security import Principal
 from repositories.need_repository import NeedRepository
 from repositories.squad_repository import SquadRepository
+from services import achievement_client
 from services.achievement_client import award_achievement
 from services.payment_gateway import get_gateway
 from services.permissions import is_staff
@@ -92,10 +93,12 @@ class NeedService:
                     status=DonationStatus.succeeded,
                 )
             )
-            self._credit(need, amount)
+            reached = self._credit(need, amount)
             self.db.commit()
             self.db.refresh(donation)
             award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_DONOR)
+            if reached:
+                self._credit_leader(need)
             return donation
 
         # С шлюзом донат висит pending, пока ЮKassa не подтвердит платёж.
@@ -133,11 +136,12 @@ class NeedService:
         payment = gateway.get_payment(payment_id)
         remote_status = payment.get("status")
 
+        reached_need = None
         if remote_status == "succeeded":
             donation.status = DonationStatus.succeeded
             need = self.repo.get(donation.need_id)
-            if need is not None:
-                self._credit(need, donation.amount)
+            if need is not None and self._credit(need, donation.amount):
+                reached_need = need
         elif remote_status in ("canceled", "cancelled"):
             donation.status = DonationStatus.canceled
         else:
@@ -147,16 +151,32 @@ class NeedService:
         self.db.refresh(donation)
         if donation.status is DonationStatus.succeeded and donation.donor_id:
             award_achievement(user_id=donation.donor_id, code=ACHIEVEMENT_DONOR)
+        if reached_need is not None:
+            self._credit_leader(reached_need)
         return donation
 
     def donations_for(self, need_id: str) -> Sequence[Donation]:
         self.get(need_id)
         return self.repo.donations_for(need_id)
 
-    def _credit(self, need: SquadNeed, amount: int) -> None:
+    def _credit(self, need: SquadNeed, amount: int) -> bool:
+        """Зачесть взнос. `True` — этим взносом сбор собрал всю сумму и закрылся."""
         need.collected_amount += amount
-        if need.target_amount is not None and need.collected_amount >= need.target_amount:
+        if (
+            need.status is NeedStatus.open
+            and need.target_amount is not None
+            and need.collected_amount >= need.target_amount
+        ):
             need.status = NeedStatus.closed
+            return True
+        return False
+
+    def _credit_leader(self, need: SquadNeed) -> None:
+        leader_id = self._leader_of(need)
+        if leader_id:
+            achievement_client.award_achievement(
+                user_id=leader_id, code=achievement_client.SEARCHER_GOAL_REACHED
+            )
 
     # --- helpers ---
 

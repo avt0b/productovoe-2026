@@ -17,7 +17,7 @@ from core.models import (
 from core.security import Principal
 from core.timeutil import as_utc, utcnow
 from repositories.excursion_repository import ExcursionRepository
-from services import notify_client, stats_client
+from services import achievement_client, notify_client, stats_client
 from services.bump_matcher import bump_matcher
 from services.permissions import can_guide, is_staff
 
@@ -345,6 +345,9 @@ class ExcursionService:
         отметившиеся бампом участники. Незарегистрированных пришедших не
         считаем — бамп без записи не отмечает, см. README."""
         stats_client.increment_stat(user_id=excursion.guide_id, metric="excursions_completed")
+        achievement_client.award_achievement(
+            user_id=excursion.guide_id, code=achievement_client.HISTORIAN_FIRST_EXCURSION
+        )
         for participant in self.repo.checked_in_for(excursion.id):
             stats_client.increment_stat(user_id=participant.user_id, metric="excursions_completed")
 

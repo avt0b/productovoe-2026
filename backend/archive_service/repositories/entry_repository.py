@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from core.models import ArchiveEntry, EntryKind, EntryStatus
@@ -20,6 +20,16 @@ class EntryRepository:
 
     def delete(self, entry: ArchiveEntry) -> None:
         self.db.delete(entry)
+
+    def count_verified_by(self, user_id: str) -> int:
+        return (
+            self.db.scalar(
+                select(func.count())
+                .select_from(ArchiveEntry)
+                .where(ArchiveEntry.verified_by == user_id, ArchiveEntry.status == EntryStatus.verified)
+            )
+            or 0
+        )
 
     def search(
         self,

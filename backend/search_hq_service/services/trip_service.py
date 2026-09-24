@@ -14,7 +14,7 @@ from core.security import Principal
 from repositories.chat_repository import ChatRepository
 from repositories.squad_repository import SquadRepository
 from repositories.trip_repository import TripRepository
-from services import notify_client
+from services import achievement_client, notify_client
 from services.achievement_client import award_achievement
 from services.permissions import is_staff
 
@@ -45,6 +45,9 @@ class TripService:
         trip = self.repo.add(VolunteerTrip(squad_id=squad_id, **data))
         self.db.commit()
         self.db.refresh(trip)
+        achievement_client.award_achievement(
+            user_id=principal.user_id, code=achievement_client.SEARCHER_TRIP_ORGANIZER
+        )
         return trip
 
     def update(self, principal: Principal, trip_id: str, data: dict) -> VolunteerTrip:

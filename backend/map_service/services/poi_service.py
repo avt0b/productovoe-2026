@@ -8,6 +8,7 @@ from core.geo import bbox_around, haversine_km
 from core.models import POIKind, PointOfInterest
 from core.security import Principal
 from repositories.poi_repository import POIRepository
+from services import achievement_client
 
 # Кто может дополнять слой «ВОВ» (захоронения/бои/памятники) — как и для
 # «Последнего боя», рядовые посетители (family) слой не наполняют.
@@ -55,6 +56,9 @@ class POIService:
         poi = self.repo.add(PointOfInterest(created_by=principal.user_id, **data))
         self.db.commit()
         self.db.refresh(poi)
+        achievement_client.award_achievement(
+            user_id=principal.user_id, code=achievement_client.HISTORIAN_POI_AUTHOR
+        )
         return poi
 
     def update(self, principal: Principal, poi_id: str, data: dict) -> PointOfInterest:

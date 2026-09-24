@@ -14,6 +14,20 @@ ACHIEVEMENT_TITLES: dict[str, str] = {
     "archive_helper": "Помощник архива",
     "trip_volunteer": "Доброволец",
     "donor": "Жертвователь",
+    # Краевед
+    "historian_first_excursion": "Первая экскурсия",
+    "historian_led_group": "Проводник",
+    "historian_five_stars": "Пять звёзд",
+    "historian_route_author": "Автор маршрута",
+    "historian_poi_author": "Летописец местности",
+    "historian_archive_keeper": "Хранитель архива",
+    # Поисковик
+    "searcher_squad_founder": "Командир",
+    "searcher_trip_organizer": "Организатор выезда",
+    "searcher_first_find": "Первая находка",
+    "searcher_archive_confirmed": "Подтверждено архивом",
+    "searcher_remains_raised": "Боец поднят",
+    "searcher_goal_reached": "Сбор закрыт",
 }
 
 

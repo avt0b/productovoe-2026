@@ -7,6 +7,7 @@ from core.geo import haversine_km
 from core.models import Route, Waypoint
 from core.security import Principal
 from repositories.route_repository import RouteRepository
+from services import achievement_client
 from services.map_client import fetch_poi_nearby
 
 # Кто может создавать и вести маршруты (кураторы контента).
@@ -141,6 +142,10 @@ class RouteService:
         route.is_published = published
         self.db.commit()
         self.db.refresh(route)
+        if published:
+            achievement_client.award_achievement(
+                user_id=route.created_by, code=achievement_client.HISTORIAN_ROUTE_AUTHOR
+            )
         return route
 
     def delete(self, principal: Principal, route_id: str) -> None:

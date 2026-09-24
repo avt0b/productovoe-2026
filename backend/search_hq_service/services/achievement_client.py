@@ -15,6 +15,14 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Значки ролей. Выдаёт их этот сервис — событие случается здесь.
+HISTORIAN_FIRST_EXCURSION = "historian_first_excursion"  # провёл первую экскурсию
+HISTORIAN_LED_GROUP = "historian_led_group"  # повёл группу по местам памяти
+HISTORIAN_FIVE_STARS = "historian_five_stars"  # участник поставил пять звёзд
+SEARCHER_SQUAD_FOUNDER = "searcher_squad_founder"  # завёл поисковый отряд
+SEARCHER_TRIP_ORGANIZER = "searcher_trip_organizer"  # объявил выезд
+SEARCHER_GOAL_REACHED = "searcher_goal_reached"  # сбор отряда собрал всю сумму
+
 
 def award_achievement(*, user_id: str, code: str) -> None:
     try:

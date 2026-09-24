@@ -7,6 +7,7 @@ from core.models import ChatSubjectType, Squad, SquadKind
 from core.security import Principal
 from repositories.chat_repository import ChatRepository
 from repositories.squad_repository import SquadRepository
+from services import achievement_client
 from services.permissions import can_create_squad, is_staff
 
 
@@ -32,6 +33,10 @@ class SquadService:
         squad = self.repo.add(Squad(leader_id=principal.user_id, **data))
         self.db.commit()
         self.db.refresh(squad)
+        if squad.kind is SquadKind.squad:
+            achievement_client.award_achievement(
+                user_id=principal.user_id, code=achievement_client.SEARCHER_SQUAD_FOUNDER
+            )
         return squad
 
     def update(self, principal: Principal, squad_id: str, data: dict) -> Squad:

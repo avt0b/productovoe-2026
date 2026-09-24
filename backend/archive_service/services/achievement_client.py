@@ -14,6 +14,9 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Значок краеведа — выдаёт этот сервис: записи проверяют здесь.
+HISTORIAN_ARCHIVE_KEEPER = "historian_archive_keeper"  # подтвердил десять записей архива
+
 
 def award_achievement(*, user_id: str, code: str) -> None:
     try:

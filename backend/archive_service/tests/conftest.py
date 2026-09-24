@@ -53,7 +53,10 @@ def client():
 def no_real_achievement_calls(monkeypatch):
     """По умолчанию не ходим в сеть за user_service — тесты не про ачивки/
     статистику делают это на каждом verify/reject."""
+    import services.achievement_client as achievement_client_module
     import services.entry_service as entry_service_module
+
+    monkeypatch.setattr(achievement_client_module, "award_achievement", lambda **kw: None)
 
     monkeypatch.setattr(entry_service_module, "award_achievement", lambda **kw: None)
     monkeypatch.setattr(entry_service_module, "increment_stat", lambda **kw: None)
