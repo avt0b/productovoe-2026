@@ -1,15 +1,14 @@
 from core.security import Principal
 
-# Персонал платформы, который может модерировать любой отряд/сбор/выезд.
-STAFF_ROLES = {"moderator"}
 # Роли, которым разрешено создавать отряды.
-SQUAD_CREATOR_ROLES = {"searcher", "moderator"}
-# Кто водит экскурсии: краевед, наставник (учитель, сотрудник музея) и модератор.
-GUIDE_ROLES = {"local_historian", "mentor", "moderator"}
+SQUAD_CREATOR_ROLES = {"searcher"}
+# Кто водит экскурсии: краевед.
+GUIDE_ROLES = {"local_historian"}
 
 
 def is_staff(principal: Principal) -> bool:
-    return principal.is_root or principal.role in STAFF_ROLES
+    # Роль moderator убрана — стафф-права остались только у is_root.
+    return principal.is_root
 
 
 def can_create_squad(principal: Principal) -> bool:

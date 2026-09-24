@@ -80,12 +80,12 @@ def test_trip_chat_closed_after_cancelling_registration(client, leader_header):
     assert client.get(f"/trips/{trip['id']}/messages", headers=volunteer).status_code == 403
 
 
-def test_trip_chat_moderator_access(client, leader_header):
+def test_trip_chat_root_access(client, leader_header):
     squad = make_squad(client, leader_header)
     trip = make_trip(client, leader_header, squad["id"])
-    moderator = auth_header(role="moderator")
+    root = auth_header(is_root=True)
 
-    r = client.post(f"/trips/{trip['id']}/messages", headers=moderator, json={"body": "Проверка"})
+    r = client.post(f"/trips/{trip['id']}/messages", headers=root, json={"body": "Проверка"})
     assert r.status_code == 201
 
 

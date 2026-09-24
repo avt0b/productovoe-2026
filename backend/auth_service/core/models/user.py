@@ -7,13 +7,14 @@ from core.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class Role(str, enum.Enum):
-    """Роль пользователя в платформе «Маршруты победы»."""
+    """Роль пользователя в платформе «Маршруты победы».
 
-    family = "family"  # семья / обычный посетитель маршрутов
+    Всего 4 роли по продукту: пользователь, поисковик, краевед, админ —
+    последний это не значение enum, а отдельный флаг `User.is_root`."""
+
+    family = "family"  # обычный пользователь ("пользак")
     searcher = "searcher"  # участник поискового отряда
-    local_historian = "local_historian"  # краевед
-    mentor = "mentor"  # наставник / учитель истории / сотрудник музея
-    moderator = "moderator"  # модерация «народного архива»
+    local_historian = "local_historian"  # краевед — только по заявке, см. historian_applications в user_service
 
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):

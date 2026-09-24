@@ -8,12 +8,13 @@ from api.routers import api_router
 from core.config import settings
 from core.db import init_db
 from core.exceptions import AppError
-from services.bootstrap import ensure_root_user
+from services.bootstrap import ensure_root_user, migrate_legacy_roles
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
+    migrate_legacy_roles()
     ensure_root_user()
     yield
  

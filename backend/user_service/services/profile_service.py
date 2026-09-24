@@ -7,8 +7,6 @@ from core.models import Profile
 from core.security import Principal
 from repositories.profile_repository import ProfileRepository
 
-_VERIFIER_ROLES = {"moderator", "local_historian", "mentor"}
-
 
 class ProfileService:
     def __init__(self, db: Session) -> None:
@@ -47,8 +45,12 @@ class ProfileService:
         return profile
 
     def set_verified(self, actor: Principal, profile_id: str, is_verified: bool) -> Profile:
-        if not (actor.is_root or actor.role in _VERIFIER_ROLES):
-            raise PermissionDenied("Верифицировать профили может модератор/краевед")
+        # Раньше профиль мог подтвердить любой краевед (пиринг) — теперь это
+        # делает исключительно администратор при одобрении RoleApplication
+        # (см. services/role_application_service.py), пиринговая верификация
+        # снята.
+        if not actor.is_root:
+            raise PermissionDenied("Верифицировать профили может только администратор")
         profile = self.get(profile_id)
         profile.is_verified = is_verified
         self.db.commit()

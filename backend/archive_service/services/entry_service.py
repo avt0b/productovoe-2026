@@ -13,8 +13,8 @@ from services.stats_client import increment_stat
 
 logger = logging.getLogger(__name__)
 
-# Кто может верифицировать записи (поисковик / краевед / наставник / модератор).
-VERIFIER_ROLES = {"searcher", "local_historian", "mentor", "moderator"}
+# Кто может верифицировать записи (поисковик / краевед).
+VERIFIER_ROLES = {"searcher", "local_historian"}
 ACHIEVEMENT_ARCHIVE_HELPER = "archive_helper"
 STAT_FINDS_COUNT = "finds_count"
 
@@ -49,7 +49,7 @@ class EntryService:
         self, principal: Principal, *, status: EntryStatus | None = None, **filters
     ) -> Sequence[ArchiveEntry]:
         if not _can_verify(principal):
-            raise PermissionDenied("Очередь модерации доступна поисковикам, краеведам и модераторам")
+            raise PermissionDenied("Очередь модерации доступна поисковикам и краеведам")
         return self.repo.search(status=status, **filters)
 
     def list_mine(self, principal: Principal, **filters) -> Sequence[ArchiveEntry]:

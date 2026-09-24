@@ -90,7 +90,7 @@ def test_stats_timeseries_shape(client):
     e = create_entry(client, author).json()
     client.post(
         f"/entries/{e['id']}/verify",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(role="local_historian"),
         json={"note": "ok"},
     )
 
@@ -129,7 +129,7 @@ def test_list_entries_filters_by_status_and_kind(client):
     verified_src = create_entry(client, author, title="Вторая запись").json()
     client.post(
         f"/entries/{verified_src['id']}/verify",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(role="local_historian"),
         json={},
     )
 
@@ -188,7 +188,7 @@ def test_internal_reject_bypasses_role_restrictions(client):
 
 def test_internal_delete_removes_entry_even_when_not_pending(client):
     e = create_entry(client, auth_header(user_id="author-1")).json()
-    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="moderator"), json={})
+    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian"), json={})
 
     r = client.delete(
         f"/internal/entries/{e['id']}",
@@ -205,7 +205,7 @@ def test_internal_delete_removes_entry_even_when_not_pending(client):
 
 def test_internal_delete_logs_non_pending_deletion(client, caplog):
     e = create_entry(client, auth_header(user_id="author-1")).json()
-    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="moderator"), json={})
+    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian"), json={})
 
     with caplog.at_level("WARNING"):
         r = client.delete(

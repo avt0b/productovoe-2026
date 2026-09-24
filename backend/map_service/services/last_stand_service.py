@@ -14,9 +14,7 @@ from services.stats_client import increment_stat
 STAT_FINDS_COUNT = "finds_count"
 
 # Кто может заводить точки «Последнего боя».
-_CONTRIBUTOR_ROLES = {"searcher", "local_historian", "mentor", "moderator"}
-# Кто может менять статус (подтверждать архивом, отмечать подъём останков).
-_CURATOR_ROLES = {"moderator"}
+_CONTRIBUTOR_ROLES = {"searcher", "local_historian"}
 
 
 class LastStandService:
@@ -83,8 +81,8 @@ class LastStandService:
     def set_status(
         self, principal: Principal, point_id: str, status: LastStandStatus
     ) -> LastStandPoint:
-        if not (principal.is_root or principal.role in _CURATOR_ROLES):
-            raise PermissionDenied("Менять статус может только модератор")
+        if not principal.is_root:
+            raise PermissionDenied("Менять статус может только администратор")
         point = self.get(point_id)
         point.status = status
         self.db.commit()
@@ -99,7 +97,7 @@ class LastStandService:
 
     @staticmethod
     def _ensure_can_edit(principal: Principal, point: LastStandPoint) -> None:
-        if principal.is_root or principal.role in _CURATOR_ROLES:
+        if principal.is_root:
             return
         if point.created_by != principal.user_id:
-            raise PermissionDenied("Редактировать точку может её автор или модератор")
+            raise PermissionDenied("Редактировать точку может её автор или администратор")
