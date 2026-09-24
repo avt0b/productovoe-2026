@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from core.config import settings
-from services.external.registry import vk_provider
+from services.external.registry import vk_provider, yandex_provider
 
 RETURN_TO = "marshruty://auth/external"
 
@@ -47,7 +47,7 @@ def complete(client, login_id, result_code=None):
 
 def test_providers_disabled_without_settings(client):
     providers = {p["provider"]: p for p in client.get("/auth/external/providers").json()}
-    assert set(providers) == {"vk", "max", "gosuslugi"}
+    assert set(providers) == {"vk", "yandex", "max", "gosuslugi"}
     assert not any(p["enabled"] for p in providers.values())
     assert providers["max"]["kind"] == "bot"
 
@@ -213,6 +213,78 @@ def test_vk_id_error_fails_login(client, monkeypatch):
     login = start(client, "vk").json()
     back = returned(callback(client, "vk", state=state_of(login["authorize_url"]), code="bad"))
     assert "invalid_grant" in back["error"]
+
+
+# --- Яндекс ID по-настоящему, сеть подменена ---
+
+
+@pytest.fixture()
+def yandex_app(monkeypatch):
+    monkeypatch.setattr(settings, "yandex_id_client_id", "ya-client")
+    monkeypatch.setattr(settings, "yandex_id_client_secret", "ya-secret")
+
+
+def test_yandex_needs_client_secret(client, monkeypatch):
+    monkeypatch.setattr(settings, "yandex_id_client_id", "ya-client")
+    response = start(client, "yandex")
+    assert response.status_code == 503
+    assert "YANDEX_ID_CLIENT_SECRET" in response.json()["detail"]
+
+
+def test_yandex_id_exchange(client, yandex_app, monkeypatch):
+    seen = {}
+
+    def yandex_api(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "oauth.yandex.ru" and request.url.path == "/token":
+            seen["token_request"] = parse_qs(request.content.decode())
+            return httpx.Response(200, json={"access_token": "ya-token", "token_type": "bearer"})
+        if request.url.host == "login.yandex.ru" and request.url.path == "/info":
+            assert request.headers["Authorization"] == "OAuth ya-token"
+            return httpx.Response(
+                200,
+                json={
+                    "id": "1130000012345678",
+                    "login": "ivan.orlov",
+                    "real_name": "Иван Орлов",
+                    "default_email": "ivan.orlov@yandex.ru",
+                    "default_avatar_id": "131652443",
+                    "is_avatar_empty": False,
+                },
+            )
+        return httpx.Response(404)
+
+    monkeypatch.setattr(yandex_provider, "transport", httpx.MockTransport(yandex_api))
+
+    login = start(client, "yandex").json()
+    authorize = urlparse(login["authorize_url"])
+    query = parse_qs(authorize.query)
+    assert authorize.netloc == "oauth.yandex.ru"
+    assert query["client_id"] == ["ya-client"]
+    assert query["code_challenge_method"] == ["S256"]
+    assert query["redirect_uri"] == ["http://127.0.0.1:8001/auth/external/yandex/callback"]
+
+    back = returned(callback(client, "yandex", state=query["state"][0], code="ya-code"))
+    token_request = seen["token_request"]
+    assert token_request["code"] == ["ya-code"]
+    assert token_request["client_secret"] == ["ya-secret"]
+    assert len(token_request["code_verifier"][0]) >= 43
+
+    body = complete(client, login["login_id"], back["result_code"]).json()
+    assert body["display_name"] == "Иван Орлов"
+    assert body["user"]["email"] == "yandex-1130000012345678@external.marshruty.ru"
+
+
+def test_yandex_id_error_fails_login(client, yandex_app, monkeypatch):
+    monkeypatch.setattr(
+        yandex_provider,
+        "transport",
+        httpx.MockTransport(
+            lambda _: httpx.Response(400, json={"error": "bad_verification_code", "error_description": "Code has expired"})
+        ),
+    )
+    login = start(client, "yandex").json()
+    back = returned(callback(client, "yandex", state=state_of(login["authorize_url"]), code="bad"))
+    assert "Code has expired" in back["error"]
 
 
 # --- MAX через бота ---
