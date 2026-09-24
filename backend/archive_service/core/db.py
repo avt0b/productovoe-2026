@@ -39,7 +39,17 @@ def init_db() -> None:
 # Колонки, добавленные в модель после того, как таблица уже появилась в живых
 # БД: create_all существующую таблицу не трогает, поэтому досоздаём их сами.
 # (таблица, колонка, DDL-тип)
-_ADDED_COLUMNS = (("archive_entries", "audio_url", "VARCHAR(500)"),)
+_ADDED_COLUMNS = (
+    ("archive_entries", "audio_url", "VARCHAR(500)"),
+    ("archive_entries", "point_id", "VARCHAR(36)"),
+    ("archive_entries", "poi_id", "VARCHAR(36)"),
+)
+# Индексы по дописанным колонкам — у свежей базы их создаёт create_all
+# (`index=True`), имена совпадают, поэтому IF NOT EXISTS.
+_ADDED_INDEXES = (
+    ("ix_archive_entries_point_id", "archive_entries", "point_id"),
+    ("ix_archive_entries_poi_id", "archive_entries", "poi_id"),
+)
 
 
 def ensure_added_columns(bind: Engine) -> None:
@@ -52,3 +62,5 @@ def ensure_added_columns(bind: Engine) -> None:
                 continue
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
             logger.info("added column %s.%s", table, column)
+        for index, table, column in _ADDED_INDEXES:
+            conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index} ON {table} ({column})"))
