@@ -1,90 +1,40 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
 import { useAuthSession } from '@modules/auth'
-import { useAchievementCelebration } from '@shared/composables/useAchievementCelebration.js'
-import * as profileApi from '../api.js'
+import { checkForNewAchievements, ACHIEVEMENT_TITLES } from '../achievements.js'
 
 const { session } = useAuthSession()
-const { celebrate } = useAchievementCelebration()
 
-// Дублирует ACHIEVEMENT_TITLES в user_service/core/models/achievement.py —
-// бэкенд отдаёт только code и earned_at, иконку/подпись/подсказку рисует
-// фронт. hint — что нужно сделать, чтобы получить (виден только пока значок
-// не заслужен).
+// Иконка/подсказка — только для отображения здесь; названия и сама логика
+// «что нового» — в achievements.js, общие для всех страниц, которые могут
+// начислить ачивку (не только эта).
 const ACHIEVEMENT_META = {
-  first_route_completed: {
-    title: 'Первый маршрут пройден',
-    hint: 'Пройдите маршрут до конца',
-    icon: 'route',
-    bg: 'bg-secondary',
-    fg: 'text-on-secondary',
-  },
+  first_route_completed: { hint: 'Пройдите маршрут до конца', icon: 'route', bg: 'bg-secondary', fg: 'text-on-secondary' },
   archive_helper: {
-    title: 'Помощник архива',
     hint: 'Подтвердите или предложите запись в «Живой памяти»',
     icon: 'auto_stories',
     bg: 'bg-tertiary',
     fg: 'text-on-tertiary',
   },
-  trip_volunteer: {
-    title: 'Доброволец',
-    hint: 'Съездите с отрядом на выезд',
-    icon: 'volunteer_activism',
-    bg: 'bg-primary',
-    fg: 'text-on-primary',
-  },
+  trip_volunteer: { hint: 'Съездите с отрядом на выезд', icon: 'volunteer_activism', bg: 'bg-primary', fg: 'text-on-primary' },
   donor: {
-    title: 'Жертвователь',
     hint: 'Задонатьте на сбор отряда в «Штабе»',
     icon: 'favorite',
     bg: 'bg-secondary-fixed',
     fg: 'text-on-secondary-fixed',
   },
 }
-const ALL_CODES = Object.keys(ACHIEVEMENT_META)
+const ALL_CODES = Object.keys(ACHIEVEMENT_TITLES)
 
 const achievements = ref([])
 const status = ref('idle') // idle | loading | loaded | error
-
-function seenKey(userId) {
-  return `marshruty.achievements-seen.${userId}`
-}
-
-function loadSeen(userId) {
-  try {
-    const raw = localStorage.getItem(seenKey(userId))
-    return raw ? new Set(JSON.parse(raw)) : null
-  } catch {
-    return null
-  }
-}
-
-function saveSeen(userId, codes) {
-  localStorage.setItem(seenKey(userId), JSON.stringify([...codes]))
-}
 
 async function load() {
   if (session.status !== 'authenticated') return
   status.value = 'loading'
   try {
-    achievements.value = await profileApi.getMyAchievements(session.accessToken)
+    achievements.value = await checkForNewAchievements(session.accessToken, session.user?.id)
     status.value = 'loaded'
-
-    const userId = session.user?.id
-    if (!userId) return
-    const currentCodes = new Set(achievements.value.map((a) => a.code))
-    const seen = loadSeen(userId)
-    // seen === null — впервые видим этот профиль в этом браузере: просто
-    // запоминаем текущие значки, не салютуем за то, что заслужено раньше.
-    if (seen) {
-      const newlyEarned = [...currentCodes].filter((code) => !seen.has(code))
-      // Несколько заслужено за раз (например догнали двух ачивок между
-      // визитами) — салютуем каждой по очереди, а не сваливаем в кучу.
-      newlyEarned.forEach((code, i) => {
-        setTimeout(() => celebrate(ACHIEVEMENT_META[code]?.title ?? code), i * 2200)
-      })
-    }
-    saveSeen(userId, currentCodes)
   } catch {
     status.value = 'error'
   }
@@ -150,7 +100,7 @@ function earnedAt(code) {
           class="font-headline-sm text-[15px] font-bold leading-snug"
           :class="isEarned(code) ? 'text-on-surface' : 'text-on-surface-variant'"
         >
-          {{ ACHIEVEMENT_META[code].title }}
+          {{ ACHIEVEMENT_TITLES[code] }}
         </span>
 
         <span
