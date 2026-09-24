@@ -30,7 +30,7 @@ def internal_actor(
     (свои роли + аудит). Здесь важно лишь донести настоящий id актора,
     чтобы он осел в created_by / verified_by и в журнале.
     """
-    return Principal(user_id=x_actor_id or "admin", role="moderator", is_root=True)
+    return Principal(user_id=x_actor_id or "admin", role="family", is_root=True)
 
 
 InternalActor = Annotated[Principal, Depends(internal_actor)]

@@ -49,13 +49,13 @@ def require_render_worker(
     principal: OptionalPrincipal,
     x_worker_token: Annotated[str | None, Header()] = None,
 ) -> None:
-    """Переходы состояний рендера. Пускаем воркер по токену, либо модератора/root."""
+    """Переходы состояний рендера. Пускаем воркер по токену, либо администратора."""
     if settings.render_worker_token and x_worker_token == settings.render_worker_token:
         return
-    if principal and (principal.is_root or principal.role == "moderator"):
+    if principal and principal.is_root:
         return
     raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN, detail="Только воркер рендера или модератор"
+        status_code=status.HTTP_403_FORBIDDEN, detail="Только воркер рендера или администратор"
     )
 
 

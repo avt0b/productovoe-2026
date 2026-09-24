@@ -10,6 +10,7 @@ from api.deps import (
     DbSession,
     NotificationServiceDep,
     ProfileServiceDep,
+    RoleApplicationServiceDep,
     StatsServiceDep,
 )
 from api.schemas.achievement import AwardOut, AwardRequest
@@ -20,9 +21,10 @@ from api.schemas.notification import (
     NotifyUsersRequest,
 )
 from api.schemas.profile import ProfileOut
+from api.schemas.role_application import ReviewRequest, RoleApplicationOut
 from api.schemas.stats import StatIncrementOut, StatIncrementRequest
 from core.internal import InternalActor, require_internal_key
-from core.models import Profile
+from core.models import ApplicationStatus, Profile, RoleApplication
 
 router = APIRouter(
     prefix="/internal",
@@ -169,3 +171,54 @@ def increment_stat(payload: StatIncrementRequest, service: StatsServiceDep) -> S
     каждый вызов реально прибавляет 1."""
     stat = service.increment(user_id=payload.user_id, metric=payload.metric)
     return StatIncrementOut(metric=stat.metric, value=stat.value)
+
+
+@router.get("/role-applications", summary="Заявки на роль поисковика/краеведа")
+def list_role_applications(
+    db: DbSession,
+    status_: Annotated[ApplicationStatus | None, Query(alias="status")] = ApplicationStatus.pending,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict:
+    conditions = []
+    if status_ is not None:
+        conditions.append(RoleApplication.status == status_)
+
+    total = db.scalar(select(func.count(RoleApplication.id)).where(*conditions)) or 0
+    rows = db.scalars(
+        select(RoleApplication)
+        .where(*conditions)
+        .order_by(RoleApplication.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    ).all()
+    return {
+        "items": [RoleApplicationOut.model_validate(a) for a in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.post("/role-applications/{application_id}/approve", response_model=RoleApplicationOut)
+def approve_role_application(
+    application_id: str,
+    payload: ReviewRequest,
+    actor: InternalActor,
+    service: RoleApplicationServiceDep,
+) -> RoleApplicationOut:
+    return RoleApplicationOut.model_validate(
+        service.decide(actor, application_id, approve=True, note=payload.note)
+    )
+
+
+@router.post("/role-applications/{application_id}/reject", response_model=RoleApplicationOut)
+def reject_role_application(
+    application_id: str,
+    payload: ReviewRequest,
+    actor: InternalActor,
+    service: RoleApplicationServiceDep,
+) -> RoleApplicationOut:
+    return RoleApplicationOut.model_validate(
+        service.decide(actor, application_id, approve=False, note=payload.note)
+    )

@@ -4,9 +4,10 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from core.models import Role
 
-# Роли, которые человек выбирает себе сам при регистрации. Модератор подтверждает
-# записи архива и закрывает сборы — эту роль выдаёт только администратор.
-SELF_ASSIGNABLE_ROLES = frozenset({Role.family, Role.searcher, Role.local_historian, Role.mentor})
+# Роли, которые человек выбирает себе сам при регистрации. И поисковиком, и
+# краеведом стать самому нельзя — нужна заявка (контакты + доказательства) и
+# одобрение администратора (см. RoleApplication в user_service).
+SELF_ASSIGNABLE_ROLES = frozenset({Role.family})
 
 
 class UserRegister(BaseModel):
@@ -18,7 +19,7 @@ class UserRegister(BaseModel):
     @classmethod
     def _role_is_self_assignable(cls, role: Role) -> Role:
         if role not in SELF_ASSIGNABLE_ROLES:
-            raise ValueError("Роль модератора выдаётся только из админки")
+            raise ValueError("Роль поисковика и краеведа выдаётся только по заявке и одобрению администратора")
         return role
 
 

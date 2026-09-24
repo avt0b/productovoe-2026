@@ -11,7 +11,7 @@ from repositories.poi_repository import POIRepository
 
 # Кто может дополнять слой «ВОВ» (захоронения/бои/памятники) — как и для
 # «Последнего боя», рядовые посетители (family) слой не наполняют.
-_CONTRIBUTOR_ROLES = {"searcher", "local_historian", "mentor", "moderator"}
+_CONTRIBUTOR_ROLES = {"searcher", "local_historian"}
 
 
 class POIService:
@@ -74,7 +74,7 @@ class POIService:
 
     @staticmethod
     def _ensure_can_edit(principal: Principal, poi: PointOfInterest) -> None:
-        if principal.is_root or principal.role == "moderator":
+        if principal.is_root:
             return
         if poi.created_by != principal.user_id:
-            raise PermissionDenied("Редактировать точку может её автор или модератор")
+            raise PermissionDenied("Редактировать точку может её автор или администратор")
