@@ -7,6 +7,8 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { OREL_CENTER, TILES, type GeoMarker, type GeoPath, type GeoTone, type LatLon, type UserPosition } from '@/core/geo'
 import MsIcon from '@/ui/MsIcon.vue'
 
+import type { GeoCircle } from './circles'
+
 /**
  * Гео-карта на Leaflet: подложка, метки, линии маршрутов, «где я».
  *
@@ -21,6 +23,8 @@ const props = withDefaults(
   defineProps<{
     markers: GeoMarker[]
     paths?: GeoPath[]
+    /** Радиусы вокруг точек: «в 5 км от вас», зона работ, радиус сбора. */
+    circles?: GeoCircle[]
     user?: UserPosition | null
     /** Идёт определение местоположения — кнопка «Где я» крутится. */
     locating?: boolean
@@ -36,7 +40,7 @@ const props = withDefaults(
      */
     follow?: boolean
   }>(),
-  { paths: () => [], user: null, locating: false, label: undefined, center: () => OREL_CENTER, follow: false },
+  { paths: () => [], circles: () => [], user: null, locating: false, label: undefined, center: () => OREL_CENTER, follow: false },
 )
 
 const selected = defineModel<string | null>('selected', { default: null })
@@ -49,6 +53,13 @@ const PIN_TONES: Record<GeoTone, string> = {
   secondary: 'bg-secondary text-on-secondary',
   tertiary: 'bg-tertiary text-on-tertiary',
   neutral: 'bg-inverse-surface text-inverse-on-surface',
+}
+
+const CIRCLE_TONES: Record<GeoTone, string> = {
+  primary: 'fill-primary stroke-primary',
+  secondary: 'fill-secondary stroke-secondary',
+  tertiary: 'fill-tertiary stroke-tertiary',
+  neutral: 'fill-inverse-surface stroke-inverse-surface',
 }
 
 const PATH_TONES: Record<GeoTone, string> = {
@@ -96,6 +107,7 @@ const container = ref<HTMLDivElement | null>(null)
 
 let map: L.Map | null = null
 let resizeObserver: ResizeObserver | null = null
+const circleLayer = L.layerGroup()
 const pathLayer = L.layerGroup()
 const userLayer = L.layerGroup()
 const markerLayer = L.layerGroup()
@@ -133,6 +145,20 @@ function refreshPin(id: string | null): void {
   const active = id === selected.value
   marker.setIcon(pinIcon(item, active))
   marker.setZIndexOffset(active ? 1000 : 0)
+}
+
+function renderCircles(): void {
+  circleLayer.clearLayers()
+  for (const circle of props.circles) {
+    L.circle([circle.lat, circle.lon], {
+      radius: circle.radiusMeters,
+      className: CIRCLE_TONES[circle.tone ?? 'primary'],
+      weight: 1.5,
+      fillOpacity: 0.1,
+      dashArray: circle.dashed ? '8 8' : undefined,
+      interactive: false,
+    }).addTo(circleLayer)
+  }
 }
 
 function renderPaths(): void {
@@ -185,6 +211,11 @@ function frameContent(): boolean {
   const points: L.LatLngTuple[] = [
     ...props.markers.map((marker): L.LatLngTuple => [marker.lat, marker.lon]),
     ...props.paths.flatMap((path) => path.points.map((point): L.LatLngTuple => [point.lat, point.lon])),
+    // Окружность показываем целиком: иначе «в 5 км от вас» упирается в край экрана.
+    ...props.circles.flatMap((circle) => {
+      const box = L.latLng(circle.lat, circle.lon).toBounds(circle.radiusMeters * 2)
+      return [box.getSouthWest(), box.getNorthEast()].map((corner): L.LatLngTuple => [corner.lat, corner.lng])
+    }),
   ]
   if (points.length === 0) {
     map.setView([props.center.lat, props.center.lon], 12)
@@ -224,6 +255,7 @@ onMounted(() => {
     maxZoom: TILES.maxZoom,
     className: 'geo-tiles',
   }).addTo(map)
+  circleLayer.addTo(map)
   pathLayer.addTo(map)
   userLayer.addTo(map)
   markerLayer.addTo(map)
@@ -232,6 +264,7 @@ onMounted(() => {
   // Сдвинул карту сам — значит, смотрит куда-то ещё: не тянуть вид обратно.
   map.on('dragstart', () => (navigating = false))
 
+  renderCircles()
   renderPaths()
   renderMarkers()
   renderUser()
@@ -260,6 +293,14 @@ watch(
   () => props.paths,
   () => {
     renderPaths()
+    if (!framed) framed = frameContent()
+  },
+)
+
+watch(
+  () => props.circles,
+  () => {
+    renderCircles()
     if (!framed) framed = frameContent()
   },
 )

@@ -44,30 +44,30 @@ function open(): void {
 <template>
   <SheetDialog title="Метка прочитана" :subtitle="tag.error ?? undefined" @close="emit('close')">
     <div class="flex flex-col gap-space-md">
-      <div class="flex items-start gap-space-sm rounded-DEFAULT bg-secondary-container/50 p-space-md">
-        <MsIcon name="nfc" :size="24" class="mt-0.5 shrink-0 text-secondary" />
+      <div class="flex items-start gap-space-sm rounded-2xl bg-surface-container-low p-space-md">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container" aria-hidden="true">
+          <MsIcon name="nfc" :size="18" />
+        </span>
         <div class="min-w-0 flex-1">
-          <span class="block font-label-sm text-label-sm uppercase tracking-wider text-outline">
+          <span class="block font-archival text-archival uppercase text-on-surface-variant">
             {{ payload?.kind === 'uri' ? 'Ссылка' : payload?.kind === 'text' ? 'Текст' : 'Содержимое' }}
           </span>
           <p v-if="payload?.text" class="whitespace-pre-line font-body-md text-body-md text-on-surface">{{ payload.text }}</p>
           <p v-else-if="payload?.uri" class="break-all font-body-md text-body-md text-on-surface">{{ payload.uri }}</p>
-          <p v-else class="font-body-md text-body-md text-on-surface-variant">
-            Метка пустая — на неё можно записать ссылку или текст.
-          </p>
+          <p v-else class="font-body-md text-body-md text-on-surface-variant">Метка пустая — на неё можно записать ссылку или текст.</p>
         </div>
       </div>
 
       <button
         v-if="inApp && knownScreen"
         type="button"
-        class="flex items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary shadow-md active:scale-[0.99]"
+        class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] short:py-2.5"
         @click="open"
       >
-        <MsIcon name="open_in_new" :size="20" />
-        Открыть в приложении
+        <MsIcon name="open_in_new" :size="18" />
+        <span>Открыть в приложении</span>
       </button>
-      <p v-else-if="inApp" class="rounded-DEFAULT bg-surface-container-low px-3 py-2 font-body-sm text-body-sm text-on-surface-variant">
+      <p v-else-if="inApp" class="rounded-2xl bg-surface-container-low px-space-sm py-2 font-body-sm text-body-sm text-on-surface-variant">
         Метка ведёт на экран «{{ inApp }}», которого в этой сборке нет.
       </p>
       <a
@@ -75,26 +75,26 @@ function open(): void {
         :href="webLink"
         target="_blank"
         rel="noopener"
-        class="flex items-center justify-center gap-2 rounded-full bg-secondary-container py-3.5 font-label-lg text-label-lg text-on-secondary-container"
+        class="flex items-center justify-center gap-space-xs rounded-full bg-secondary py-3 font-label-lg text-label-lg text-on-secondary active:scale-[0.99]"
       >
-        <MsIcon name="open_in_new" :size="20" />
+        <MsIcon name="open_in_new" :size="18" />
         Открыть ссылку
       </a>
 
-      <dl class="flex flex-col gap-2 rounded-DEFAULT bg-surface-container-lowest p-space-md shadow-sm">
-        <div v-for="row in details" :key="row.label" class="flex items-baseline justify-between gap-space-sm">
-          <dt class="shrink-0 font-label-md text-label-md text-outline">{{ row.label }}</dt>
-          <dd class="min-w-0 truncate font-mono text-label-sm text-on-surface">{{ row.value }}</dd>
+      <dl class="flex flex-col divide-y divide-outline-variant/60 rounded-2xl bg-surface-container-lowest px-space-md shadow-document">
+        <div v-for="row in details" :key="row.label" class="flex items-baseline justify-between gap-space-sm py-2">
+          <dt class="shrink-0 font-label-md text-label-md text-on-surface-variant">{{ row.label }}</dt>
+          <dd class="min-w-0 truncate font-label-md text-label-md text-on-surface">{{ row.value }}</dd>
         </div>
       </dl>
 
       <button
         v-if="tag.writable"
         type="button"
-        class="flex items-center justify-center gap-2 rounded-full bg-surface-container-high py-3 font-label-lg text-label-lg text-on-surface active:scale-[0.99]"
+        class="flex items-center justify-center gap-space-xs self-center rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
         @click="emit('write')"
       >
-        <MsIcon name="edit" :size="20" />
+        <MsIcon name="edit" :size="18" />
         Записать на метку
       </button>
     </div>

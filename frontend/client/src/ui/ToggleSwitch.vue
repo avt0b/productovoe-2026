@@ -19,7 +19,7 @@ defineProps<{
     @click="model = !model"
   >
     <span
-      class="my-0.5 inline-block h-5 w-5 transform rounded-full bg-surface-container-lowest shadow-md transition duration-200 ease-in-out"
+      class="my-0.5 inline-block h-5 w-5 transform rounded-full bg-surface-container-lowest shadow-float transition duration-200 ease-in-out"
       :class="model ? 'translate-x-5' : 'translate-x-0.5'"
     />
   </button>

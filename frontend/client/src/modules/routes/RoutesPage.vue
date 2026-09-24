@@ -16,14 +16,16 @@ import {
 } from '@/core/geo'
 import DemoDataBadge from '@/ui/DemoDataBadge.vue'
 import GeoMap from '@/ui/geo/GeoMap.vue'
-import MsIcon from '@/ui/MsIcon.vue'
+import InlineNotice from '@/ui/InlineNotice.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
 import FeaturedRouteCard from './components/FeaturedRouteCard.vue'
 import PlaceCard from './components/PlaceCard.vue'
+import PlacesList from './components/PlacesList.vue'
 import RouteFilters from './components/RouteFilters.vue'
 import RoutesSearchBar from './components/RoutesSearchBar.vue'
-import { PLACE_KINDS, fetchRoutesOverview, type RouteStop } from './data'
+import TimelineFilter from './components/TimelineFilter.vue'
+import { PLACE_KINDS, TIMELINE_YEARS, fetchRoutesOverview, type RouteStop } from './data'
 
 const router = useRouter()
 const session = useSessionStore()
@@ -49,17 +51,46 @@ const { position: userPosition, status: geoStatus, start: startLocating } = useG
 const query = ref('')
 /** Выбранные виды мест. Пусто — на карте все. */
 const activeKinds = ref<Set<string>>(new Set())
+/** Выбранные годы хронологии. Пусто — вся война. */
+const activeYears = ref<Set<number>>(new Set())
 const selectedId = ref<string | null>(null)
 
 const normalizedQuery = computed(() => query.value.trim().toLowerCase())
 
-const visiblePlaces = computed(() =>
+/** Поиск и фильтр по виду места — без года: по ним же считаем, что показывать на шкале. */
+const matchedPlaces = computed(() =>
   (data.value?.places ?? []).filter(
     (place) =>
       (activeKinds.value.size === 0 || activeKinds.value.has(place.kind)) &&
       (!normalizedQuery.value || `${place.title} ${place.description}`.toLowerCase().includes(normalizedQuery.value)),
   ),
 )
+
+/** Сколько мест приходится на каждый год — с учётом поиска и вида места. */
+const yearCounts = computed(() => {
+  const counts = Object.fromEntries(TIMELINE_YEARS.map((year) => [year, 0])) as Record<number, number>
+  for (const place of matchedPlaces.value) {
+    if (place.year !== null && place.year in counts) counts[place.year] += 1
+  }
+  return counts
+})
+
+const visiblePlaces = computed(() =>
+  // Год выбран — места без даты прячем: утверждать, что событие было в 1943-м,
+  // когда в архивной записи года нет, нельзя.
+  activeYears.value.size === 0
+    ? matchedPlaces.value
+    : matchedPlaces.value.filter((place) => place.year !== null && activeYears.value.has(place.year)),
+)
+
+/** Хоть что-то отфильтровано — значит, есть что сбросить. */
+const hasFilters = computed(() => Boolean(normalizedQuery.value) || activeKinds.value.size > 0 || activeYears.value.size > 0)
+
+function resetFilters(): void {
+  query.value = ''
+  activeKinds.value = new Set()
+  activeYears.value = new Set()
+}
 
 const stops = computed(() => data.value?.route?.stops ?? [])
 
@@ -128,6 +159,7 @@ function openStop(stop: RouteStop): void {
     <div class="z-30 flex flex-col gap-space-sm px-margin pb-space-sm pt-space-xs">
       <RoutesSearchBar v-model="query" />
       <RouteFilters v-if="data?.filters.length" v-model="activeKinds" :filters="data.filters" />
+      <TimelineFilter v-if="data?.places.length" v-model="activeYears" :counts="yearCounts" />
     </div>
 
     <div v-if="loading || error" class="px-margin">
@@ -144,28 +176,19 @@ function openStop(stop: RouteStop): void {
         :user="userPosition"
         :locating="geoStatus === 'locating'"
         :label="data.route?.title"
-        class="h-[420px] w-full"
+        class="h-[420px] w-full short:h-64"
         @locate="startLocating"
       />
 
-      <div class="flex flex-col gap-space-sm px-margin pt-space-md">
-        <p
-          v-if="geoProblem"
-          class="flex items-start gap-2 rounded-DEFAULT bg-surface-container-high px-3 py-2 font-body-sm text-body-sm text-on-surface-variant"
-          role="status"
-        >
-          <MsIcon name="location_off" :size="18" class="mt-0.5 shrink-0" />
-          {{ geoProblem }}
-        </p>
+      <div class="flex flex-col gap-space-md px-margin pt-space-md">
+        <InlineNotice v-if="geoProblem" icon="location_off">{{ geoProblem }}</InlineNotice>
 
-        <p
-          v-if="visiblePlaces.length === 0"
-          class="flex items-start gap-2 rounded-DEFAULT bg-surface-container-high px-3 py-2 font-body-sm text-body-sm text-on-surface-variant"
-          role="status"
-        >
-          <MsIcon name="filter_alt_off" :size="18" class="mt-0.5 shrink-0" />
-          Под поиск и фильтры мест нет
-        </p>
+        <InlineNotice v-if="visiblePlaces.length === 0" icon="filter_alt_off">
+          Под поиск и фильтры мест нет.
+          <button v-if="hasFilters" type="button" class="underline underline-offset-2" @click="resetFilters">
+            Показать все
+          </button>
+        </InlineNotice>
 
         <PlaceCard
           v-if="selectedPlace"
@@ -173,6 +196,15 @@ function openStop(stop: RouteStop): void {
           :place="selectedPlace"
           :distance="distanceFromUser(selectedPlace)"
           @close="selectedId = null"
+        />
+
+        <!-- Список найденного: метки могут оказаться за краем карты, и без него кажется, что ничего не нашлось. -->
+        <PlacesList
+          v-if="visiblePlaces.length"
+          :places="visiblePlaces"
+          :selected-id="selectedId"
+          :user="userPosition"
+          @select="selectedId = $event"
         />
 
         <FeaturedRouteCard

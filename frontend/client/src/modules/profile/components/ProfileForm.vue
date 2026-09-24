@@ -60,74 +60,80 @@ function cancel(): void {
   reset()
   editing.value = false
 }
+
+const rows = computed(() => [
+  { id: 'name', icon: 'badge', label: 'Как обращаться', value: props.profile.display_name || 'Не указано' },
+  { id: 'city', icon: 'home_pin', label: 'Город', value: props.profile.city || 'Не указан' },
+  { id: 'bio', icon: 'description', label: 'О себе', value: props.profile.bio || 'Пока ничего' },
+])
 </script>
 
 <template>
   <section class="flex flex-col gap-space-sm">
-    <div class="flex items-center justify-between px-1">
+    <div class="flex items-end justify-between gap-space-sm">
       <div>
-        <h3 class="font-headline-sm text-headline-sm text-on-surface">Данные исследователя</h3>
-        <span class="font-body-sm text-body-sm text-on-surface-variant">Видны краеведам и командирам отрядов</span>
+        <p class="font-archival text-archival uppercase text-on-surface-variant">Видно краеведам и командирам</p>
+        <h2 class="font-headline-md text-headline-md text-on-surface">Данные исследователя</h2>
       </div>
       <button
-        v-if="!editing"
         type="button"
-        class="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container-low text-on-surface-variant hover:text-primary"
-        aria-label="Изменить данные"
-        @click="editing = true"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-on-surface transition-colors duration-200 active:scale-95"
+        :aria-label="editing ? 'Отменить правку' : 'Изменить данные'"
+        :aria-expanded="editing"
+        @click="editing ? cancel() : (editing = true)"
       >
-        <MsIcon name="edit" :size="19" />
+        <MsIcon :name="editing ? 'close' : 'edit'" :size="18" />
       </button>
     </div>
 
-    <form v-if="editing" class="flex flex-col gap-space-md rounded-DEFAULT bg-surface-container-lowest p-space-md shadow-sm" @submit.prevent="save">
-      <FormInput v-model="name" label="Как к вам обращаться" :maxlength="120" placeholder="Имя и фамилия" />
-      <FormInput v-model="city" label="Город" :maxlength="120" placeholder="Орёл" />
-      <FormTextarea v-model="bio" label="О себе" :maxlength="4000" placeholder="Чей подвиг ищете, в каком отряде, чем можете помочь" />
+    <div class="rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
+      <div
+        class="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+        :class="editing ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'"
+        :inert="editing"
+      >
+        <dl class="flex flex-col gap-space-md overflow-hidden">
+          <div v-for="row in rows" :key="row.id" class="flex items-start gap-space-sm">
+            <MsIcon :name="row.icon" :size="20" class="mt-0.5 shrink-0 text-on-surface-variant" />
+            <div class="min-w-0">
+              <dt class="font-label-sm text-label-sm text-on-surface-variant">{{ row.label }}</dt>
+              <dd class="whitespace-pre-line font-body-md text-body-md text-on-surface">{{ row.value }}</dd>
+            </div>
+          </div>
+        </dl>
+      </div>
 
-      <InlineNotice v-if="error" tone="error">{{ error }}</InlineNotice>
+      <div
+        class="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+        :class="editing ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+        :inert="!editing"
+      >
+        <form class="flex flex-col gap-space-md overflow-hidden" @submit.prevent="save">
+          <FormInput v-model="name" label="Как к вам обращаться" :maxlength="120" placeholder="Имя и фамилия" />
+          <FormInput v-model="city" label="Город" :maxlength="120" placeholder="Орёл" />
+          <FormTextarea v-model="bio" label="О себе" :maxlength="4000" placeholder="Чей подвиг ищете, в каком отряде, чем можете помочь" />
 
-      <div class="grid grid-cols-2 gap-space-sm">
-        <button
-          type="button"
-          class="rounded-full bg-surface-container-high py-3 font-label-lg text-label-lg text-on-surface"
-          @click="cancel"
-        >
-          Отмена
-        </button>
-        <button
-          type="submit"
-          class="flex items-center justify-center gap-1.5 rounded-full bg-primary py-3 font-label-lg text-label-lg text-on-primary disabled:opacity-60"
-          :disabled="!changed || saving"
-        >
-          <MsIcon :name="saving ? 'progress_activity' : 'save'" :size="18" :class="{ 'animate-spin': saving }" />
-          Сохранить
-        </button>
-      </div>
-    </form>
+          <InlineNotice v-if="error" tone="error">{{ error }}</InlineNotice>
 
-    <dl v-else class="flex flex-col gap-space-md rounded-DEFAULT bg-surface-container-lowest p-space-md shadow-sm">
-      <div class="flex items-center gap-space-sm">
-        <MsIcon name="badge" :size="20" class="shrink-0 text-on-surface-variant" />
-        <div class="min-w-0">
-          <dt class="font-label-sm text-label-sm text-outline">Как обращаться</dt>
-          <dd class="truncate font-label-lg text-label-lg text-on-surface">{{ profile.display_name || 'Не указано' }}</dd>
-        </div>
+          <div class="flex items-center justify-end gap-space-xs">
+            <button
+              type="button"
+              class="rounded-full px-space-md py-2 font-label-md text-label-md text-on-surface-variant active:scale-95"
+              @click="cancel"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              class="flex items-center gap-space-xs rounded-full bg-secondary px-space-md py-2 font-label-md text-label-md text-on-secondary active:scale-95 disabled:opacity-60"
+              :disabled="!changed || saving"
+            >
+              <MsIcon :name="saving ? 'progress_activity' : 'save'" :size="18" :class="{ 'animate-spin': saving }" />
+              Сохранить
+            </button>
+          </div>
+        </form>
       </div>
-      <div class="flex items-center gap-space-sm">
-        <MsIcon name="home_pin" :size="20" class="shrink-0 text-on-surface-variant" />
-        <div class="min-w-0">
-          <dt class="font-label-sm text-label-sm text-outline">Город</dt>
-          <dd class="truncate font-label-lg text-label-lg text-on-surface">{{ profile.city || 'Не указан' }}</dd>
-        </div>
-      </div>
-      <div class="flex items-start gap-space-sm">
-        <MsIcon name="description" :size="20" class="mt-0.5 shrink-0 text-on-surface-variant" />
-        <div class="min-w-0">
-          <dt class="font-label-sm text-label-sm text-outline">О себе</dt>
-          <dd class="whitespace-pre-line font-body-sm text-body-sm text-on-surface">{{ profile.bio || 'Пока ничего' }}</dd>
-        </div>
-      </div>
-    </dl>
+    </div>
   </section>
 </template>

@@ -46,11 +46,17 @@ async function submit(): Promise<void> {
 <template>
   <SheetDialog title="Дополнить данными" :subtitle="record.coordinates" @close="emit('close')">
     <div v-if="done" class="flex flex-col items-center gap-space-md py-space-md text-center">
-      <MsIcon name="task_alt" :size="40" class="text-secondary" />
+      <span class="flex h-14 w-14 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
+        <MsIcon name="task_alt" :size="28" filled />
+      </span>
       <p class="font-body-md text-body-md text-on-surface">
         Спасибо! Сведения ушли краеведу: после проверки они появятся в народном архиве рядом с этим местом.
       </p>
-      <button type="button" class="w-full rounded-full bg-secondary py-3 font-label-lg text-label-lg text-on-secondary" @click="emit('close')">
+      <button
+        type="button"
+        class="flex w-full items-center justify-center rounded-full bg-surface-container-high px-space-md py-2.5 font-label-lg text-label-lg text-on-surface active:scale-95"
+        @click="emit('close')"
+      >
         Готово
       </button>
     </div>
@@ -64,15 +70,15 @@ async function submit(): Promise<void> {
         required
       />
       <FormInput v-model="mediaUrl" label="Ссылка на документ или фото" type="url" inputmode="url" :maxlength="500" placeholder="https://…" />
-      <p v-if="!mediaValid" class="font-body-sm text-body-sm text-error" role="alert">Нужна ссылка вида https://…</p>
       <InlineNotice v-if="error" tone="error">{{ error }}</InlineNotice>
+      <InlineNotice v-else-if="!mediaValid" tone="error">Нужна ссылка вида https://…</InlineNotice>
       <button
         type="submit"
-        class="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-label-lg text-label-lg text-on-primary disabled:opacity-60"
+        class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-70 short:py-2.5"
         :disabled="!valid || saving"
       >
-        <MsIcon :name="saving ? 'progress_activity' : 'send'" :size="20" :class="{ 'animate-spin': saving }" />
-        Отправить краеведу
+        <MsIcon :name="saving ? 'progress_activity' : 'send'" :size="18" :class="{ 'animate-spin': saving }" />
+        <span>Отправить краеведу</span>
       </button>
     </form>
   </SheetDialog>

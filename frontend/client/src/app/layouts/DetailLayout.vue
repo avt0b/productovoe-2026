@@ -3,9 +3,9 @@ import DetailHeader from '@/ui/DetailHeader.vue'
 </script>
 
 <template>
-  <div class="relative mx-auto flex min-h-screen w-full max-w-app flex-col bg-surface">
+  <div class="relative mx-auto flex min-h-screen w-full max-w-app flex-col bg-parchment">
     <DetailHeader />
-    <main class="pt-header pb-safe flex w-full flex-1 flex-col bg-surface">
+    <main class="pt-header pb-safe flex w-full flex-1 flex-col bg-transparent">
       <slot />
     </main>
   </div>

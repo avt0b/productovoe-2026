@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useId } from 'vue'
 
-import { INPUT_CLASS } from './styles'
+import MsIcon from '@/ui/MsIcon.vue'
+
+import { FIELD_HINT_CLASS, FIELD_LABEL_CLASS, FIELD_LINE_CLASS, INPUT_CLASS } from './styles'
 
 /**
  * Поле формы с подписью.
@@ -13,6 +15,8 @@ const model = defineModel<string | number | null>({ required: true })
 const props = withDefaults(
   defineProps<{
     label: string
+    /** Иконка Material Symbols слева в строке. Без неё графа просто начинается с текста. */
+    icon?: string
     type?: 'text' | 'email' | 'url' | 'number' | 'date' | 'datetime-local'
     placeholder?: string
     hint?: string
@@ -24,6 +28,7 @@ const props = withDefaults(
     inputmode?: 'text' | 'numeric' | 'decimal' | 'url' | 'email'
   }>(),
   {
+    icon: undefined,
     type: 'text',
     placeholder: '',
     hint: '',
@@ -50,22 +55,27 @@ function onInput(event: Event): void {
 </script>
 
 <template>
-  <div class="flex min-w-0 flex-col gap-1">
-    <label :for="id" class="font-label-md text-label-md text-on-surface">{{ label }}</label>
-    <input
-      :id="id"
-      :value="model ?? ''"
-      :type="type"
-      :placeholder="placeholder"
-      :required="required"
-      :maxlength="maxlength"
-      :min="min"
-      :max="max"
-      :step="step"
-      :inputmode="inputmode"
-      :class="INPUT_CLASS"
-      @input="onInput"
-    />
-    <span v-if="hint" class="font-body-sm text-body-sm text-outline">{{ hint }}</span>
+  <div class="flex min-w-0 flex-col space-y-space-xs">
+    <label :for="id" :class="FIELD_LABEL_CLASS">{{ label }}</label>
+    <div :class="FIELD_LINE_CLASS">
+      <MsIcon v-if="icon" :name="icon" :size="18" class="shrink-0 text-on-surface-variant" />
+      <input
+        :id="id"
+        :value="model ?? ''"
+        :type="type"
+        :placeholder="placeholder"
+        :required="required"
+        :maxlength="maxlength"
+        :min="min"
+        :max="max"
+        :step="step"
+        :inputmode="inputmode"
+        :class="INPUT_CLASS"
+        @input="onInput"
+      />
+      <!-- Единица измерения, кнопка «показать пароль», «сейчас» у даты. -->
+      <slot name="trailing" />
+    </div>
+    <span v-if="hint" :class="FIELD_HINT_CLASS">{{ hint }}</span>
   </div>
 </template>

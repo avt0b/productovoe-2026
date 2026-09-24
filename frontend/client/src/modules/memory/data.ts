@@ -1,4 +1,5 @@
 import { apiRequest } from '@/core/api'
+import type { LatLon } from '@/core/geo'
 
 /**
  * Данные окна «Память».
@@ -52,9 +53,10 @@ export const ENTRY_KINDS: Record<EntryKind, { title: string; icon: string }> = {
   photo_story: { title: 'Фото и история', icon: 'photo_camera' },
 }
 
+/** «Подтверждено» — латунью, как всё наградное; ожидание — нейтральное, чтобы не спорить со значком. */
 export const ENTRY_STATUS: Record<EntryStatus, { title: string; icon: string; class: string }> = {
-  pending: { title: 'На проверке', icon: 'hourglass_top', class: 'bg-tertiary-fixed text-on-tertiary-fixed' },
-  verified: { title: 'Подтверждено', icon: 'verified', class: 'bg-secondary-container text-on-secondary-container' },
+  pending: { title: 'На проверке', icon: 'hourglass_top', class: 'bg-surface-container-high text-on-surface-variant' },
+  verified: { title: 'Подтверждено', icon: 'verified', class: 'bg-tertiary-fixed text-on-tertiary-fixed' },
   rejected: { title: 'Не подтверждено', icon: 'cancel', class: 'bg-error-container text-on-error-container' },
 }
 
@@ -105,9 +107,40 @@ export const DEFAULT_NARRATION = 'Я сделал это, чтобы ты жил
 
 // --- народный архив ---
 
-/** Подтверждённые записи — видны всем, аккаунт не нужен. */
-export function fetchPublicEntries(kind: EntryKind | null): Promise<ArchiveEntry[]> {
-  return apiRequest('GET', 'archive', '/entries', { query: { kind, limit: 200 } })
+/** Подтверждённые записи — видны всем, аккаунт не нужен. `q` ищет по заголовку и тексту. */
+export function fetchPublicEntries(kind: EntryKind | null, q = ''): Promise<ArchiveEntry[]> {
+  return apiRequest('GET', 'archive', '/entries', { query: { kind, q: q.trim() || null, limit: 200 } })
+}
+
+/** Неподтверждённая запись рядом — сервис отдаёт только вид, заголовок и место. */
+export interface NearbyPending {
+  id: string
+  kind: EntryKind
+  title: string
+  lat: number | null
+  lon: number | null
+}
+
+/** Градусов широты в километре — для прямоугольника поиска вокруг точки. */
+const DEG_PER_KM = 1 / 111
+
+/**
+ * Записи «на проверке» вокруг точки: «рядом есть неподтверждённая заметка —
+ * помогите проверить». Сервис ищет прямоугольником; долготу растягиваем по
+ * широте, чтобы на Орловщине он был близок к квадрату, а не к полоске.
+ */
+export function fetchNearbyPending(center: LatLon, radiusKm: number): Promise<NearbyPending[]> {
+  const dLat = radiusKm * DEG_PER_KM
+  const dLon = dLat / Math.max(0.2, Math.cos((center.lat * Math.PI) / 180))
+  return apiRequest('GET', 'archive', '/entries/nearby-pending', {
+    query: {
+      min_lat: center.lat - dLat,
+      min_lon: center.lon - dLon,
+      max_lat: center.lat + dLat,
+      max_lon: center.lon + dLon,
+      limit: 50,
+    },
+  })
 }
 
 export function fetchMyEntries(): Promise<ArchiveEntry[]> {
@@ -144,6 +177,21 @@ export function requestClip(draft: ClipDraft): Promise<Clip> {
 
 export function retryClip(clipId: string): Promise<Clip> {
   return apiRequest('POST', 'media', `/clips/${encodeURIComponent(clipId)}/retry`, { auth: true })
+}
+
+/** Показать в общем мемориале или оставить семье. */
+export function setClipPublic(clipId: string, isPublic: boolean): Promise<Clip> {
+  return apiRequest('PATCH', 'media', `/clips/${encodeURIComponent(clipId)}`, { body: { is_public: isPublic }, auth: true })
+}
+
+export type UploadService = 'media' | 'archive'
+
+/** Фото с телефона — в хранилище сервиса; обратно приходит адрес, который и уходит в заявку. */
+export async function uploadPhoto(service: UploadService, file: File): Promise<string> {
+  const body = new FormData()
+  body.append('file', file)
+  const { url } = await apiRequest<{ url: string }>('POST', service, '/uploads', { body, auth: true })
+  return url
 }
 
 export function shareClip(clipId: string, recipient: string, note: string): Promise<unknown> {

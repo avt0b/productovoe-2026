@@ -1,58 +1,30 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-
-import type { ExternalProvider, ProviderInfo } from '@/core/session'
+/**
+ * Альтернативные способы входа. Пока это заглушка: кнопки стоят в макете, но
+ * ничего не делают — сами провайдеры (VK ID, MAX, Госуслуги) на проде ещё не
+ * подключены, а показывать «тест» или гасить кнопки на экране входа незачем.
+ * Когда провайдеров включат, сюда вернутся `providers`/`active` и событие выбора.
+ */
 import MsIcon from '@/ui/MsIcon.vue'
 
-const props = defineProps<{
-  /** Что умеет сервер входа. `null` — список не пришёл: сервер не ответил. */
-  providers: ProviderInfo[] | null
-  /** Способ входа, который сейчас в работе. */
-  active: ExternalProvider | null
-  disabled: boolean
-}>()
-
-defineEmits<{ select: [provider: ExternalProvider] }>()
-
 /** Кнопки стоят на фоновом снимке, поэтому плашки белые, а не по поверхности темы. */
-const LOOK: readonly { provider: ExternalProvider; title: string; icon: string; tone: string }[] = [
-  { provider: 'gosuslugi', title: 'Госуслуги', icon: 'account_balance', tone: 'bg-white/90 text-primary' },
-  { provider: 'vk', title: 'VK ID', icon: 'share', tone: 'bg-white/90 text-secondary' },
-  { provider: 'max', title: 'MAX', icon: 'chat', tone: 'bg-white/90 text-tertiary' },
+const BUTTONS: readonly { id: string; title: string; icon: string; tone: string }[] = [
+  { id: 'gosuslugi', title: 'Госуслуги', icon: 'account_balance', tone: 'bg-white/90 text-primary' },
+  { id: 'vk', title: 'VK ID', icon: 'share', tone: 'bg-white/90 text-secondary' },
+  { id: 'max', title: 'MAX', icon: 'chat', tone: 'bg-white/90 text-tertiary' },
 ]
-
-/** Кнопки в своём порядке; доступность и «тест» — от сервера. */
-const buttons = computed(() =>
-  LOOK.map((look) => {
-    const info = props.providers?.find((item) => item.provider === look.provider)
-    return { ...look, enabled: info?.enabled ?? false, mock: info?.mock ?? false }
-  }),
-)
 </script>
 
 <template>
   <div class="grid grid-cols-3 gap-space-sm">
     <button
-      v-for="(button, index) in buttons"
-      :key="button.provider"
+      v-for="(button, index) in BUTTONS"
+      :key="button.id"
       type="button"
-      class="relative flex flex-col items-center justify-center rounded-lg border border-white/20 bg-white/10 px-1 py-2.5 backdrop-blur-sm transition-colors hover:border-white/40 hover:bg-white/20 disabled:opacity-60 short:py-2"
-      :disabled="disabled || !button.enabled"
-      :title="button.enabled ? undefined : 'Этот способ входа на сервере не настроен'"
-      @click="$emit('select', button.provider)"
+      class="flex flex-col items-center justify-center rounded-lg border border-white/20 bg-white/10 px-1 py-2.5 backdrop-blur-sm transition-colors hover:border-white/40 hover:bg-white/20 short:py-2"
     >
-      <span
-        v-if="button.mock"
-        class="absolute right-1 top-1 rounded-full bg-tertiary-fixed px-1.5 font-label-sm text-label-sm text-on-tertiary-fixed"
-      >
-        тест
-      </span>
       <div class="mb-1 flex h-7 w-7 items-center justify-center rounded-full" :class="button.tone">
-        <MsIcon
-          :name="active === button.provider ? 'progress_activity' : button.icon"
-          :size="15"
-          :class="{ 'animate-spin': active === button.provider }"
-        />
+        <MsIcon :name="button.icon" :size="15" />
       </div>
       <span
         class="ribbon-shimmer truncate font-label-sm text-label-sm text-white"

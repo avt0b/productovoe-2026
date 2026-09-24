@@ -27,7 +27,7 @@ async function signIn(): Promise<void> {
 </script>
 
 <template>
-  <div class="flex items-start gap-space-sm rounded-lg bg-tertiary-fixed/40 p-space-md">
+  <div class="flex items-start gap-space-sm rounded-2xl border border-tertiary-fixed-dim/60 bg-tertiary-fixed/40 p-space-md">
     <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant">
       <MsIcon name="lock" :size="20" />
     </div>
@@ -37,7 +37,7 @@ async function signIn(): Promise<void> {
       <button
         v-if="canSignIn"
         type="button"
-        class="mt-space-sm inline-flex items-center gap-1.5 rounded-full bg-tertiary px-space-md py-2 font-label-md text-label-md text-on-tertiary active:scale-95"
+        class="mt-space-sm inline-flex items-center gap-1.5 rounded-full bg-tertiary px-space-md py-2 font-label-md text-label-md text-on-tertiary shadow-float transition-opacity active:scale-95 disabled:opacity-60"
         :disabled="session.pending"
         @click="signIn"
       >

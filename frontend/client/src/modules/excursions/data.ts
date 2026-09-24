@@ -109,8 +109,34 @@ export function cancelExcursion(excursionId: string): Promise<Excursion> {
   return apiRequest('POST', 'hq', path(excursionId, '/cancel'), { auth: true })
 }
 
-export function registerForExcursion(excursionId: string): Promise<unknown> {
-  return apiRequest('POST', 'hq', path(excursionId, '/registrations'), { auth: true })
+/**
+ * Коллективная заявка из ТЗ: школа или клуб записывается одной строкой на всю
+ * группу — сервис держит `organization_name` и `group_size` на регистрации.
+ * Человек идёт сам — тело не отправляем, сервис поставит группу из одного.
+ */
+export interface RegistrationDraft {
+  organization_name: string
+  group_size: number
+}
+
+export interface Participant {
+  id: string
+  excursion_id: string
+  user_id: string
+  organization_name: string
+  group_size: number
+  status: string
+  checked_in_at: string | null
+  created_at: string
+}
+
+export function registerForExcursion(excursionId: string, draft?: RegistrationDraft): Promise<Participant> {
+  return apiRequest('POST', 'hq', path(excursionId, '/registrations'), { body: draft, auth: true })
+}
+
+/** Кто записан. Сервис отдаёт список только краеведу этой экскурсии. */
+export function fetchParticipants(excursionId: string): Promise<Participant[]> {
+  return apiRequest('GET', 'hq', path(excursionId, '/participants'), { auth: true })
 }
 
 export function cancelRegistration(excursionId: string): Promise<void> {
@@ -127,6 +153,39 @@ export function finishGathering(excursionId: string): Promise<Gathering> {
 
 export function fetchGathering(excursionId: string): Promise<Gathering> {
   return apiRequest('GET', 'hq', path(excursionId, '/gathering'), { auth: true })
+}
+
+// --- рейтинг гидов ---
+
+export interface GuideRating {
+  id: string
+  excursion_id: string
+  guide_id: string
+  rater_id: string
+  rating: number
+  comment: string
+  created_at: string
+}
+
+export interface GuideRatingSummary {
+  guide_id: string
+  average: number
+  count: number
+  recent: GuideRating[]
+}
+
+/** Оценка гида после экскурсии: 1–5 и, если есть что сказать, отзыв. */
+export function rateExcursion(excursionId: string, rating: number, comment: string): Promise<GuideRating> {
+  return apiRequest('POST', 'hq', path(excursionId, '/rating'), { body: { rating, comment }, auth: true })
+}
+
+export function fetchExcursionRatings(excursionId: string): Promise<GuideRating[]> {
+  return apiRequest('GET', 'hq', path(excursionId, '/rating'), {})
+}
+
+/** Средняя оценка краеведа по всем его экскурсиям — публичная, без аккаунта тоже видно. */
+export function fetchGuideRating(guideId: string): Promise<GuideRatingSummary> {
+  return apiRequest('GET', 'hq', `/guides/${encodeURIComponent(guideId)}/rating`, {})
 }
 
 // --- группа идёт к памятному месту ---

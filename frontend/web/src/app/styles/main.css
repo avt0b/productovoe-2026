@@ -3,3 +3,71 @@
 body {
   @apply bg-surface font-body-md text-body-md text-on-surface antialiased;
 }
+
+/*
+ * Редкий отблеск в цветах георгиевской ленты: по тексту раз в несколько секунд
+ * проходит косая полоса охры с тонкой тёмной прожилкой, остальное время буквы
+ * своего цвета. Базовый цвет берётся из `--shimmer-base`, потому что при
+ * `background-clip: text` сам `color` уходит в прозрачный и `currentColor`
+ * внутри градиента взять уже неоткуда.
+ *
+ * Тот же эффект, что на экране входа в мобильном клиенте, — экран один и тот же.
+ */
+.ribbon-shimmer {
+  background-size: 260% 100%;
+  background-repeat: no-repeat;
+  background-position: 135% 0;
+}
+
+/* Без поддержки обрезки фона по тексту буквы остаются обычными, а не пропадают. */
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .ribbon-shimmer {
+    /*
+     * Заливка обязательна: градиент уже ширины текста и стоит за его краем,
+     * пока блик не пошёл, — без неё буквы вне градиента прозрачны. Цвет базы
+     * должен быть непрозрачным, иначе следом за бликом идёт полоса плотного
+     * белого: текст приглушают `opacity` на элементе, а не альфой базы.
+     */
+    background-color: var(--shimmer-base, #ffffff);
+    background-image: linear-gradient(
+      105deg,
+      var(--shimmer-base, #ffffff) 0 42%,
+      var(--color-tertiary-fixed-dim) 46%,
+      var(--color-tertiary-fixed) 49%,
+      var(--color-on-tertiary-fixed-variant) 51%,
+      var(--color-tertiary-fixed-dim) 54%,
+      var(--shimmer-base, #ffffff) 58% 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    /*
+     * Свойства перечислены по отдельности, без шортката `animation`: шорткат
+     * сбрасывал бы `animation-delay`, которым разведены блики на заголовке,
+     * описании и кнопках, чтобы отсвет шёл волной, а не вспыхивал разом.
+     */
+    animation-name: ribbon-shimmer;
+    animation-duration: 11s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+}
+
+@keyframes ribbon-shimmer {
+  /* Пауза занимает большую часть цикла, сам проход — остаток. */
+  0%,
+  62% {
+    background-position: 135% 0;
+  }
+  100% {
+    background-position: -45% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ribbon-shimmer {
+    animation-name: none;
+    background-image: none;
+    color: var(--shimmer-base, #ffffff);
+  }
+}

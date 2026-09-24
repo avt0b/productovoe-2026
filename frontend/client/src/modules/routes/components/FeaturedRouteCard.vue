@@ -30,14 +30,16 @@ const stopsLabel = computed(() => `${props.route.stops.length} ${plural(props.ro
 </script>
 
 <template>
-  <div class="flex w-full flex-col gap-space-sm rounded-sheet bg-surface-container-lowest p-space-md shadow-sheet">
+  <div class="flex w-full flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
     <div class="flex items-center gap-1.5 self-start rounded-full bg-tertiary-fixed px-2.5 py-1 text-on-tertiary-fixed-variant">
       <MsIcon name="auto_awesome" :size="15" filled class="text-tertiary" />
-      <span class="font-label-sm text-label-sm uppercase tracking-wide">Семейный квест дня</span>
+      <span class="font-archival text-archival uppercase">Семейный квест дня</span>
     </div>
 
     <div>
-      <h2 class="font-headline-md text-headline-md text-on-surface">{{ route.title }}</h2>
+      <h2 class="ribbon-shimmer font-headline-md text-headline-md text-on-surface [--shimmer-base:theme(colors.ink.DEFAULT)]">
+        {{ route.title }}
+      </h2>
       <p class="mt-0.5 font-body-sm text-body-sm text-outline">{{ route.description }}</p>
     </div>
 
@@ -107,7 +109,7 @@ const stopsLabel = computed(() => `${props.route.stops.length} ${plural(props.ro
     <button
       v-if="focusStop"
       type="button"
-      class="mt-1 flex h-13 w-full items-center justify-center gap-2 rounded-full bg-primary px-space-md font-headline-sm text-headline-sm text-on-primary shadow-lg shadow-primary/30 transition-transform hover:bg-primary-container active:scale-[0.98] disabled:opacity-60"
+      class="mt-1 flex h-13 w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container px-space-md font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-60 short:h-11"
       :disabled="!canOpen"
       @click="emit('open-stop', focusStop)"
     >

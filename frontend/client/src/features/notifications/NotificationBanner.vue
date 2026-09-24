@@ -35,25 +35,34 @@ function open(): void {
         role="alert"
         aria-live="assertive"
       >
-        <div class="mx-space-sm mt-space-sm flex items-start gap-space-sm rounded-lg bg-inverse-surface p-space-md text-inverse-on-surface shadow-lg">
-          <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary">
-            <MsIcon name="campaign" :size="20" filled />
+        <!--
+          Светлая карточка, а не тёмная плашка: уведомление всплывает над
+          пергаментом, и тёмное пятно там читалось бы дырой в экране. Все
+          виды — полевые (сбор, выход группы, находка рядом), отсюда олива.
+        -->
+        <div
+          class="mx-margin mt-space-sm flex items-start gap-space-sm rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-space-md shadow-sheet"
+        >
+          <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
+            <MsIcon :name="current.icon" :size="20" filled />
           </span>
           <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-            <p class="font-headline-sm text-headline-sm">{{ current.notification.title }}</p>
-            <p class="font-body-sm text-body-sm opacity-80">{{ current.notification.body }}</p>
+            <p class="font-archival text-archival uppercase text-on-surface-variant">Уведомление</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface">{{ current.notification.title }}</p>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">{{ current.notification.body }}</p>
             <button
               type="button"
-              class="mt-space-xs self-start rounded-full bg-primary px-space-md py-1.5 font-label-lg text-label-lg text-on-primary active:scale-95"
+              class="mt-space-xs flex items-center gap-space-xs self-start rounded-full bg-secondary px-space-md py-2 font-label-md text-label-md text-on-secondary active:scale-95"
               @click="open"
             >
               {{ current.actionLabel }}
+              <MsIcon name="arrow_forward" :size="18" />
             </button>
           </div>
           <button
             type="button"
             aria-label="Закрыть уведомление"
-            class="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full opacity-70 hover:opacity-100"
+            class="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
             @click="settle"
           >
             <MsIcon name="close" :size="18" />
