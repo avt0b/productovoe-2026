@@ -7,6 +7,7 @@ import DetailLayout from '@/app/layouts/DetailLayout.vue'
 import TabsLayout from '@/app/layouts/TabsLayout.vue'
 import { useSessionStore } from '@/core/session'
 import { NotificationBanner } from '@/features/notifications'
+import { WelcomeSheet } from '@/features/onboarding'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,4 +36,6 @@ watch(
   </component>
   <!-- Поверх любого экрана: сбор начинается, пока человек смотрит карту, а не экскурсию. -->
   <NotificationBanner />
+  <!-- Первый вход: предложить показать, что где. Один раз и только вошедшим. -->
+  <WelcomeSheet />
 </template>

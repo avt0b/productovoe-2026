@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { useAsync } from '@/core/async'
 import { useGeolocation, type GeoMarker } from '@/core/geo'
 import { useSessionStore } from '@/core/session'
+import { HelpButton } from '@/features/onboarding'
 import AccountRequired from '@/ui/AccountRequired.vue'
 import GeoMap from '@/ui/geo/GeoMap.vue'
 import MsIcon from '@/ui/MsIcon.vue'
@@ -65,12 +66,17 @@ const TABS: { value: Tab; title: string }[] = [
 <template>
   <div class="flex w-full flex-col gap-space-md px-margin pb-space-lg pt-space-xs">
     <section class="flex flex-col gap-space-xs rounded-2xl bg-secondary-container/60 p-space-md shadow-document">
-      <p class="font-archival text-archival uppercase text-on-secondary-container">Экспедиция памяти</p>
-      <h2
-        class="ribbon-shimmer font-headline-sm text-headline-sm text-on-secondary-container [--shimmer-base:theme(colors.on-secondary-container)]"
-      >
-        Экскурсии с краеведами
-      </h2>
+      <div class="flex items-start justify-between gap-space-sm">
+        <div class="min-w-0">
+          <p class="font-archival text-archival uppercase text-on-secondary-container">Экспедиция памяти</p>
+          <h2
+            class="ribbon-shimmer font-headline-sm text-headline-sm text-on-secondary-container [--shimmer-base:theme(colors.on-secondary-container)]"
+          >
+            Экскурсии с краеведами
+          </h2>
+        </div>
+        <HelpButton />
+      </div>
       <p class="font-body-sm text-body-sm text-on-surface-variant">
         Запишитесь заранее, а на месте встряхните телефон вместе с краеведом — и вы в группе.
       </p>

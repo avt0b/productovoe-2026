@@ -14,6 +14,7 @@ import {
   type GeoPath,
   type LatLon,
 } from '@/core/geo'
+import { HelpButton } from '@/features/onboarding'
 import DemoDataBadge from '@/ui/DemoDataBadge.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import GeoMap from '@/ui/geo/GeoMap.vue'
@@ -179,7 +180,10 @@ function openStop(stop: RouteStop): void {
 <template>
   <div class="relative flex w-full flex-col">
     <div class="z-30 flex flex-col gap-space-sm px-margin pb-space-sm pt-space-xs">
-      <RoutesSearchBar v-model="query" />
+      <div class="flex items-center gap-space-xs">
+        <RoutesSearchBar v-model="query" class="min-w-0 flex-1" />
+        <HelpButton />
+      </div>
       <RouteFilters v-if="data?.filters.length" v-model="activeKinds" :filters="data.filters" />
       <TimelineFilter v-if="data?.places.length" v-model="activeYears" :counts="yearCounts" />
     </div>
