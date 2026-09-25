@@ -42,8 +42,27 @@ export interface LastStandPoint {
   created_at: string
 }
 
-/** Сколько точек забирать за раз. Лимит сервиса — 500; для области пока хватает одной страницы. */
+/** Сколько точек забирать за раз — это лимит сервиса. */
 const PAGE_LIMIT = 500
+
+/** Предохранитель от бесконечного цикла, если сервис вдруг перестанет уважать `offset`. */
+const MAX_PAGES = 40
+
+/**
+ * Весь слой целиком, страница за страницей. Одной страницы не хватает: в
+ * Орловской области уже почти девятьсот мест, и без догрузки карта молча
+ * теряла всё, что не влезло в первые 500. Между страницами слой могли
+ * дополнить — повторы по `id` отбрасываем.
+ */
+async function fetchAllPages<T extends { id: string }>(load: (offset: number) => Promise<T[]>): Promise<T[]> {
+  const byId = new Map<string, T>()
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const rows = await load(page * PAGE_LIMIT)
+    for (const row of rows) if (!byId.has(row.id)) byId.set(row.id, row)
+    if (rows.length < PAGE_LIMIT) break
+  }
+  return [...byId.values()]
+}
 
 function matches(text: string, query: string | undefined): boolean {
   return !query || text.toLowerCase().includes(query.toLowerCase())
@@ -51,14 +70,17 @@ function matches(text: string, query: string | undefined): boolean {
 
 export function listPoi(query: { kind?: PoiKind; q?: string } = {}): Promise<Sourced<Poi[]>> {
   return withDemoFallback(
-    () => apiGet<Poi[]>('map', '/poi', { kind: query.kind, q: query.q, limit: PAGE_LIMIT }),
+    () => fetchAllPages((offset) => apiGet<Poi[]>('map', '/poi', { kind: query.kind, q: query.q, limit: PAGE_LIMIT, offset })),
     () => DEMO_POI.filter((poi) => (!query.kind || poi.kind === query.kind) && matches(poi.title, query.q)),
   )
 }
 
 export function listLastStand(query: { status?: LastStandStatus } = {}): Promise<Sourced<LastStandPoint[]>> {
   return withDemoFallback(
-    () => apiGet<LastStandPoint[]>('map', '/last-stand', { status: query.status, limit: PAGE_LIMIT }),
+    () =>
+      fetchAllPages((offset) =>
+        apiGet<LastStandPoint[]>('map', '/last-stand', { status: query.status, limit: PAGE_LIMIT, offset }),
+      ),
     () => DEMO_LAST_STAND.filter((point) => !query.status || point.status === query.status),
   )
 }

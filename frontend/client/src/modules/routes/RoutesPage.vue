@@ -261,6 +261,7 @@ function openStop(stop: RouteStop): void {
         :label="data.route?.title"
         :focus="routeFocus"
         :follow="routeState === 'active'"
+        cluster
         expandable
         expand-on-select
         class="h-[420px] w-full short:h-64"

@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css'
 import { App } from '@capacitor/app'
 import type { PluginListenerHandle } from '@capacitor/core'
 import L from 'leaflet'
+import Supercluster from 'supercluster'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { OREL_CENTER, TILES, type GeoMarker, type GeoPath, type GeoTone, type LatLon, type UserPosition } from '@/core/geo'
@@ -61,6 +62,16 @@ const props = withDefaults(
      * ходу, и дёргать карту на каждый пересчёт нельзя.
      */
     focus?: { key: string | number; points: LatLon[] } | null
+    /**
+     * Собирать близкие метки в кружки с числом — для слоёв на сотни точек.
+     * Издалека вся область — несколько кружков, при приближении они
+     * распадаются. На карте живут только метки в кадре, а не весь слой:
+     * девятьсот HTML-меток сразу — это и каша, и тормоза на телефоне.
+     *
+     * Точки маршрута с номером (`badge`) и выбранная метка в кружки не
+     * прячутся: это то, ради чего человек смотрит на карту.
+     */
+    cluster?: boolean
   }>(),
   {
     paths: () => [],
@@ -73,6 +84,7 @@ const props = withDefaults(
     expandable: false,
     expandOnSelect: false,
     focus: null,
+    cluster: false,
   },
 )
 
@@ -136,6 +148,47 @@ const USER_ICON = L.divIcon({
     '<span class="h-3 w-3 rounded-full bg-secondary"></span></span></div>',
 })
 
+/**
+ * Радиус сбора в кружок, px экрана. С запасом к размеру самого кружка
+ * (до 56 px): центр кружка — среднее его меток, и при меньшем радиусе
+ * соседние кружки налезают друг на друга.
+ */
+const CLUSTER_RADIUS = 64
+/**
+ * Размер тайла в индексе. supercluster по умолчанию считает тайлы по 512 px,
+ * как у Mapbox, а у Leaflet они по 256 — без этого радиус выходил вдвое
+ * меньше заданного.
+ */
+const CLUSTER_EXTENT = 256
+/**
+ * С этого зума кружков нет — только отдельные метки. Это уровень квартала:
+ * ближе метки уже не налезают друг на друга, а дальше рассыпать нечего.
+ */
+const CLUSTER_MAX_ZOOM = 15
+
+/** Метка в индексе кружков. Тон кружка — общий тон всех меток внутри, если он один. */
+type ClusterPoint = { id: string; tone: GeoTone }
+type ClusterTone = { tone: GeoTone | null }
+
+/** Три размера кружка: десятки, сотни и больше — видно, где мест много, ещё до чтения числа. */
+function clusterIcon(count: number, label: string, tone: GeoTone | null): L.DivIcon {
+  const size = count < 10 ? 'h-10 w-10' : count < 100 ? 'h-12 w-12' : 'h-14 w-14'
+  return L.divIcon({
+    className: 'geo-pin',
+    iconSize: [0, 0],
+    html:
+      '<div class="geo-pin__body geo-pin__body--cluster">' +
+      `<span class="flex ${size} items-center justify-center rounded-full font-label-lg text-label-lg font-semibold shadow-lg ring-4 ring-surface-container-lowest ${PIN_TONES[tone ?? 'neutral']}">` +
+      `${escapeHtml(label)}</span></div>`,
+  })
+}
+
+/** Точки маршрута — над кружками, выбранная — над всем. */
+function pinZ(marker: GeoMarker, active: boolean): number {
+  if (active) return 1000
+  return marker.badge ? 500 : 0
+}
+
 const container = ref<HTMLDivElement | null>(null)
 /** Обёртка карточки точки: её высоту карта держит свободной, подгоняя вид. */
 const sheetBox = ref<HTMLDivElement | null>(null)
@@ -151,7 +204,18 @@ const circleLayer = L.layerGroup()
 const pathLayer = L.layerGroup()
 const userLayer = L.layerGroup()
 const markerLayer = L.layerGroup()
+/** Метки на карте по `id` — только отдельные метки, без кружков. */
 const markerById = new Map<string, L.Marker>()
+/** Всё, что сейчас нарисовано: `id` метки или ключ кружка. По нему сдвиг карты меняет только разницу. */
+const shown = new Map<string, L.Marker>()
+
+/** Индекс кружков; `null` — кластеры выключены. */
+let clusterIndex: Supercluster<ClusterPoint, ClusterTone> | null = null
+/**
+ * Поколение индекса. `cluster_id` после перестройки индекса значит уже другой
+ * кружок, поэтому поколение входит в ключ: старые кружки уходят целиком.
+ */
+let clusterGeneration = 0
 
 /** Карта уже подогнана под метки — дальше вид не дёргаем, человек мог сам его сдвинуть. */
 let framed = false
@@ -160,23 +224,130 @@ let followUser = false
 /** Следование в режиме навигации включено: человек не сдвигал карту сам. */
 let navigating = props.follow
 
-function renderMarkers(): void {
-  markerLayer.clearLayers()
-  markerById.clear()
+/** Метка всегда рисуется сама по себе, а не прячется в кружок. */
+function standsAlone(marker: GeoMarker): boolean {
+  return !props.cluster || marker.badge !== undefined || marker.id === selected.value
+}
+
+/**
+ * Собрать индекс кружков заново: сменились метки или выбранная — она
+ * выходит из кружка. На тысячу точек это миллисекунды.
+ */
+function rebuildClusters(): void {
+  clusterGeneration++
+  if (!props.cluster) {
+    clusterIndex = null
+    return
+  }
+  clusterIndex = new Supercluster<ClusterPoint, ClusterTone>({
+    radius: CLUSTER_RADIUS,
+    extent: CLUSTER_EXTENT,
+    maxZoom: CLUSTER_MAX_ZOOM,
+    map: (point) => ({ tone: point.tone }),
+    reduce: (total, point) => {
+      if (total.tone !== point.tone) total.tone = null
+    },
+  })
+  clusterIndex.load(
+    props.markers
+      .filter((marker) => !standsAlone(marker))
+      .map((marker) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [marker.lon, marker.lat] },
+        properties: { id: marker.id, tone: marker.tone },
+      })),
+  )
+}
+
+function pinMarker(item: GeoMarker): L.Marker {
+  const active = item.id === selected.value
+  const marker = L.marker([item.lat, item.lon], {
+    icon: pinIcon(item, active),
+    title: item.label,
+    riseOnHover: true,
+    zIndexOffset: pinZ(item, active),
+  })
+  marker.on('click', () => {
+    selected.value = item.id
+    if (preview.value && props.expandOnSelect) expand(item.id)
+  })
+  return marker
+}
+
+function clusterMarker(clusterId: number, at: L.LatLng, count: number, label: string, tone: GeoTone | null): L.Marker {
+  const marker = L.marker(at, {
+    icon: clusterIcon(count, label, tone),
+    title: `Мест рядом: ${count}. Приблизить`,
+    riseOnHover: true,
+  })
+  marker.on('click', () => openCluster(clusterId, at))
+  return marker
+}
+
+/** Нажали на кружок — приблизить ровно настолько, чтобы он распался. */
+function openCluster(clusterId: number, at: L.LatLng): void {
+  if (!map || !clusterIndex) return
+  const zoom = Math.min(clusterIndex.getClusterExpansionZoom(clusterId), TILES.maxZoom)
+  if (preview.value) expand({ center: at, zoom })
+  else map.flyTo(at, zoom)
+}
+
+/**
+ * Нарисовать метки. `reset` — метки сменились, всё рисуется заново; без него
+ * (сдвиг и зум карты) меняется только разница: иначе при каждом движении
+ * пальца карта перерисовывала бы все метки и мигала.
+ */
+function renderMarkers(reset = false): void {
+  if (!map) return
+  if (reset) {
+    markerLayer.clearLayers()
+    markerById.clear()
+    shown.clear()
+  }
+  const wanted = new Map<string, () => L.Marker>()
+  const byId = new Map(props.markers.map((marker) => [marker.id, marker]))
+
   for (const item of props.markers) {
-    const active = item.id === selected.value
-    const marker = L.marker([item.lat, item.lon], {
-      icon: pinIcon(item, active),
-      title: item.label,
-      riseOnHover: true,
-      zIndexOffset: active ? 1000 : 0,
-    })
-    marker.on('click', () => {
-      selected.value = item.id
-      if (preview.value && props.expandOnSelect) expand(item.id)
-    })
+    if (standsAlone(item)) wanted.set(item.id, () => pinMarker(item))
+  }
+
+  if (clusterIndex) {
+    // Запас вокруг кадра: при небольшом сдвиге соседние метки уже на месте.
+    const bounds = map.getBounds().pad(0.3)
+    const box: [number, number, number, number] = [
+      Math.max(bounds.getWest(), -180),
+      Math.max(bounds.getSouth(), -85),
+      Math.min(bounds.getEast(), 180),
+      Math.min(bounds.getNorth(), 85),
+    ]
+    const zoom = Math.round(map.getZoom())
+    for (const feature of clusterIndex.getClusters(box, zoom)) {
+      const [lon, lat] = feature.geometry.coordinates
+      const info = feature.properties
+      if ('cluster' in info && info.cluster) {
+        const key = `cluster:${clusterGeneration}:${info.cluster_id}`
+        wanted.set(key, () =>
+          clusterMarker(info.cluster_id, L.latLng(lat, lon), info.point_count, String(info.point_count_abbreviated), info.tone),
+        )
+      } else {
+        const item = byId.get((info as ClusterPoint).id)
+        if (item) wanted.set(item.id, () => pinMarker(item))
+      }
+    }
+  }
+
+  for (const [key, marker] of shown) {
+    if (wanted.has(key)) continue
+    markerLayer.removeLayer(marker)
+    shown.delete(key)
+    if (markerById.get(key) === marker) markerById.delete(key)
+  }
+  for (const [key, create] of wanted) {
+    if (shown.has(key)) continue
+    const marker = create()
     marker.addTo(markerLayer)
-    markerById.set(item.id, marker)
+    shown.set(key, marker)
+    if (byId.has(key)) markerById.set(key, marker)
   }
 }
 
@@ -187,7 +358,7 @@ function refreshPin(id: string | null): void {
   if (!item || !marker) return
   const active = id === selected.value
   marker.setIcon(pinIcon(item, active))
-  marker.setZIndexOffset(active ? 1000 : 0)
+  marker.setZIndexOffset(pinZ(item, active))
 }
 
 function renderCircles(): void {
@@ -332,8 +503,11 @@ function onKey(event: KeyboardEvent): void {
   if (event.key === 'Escape') collapse()
 }
 
-/** `focusId` — развернули нажатием на метку: смотрим на неё, а не на все метки сразу. */
-function expand(focusId?: string): void {
+/**
+ * `focus` — развернули нажатием на метку (её `id`): смотрим на неё, а не на
+ * все метки сразу. Нажатием на кружок — смотрим туда, где он распадается.
+ */
+function expand(focus?: string | { center: L.LatLng; zoom: number }): void {
   if (expanded.value) return
   expanded.value = true
   document.body.style.overflow = 'hidden'
@@ -344,9 +518,15 @@ function expand(focusId?: string): void {
     if (backWanted) backHandle = handle
     else void handle.remove()
   })
+  const view = typeof focus === 'object' ? focus : null
+  const focusId = typeof focus === 'string' ? focus : null
   void nextTick(() => {
     setInteractive(true)
     map?.invalidateSize()
+    if (map && view) {
+      map.setView(view.center, view.zoom)
+      return
+    }
     const marker = focusId ? markerById.get(focusId) : undefined
     if (map && marker) {
       map.setView(marker.getLatLng(), Math.max(map.getZoom(), 14))
@@ -404,12 +584,17 @@ onMounted(() => {
   })
   // Сдвинул карту сам — значит, смотрит куда-то ещё: не тянуть вид обратно.
   map.on('dragstart', () => (navigating = false))
+  // Кружки зависят от кадра и зума: сдвинули карту — пересобрать видимое.
+  map.on('moveend', () => {
+    if (clusterIndex) renderMarkers()
+  })
 
   if (preview.value) setInteractive(false)
 
   renderCircles()
   renderPaths()
-  renderMarkers()
+  rebuildClusters()
+  renderMarkers(true)
   renderUser()
   framed = frameContent()
 
@@ -429,8 +614,17 @@ onBeforeUnmount(() => {
 watch(
   () => props.markers,
   () => {
-    renderMarkers()
+    rebuildClusters()
+    renderMarkers(true)
     if (!framed) framed = frameContent()
+  },
+)
+
+watch(
+  () => props.cluster,
+  () => {
+    rebuildClusters()
+    renderMarkers(true)
   },
 )
 
@@ -469,6 +663,11 @@ watch(
 )
 
 watch(selected, (id, previous) => {
+  // Выбранная метка выходит из кружка, прежняя возвращается в него.
+  if (clusterIndex) {
+    rebuildClusters()
+    renderMarkers()
+  }
   refreshPin(previous)
   refreshPin(id)
   const marker = id ? markerById.get(id) : undefined
@@ -612,5 +811,10 @@ watch(selected, (id, previous) => {
 
 .geo-pin__body--user {
   transform: translate(-50%, -10px);
+}
+
+/* Кружок стоит центром на точке: у него нет острия, а размер зависит от числа. */
+.geo-pin__body--cluster {
+  transform: translate(-50%, -50%);
 }
 </style>

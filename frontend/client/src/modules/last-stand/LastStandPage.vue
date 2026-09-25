@@ -336,6 +336,7 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
           :focus="routeFocus"
           :follow="routeState === 'active'"
           label="Орловская область"
+          cluster
           expandable
           expand-on-select
           class="h-80 w-full rounded-2xl shadow-document short:h-64"
