@@ -6,7 +6,10 @@
  * упавшие в 401, ждут одного общего обновления, а не запускают семь своих.
  */
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8010').replace(/\/$/, '')
+// Собранная админка живёт на сервере за nginx и ходит в admin_service с того же
+// сайта — через /api (location /api/admin/). В dev — напрямую в сервис.
+const DEFAULT_BASE_URL = import.meta.env.PROD ? '/api' : 'http://127.0.0.1:8010'
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
 
 const ACCESS_KEY = 'marshruty.admin.access'
 const REFRESH_KEY = 'marshruty.admin.refresh'
@@ -132,7 +135,7 @@ export interface RequestOptions {
 }
 
 function buildUrl(path: string, params?: RequestOptions['params']): string {
-  const url = new URL(BASE_URL + path)
+  const url = new URL(BASE_URL + path, window.location.origin)
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       if (value === undefined || value === null || value === '') continue

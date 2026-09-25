@@ -66,7 +66,6 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /home/user1/.htpasswd:/etc/nginx/.htpasswd:ro
     depends_on:
-      - frontend_client
       - frontend_web
       - frontend_admin
       - auth_service
@@ -306,14 +305,9 @@ services:
 #    networks:
 #      - marshruty_network
 
-  frontend_client:
-    build:
-      context: ./frontend/client
-      dockerfile: Dockerfile
-    container_name: marshruty_frontend_client
-    restart: unless-stopped
-    networks:
-      - marshruty_network
+  # Мобильное приложение на сервер не выкатываем: оно живёт в APK и ходит сюда
+  # только за API через nginx. Локально веб-версия мобилки — `npm run dev` в
+  # frontend/client.
 
   frontend_web:
     build:
