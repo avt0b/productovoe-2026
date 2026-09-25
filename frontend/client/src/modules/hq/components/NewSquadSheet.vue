@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
+import type { LatLon } from '@/core/geo'
 import { errorText } from '@/core/format'
 import { ORGANIZATION_KINDS, organizationKind, type OrganizationKind } from '@/core/services/organizations'
 import { can, useSessionStore } from '@/core/session'
@@ -11,6 +12,7 @@ import FormInput from '@/ui/form/FormInput.vue'
 import FormTextarea from '@/ui/form/FormTextarea.vue'
 
 import { createSquad, deleteSquad, updateSquad, type Squad } from '../data'
+import PlacePickerSheet from './PlacePickerSheet.vue'
 
 /**
  * Отряд, музей или школа: заводит поисковик (музей и школу — ещё и краевед),
@@ -62,6 +64,12 @@ const name = ref(props.squad?.name ?? '')
 const region = ref(props.squad?.region ?? session.user?.city ?? '')
 const description = ref(props.squad?.description ?? '')
 const contact = ref(props.squad?.contact ?? '')
+const point = ref<LatLon | null>(
+  props.squad?.lat !== null && props.squad?.lat !== undefined && props.squad?.lon !== null && props.squad?.lon !== undefined
+    ? { lat: props.squad.lat, lon: props.squad.lon }
+    : null,
+)
+const pickingPlace = ref(false)
 const saving = ref(false)
 const confirmingDelete = ref(false)
 const error = ref<string | null>(null)
@@ -89,6 +97,8 @@ async function submit(): Promise<void> {
     region: region.value.trim(),
     description: description.value.trim(),
     contact: contact.value.trim(),
+    lat: point.value?.lat ?? null,
+    lon: point.value?.lon ?? null,
   }
   try {
     emit('created', props.squad ? await updateSquad(props.squad.id, draft) : await createSquad(draft))
@@ -181,6 +191,32 @@ async function disband(): Promise<void> {
         <FormInput v-model="contact" label="Как связаться" icon="call" :maxlength="300" placeholder="Телефон штаба или ссылка на чат" />
       </section>
 
+      <section class="flex flex-col gap-space-sm">
+        <p class="font-archival text-archival uppercase text-on-surface-variant">Где штаб</p>
+        <!-- Точнее города словами: по ней отряд из незнакомого населённого пункта попадёт на карту потребностей. -->
+        <button
+          type="button"
+          class="flex items-center gap-space-sm rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-space-md text-left active:scale-[0.99]"
+          @click="pickingPlace = true"
+        >
+          <span
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+            :class="point ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container-high text-on-surface-variant'"
+          >
+            <MsIcon name="flag" :size="20" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-label-lg text-label-lg text-on-surface">
+              {{ point ? 'Точка поставлена' : 'Точка не указана' }}
+            </span>
+            <span class="block font-body-sm text-body-sm text-on-surface-variant">
+              {{ point ? 'Нажмите, чтобы переставить' : 'Поиск по адресу, по местоположению или тапом по карте' }}
+            </span>
+          </span>
+          <MsIcon name="chevron_right" :size="20" class="shrink-0 text-on-surface-variant" />
+        </button>
+      </section>
+
       <div class="flex flex-col gap-space-sm">
         <InlineNotice v-if="shownError" tone="error">{{ shownError }}</InlineNotice>
         <button
@@ -238,4 +274,16 @@ async function disband(): Promise<void> {
       </template>
     </form>
   </SheetDialog>
+
+  <PlacePickerSheet
+    v-if="pickingPlace"
+    :point="point"
+    @close="pickingPlace = false"
+    @picked="
+      (next) => {
+        point = next
+        pickingPlace = false
+      }
+    "
+  />
 </template>

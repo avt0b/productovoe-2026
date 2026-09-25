@@ -506,6 +506,7 @@ function isRegistered(tripId: string): boolean | null {
       :trip="sheet.trip ?? null"
       @created="(trip) => created(sheet?.kind === 'trip' && sheet.trip ? `Выезд обновлён: ${trip.title}` : `Набор объявлен: ${trip.title}`, 'trips')"
       @done="(text) => created(text, 'trips')"
+      @manage-squad="(squad) => (sheet = { kind: 'squad', squad })"
       @close="sheet = null"
     />
     <NewNeedSheet

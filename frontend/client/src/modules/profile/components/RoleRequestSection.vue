@@ -67,6 +67,19 @@ const filling = ref(false)
 const application = computed(() => applications.value.find((item) => item.requested_role === role.value) ?? null)
 const pending = computed(() => application.value?.status === 'pending')
 
+/**
+ * Заявка на ДРУГУЮ роль ещё не рассмотрена — вторую не подаём: бэк выдаёт
+ * человеку одну роль полем (не список), и одобрение второй заявки молча
+ * перезапишет то, что дала первая (`role_application_service.py`, `decide()`:
+ * `profile.role = application.requested_role` без всякой проверки, что роль
+ * там уже была). Подать сразу две заявки на разные роли бэк не запрещает
+ * (`has_pending` проверяет только повтор на ту же роль) — значит, запрещаем
+ * здесь.
+ */
+const otherPendingApplication = computed(
+  () => applications.value.find((item) => item.status === 'pending' && item.requested_role !== role.value) ?? null,
+)
+
 // --- черновик заявки ---
 
 const document = ref(current.value.documents[0].id)
@@ -106,6 +119,11 @@ const missing = computed(() => {
   return null
 })
 
+/** Есть роль сильнее «семьи», и заявка — на другую: одобрение её заменит, не добавит. */
+const willReplaceRole = computed(() => props.user.role !== undefined && props.user.role !== 'family' && props.user.role !== role.value)
+/** Предупреждение показано — следующее нажатие «Отправить» уже отправляет. */
+const confirmingSwap = ref(false)
+
 function dropPreview(): void {
   if (localPreview.value) URL.revokeObjectURL(localPreview.value)
   localPreview.value = null
@@ -124,6 +142,7 @@ function reset(): void {
   error.value = null
   tried.value = false
   filling.value = false
+  confirmingSwap.value = false
 }
 
 async function load(): Promise<void> {
@@ -199,6 +218,12 @@ async function send(): Promise<void> {
   if (uploading.value || sending.value) return
   if (missing.value) {
     tried.value = true
+    return
+  }
+  // Роль сильнее «семьи» уже есть — сперва явное предупреждение, что она
+  // уйдёт, если заявку одобрят; отправляем только вторым нажатием.
+  if (willReplaceRole.value && !confirmingSwap.value) {
+    confirmingSwap.value = true
     return
   }
   sending.value = true
@@ -287,7 +312,12 @@ onBeforeUnmount(dropPreview)
             Роль подтверждает администратор платформы. Приложите документ — так быстрее.
           </InlineNotice>
 
-          <div v-if="!pending" class="flex flex-wrap gap-space-xs">
+          <InlineNotice v-if="otherPendingApplication" tone="info">
+            Сначала дождитесь ответа по заявке на «{{ ROLES[otherPendingApplication.requested_role].title }}» — вторую
+            заявку пока не подать: роль у человека одна, и одобрение второй молча заменит первую.
+          </InlineNotice>
+
+          <div v-if="!pending && !otherPendingApplication" class="flex flex-wrap gap-space-xs">
             <button
               type="button"
               class="flex items-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
@@ -394,6 +424,11 @@ onBeforeUnmount(dropPreview)
               <FormInput v-model="links" label="Публикации и ссылки" icon="link" :maxlength="500" placeholder="Статьи, книги, страница отряда" />
 
               <InlineNotice v-if="shownError" tone="error">{{ shownError }}</InlineNotice>
+              <InlineNotice v-else-if="confirmingSwap" tone="error">
+                Сейчас у вас роль «{{ ROLES[user.role!].title }}»: {{ ROLES[user.role!].gives.join(', ').toLowerCase() }}.
+                Если заявку на «{{ ROLES[role].title }}» одобрят, эти права заменятся на: {{ ROLES[role].gives.join(', ').toLowerCase() }}.
+                Нажмите ещё раз, если это то, что нужно.
+              </InlineNotice>
               <p v-else class="text-center font-body-sm text-body-sm text-on-surface-variant">
                 {{
                   uploading
@@ -408,7 +443,7 @@ onBeforeUnmount(dropPreview)
                 :disabled="uploading || sending"
               >
                 <MsIcon :name="sending ? 'progress_activity' : 'send'" :size="18" :class="{ 'animate-spin': sending }" />
-                <span>Отправить заявку</span>
+                <span>{{ confirmingSwap ? 'Всё равно отправить' : 'Отправить заявку' }}</span>
               </button>
             </form>
           </div>

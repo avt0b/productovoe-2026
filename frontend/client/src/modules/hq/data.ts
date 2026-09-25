@@ -28,6 +28,9 @@ export interface Squad {
   contact: string
   leader_id: string
   created_at: string
+  /** Штаб (база) отряда точкой — необязательно, до этой правки клиент их не слал и не читал. */
+  lat: number | null
+  lon: number | null
 }
 
 export interface Need {
@@ -180,6 +183,8 @@ export interface SquadDraft {
   region: string
   description: string
   contact: string
+  lat?: number | null
+  lon?: number | null
 }
 
 export function createSquad(draft: SquadDraft): Promise<Squad> {
@@ -306,6 +311,12 @@ const PLACES: { stem: string; point: LatLon }[] = [
 ]
 
 export function squadPlace(squad: Squad): LatLon | null {
+  // Настоящие координаты штаба — раньше их отряд не присылал вовсе, теперь
+  // можно поставить точку на карте (см. PlacePickerSheet.vue). Они всегда
+  // точнее угадывания по названию района.
+  if (squad.lat !== null && squad.lat !== undefined && squad.lon !== null && squad.lon !== undefined) {
+    return { lat: squad.lat, lon: squad.lon }
+  }
   const text = squad.region.toLowerCase().replaceAll('ё', 'е')
   return text ? (PLACES.find((place) => text.includes(place.stem))?.point ?? null) : null
 }
