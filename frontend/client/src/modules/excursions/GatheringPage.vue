@@ -8,6 +8,7 @@ import { geolocationProblem, useGeolocation } from '@/core/geo'
 import { useSessionStore } from '@/core/session'
 import { BumpPad, TogetherOverlay, useBump } from '@/features/bump'
 import AccountRequired from '@/ui/AccountRequired.vue'
+import ConfirmAction from '@/ui/ConfirmAction.vue'
 import InlineNotice from '@/ui/InlineNotice.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
@@ -48,7 +49,7 @@ const gathering = shallowRef<Gathering | null>(null)
 /** `setup` — ждём нажатия: разрешения на GPS и датчик спрашиваются только из нажатия. */
 const phase = ref<'setup' | 'active'>('setup')
 const opening = ref(false)
-const confirmingFinish = ref(false)
+const closing = ref(false)
 const sensorSilent = ref(false)
 const notice = ref<Notice | null>(null)
 const now = ref(Date.now())
@@ -167,12 +168,15 @@ async function openGathering(): Promise<void> {
 
 
 async function finish(): Promise<void> {
+  if (closing.value) return
+  closing.value = true
   try {
     gathering.value = await finishGathering(props.excursionId)
-    confirmingFinish.value = false
     await retry()
   } catch (reason) {
     notice.value = { tone: 'error', text: errorText(reason) }
+  } finally {
+    closing.value = false
   }
 }
 
@@ -218,6 +222,24 @@ const firstStop = computed(() => nextStop(routeStops.value, null))
 
 /** Откуда считать «ближайшие места»: где краевед сейчас, а без GPS — место сбора. */
 const pickFrom = computed(() => position.value ?? (excursion.value ? { lat: excursion.value.lat, lon: excursion.value.lon } : { lat: 52.9686, lon: 36.0694 }))
+
+/** Одна кнопка — три состояния: у краеведа она же открывает сбор. */
+const readyLabel = computed(() => {
+  if (opening.value) return 'Открываем сбор…'
+  return isGuide.value && !isOpen.value ? 'Я на месте — открыть сбор' : 'Приготовиться'
+})
+
+/**
+ * Куда поведём. Название точки идёт отдельной строкой под подписью кнопки:
+ * «Повести к точке 1: …» с длинным названием обрезалось, и краевед нажимал,
+ * не зная куда.
+ */
+const leadHint = computed(() => (firstStop.value ? `Точка 1 · ${firstStop.value.target.name}` : 'Выберите место на карте'))
+
+/** Почему «Повести группу» сейчас нажать нельзя; `null` — можно. */
+const leadBlocked = computed(() =>
+  (gathering.value?.checked_in_count ?? 0) === 0 ? 'Сначала отметьте хотя бы одного: встряхните телефоны вместе.' : null,
+)
 
 </script>
 
@@ -286,11 +308,12 @@ const pickFrom = computed(() => position.value ?? (excursion.value ? { lat: excu
           </p>
           <button
             type="button"
-            class="mt-space-xs flex w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99]"
+            class="mt-space-xs flex min-h-12 w-full items-center justify-center gap-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-70 short:py-2.5"
+            :disabled="opening"
             @click="getReady"
           >
-            <MsIcon name="sensors" :size="20" />
-            {{ isGuide && !isOpen ? 'Я на месте — открыть сбор' : 'Приготовиться' }}
+            <MsIcon :name="opening ? 'progress_activity' : 'sensors'" :size="20" :class="{ 'animate-spin': opening }" />
+            {{ readyLabel }}
           </button>
         </section>
 
@@ -328,47 +351,49 @@ const pickFrom = computed(() => position.value ?? (excursion.value ? { lat: excu
             </li>
           </ul>
 
-          <template v-if="gathering.is_open">
-            <!-- Главное действие после сбора: повести всех по маршруту или к выбранному месту. -->
-            <button
-              type="button"
-              class="flex min-h-11 items-center justify-center gap-space-xs rounded-full bg-primary-container px-space-md py-2 font-label-lg text-label-lg text-white shadow-stamp transition-colors hover:bg-primary active:scale-[0.98] disabled:opacity-60"
-              :disabled="leading || gathering.checked_in_count === 0"
-              @click="firstStop ? leadGroup(firstStop.target) : (picking = true)"
-            >
-              <MsIcon :name="leading ? 'progress_activity' : 'directions_walk'" :size="18" :class="{ 'animate-spin': leading }" />
-              <span class="truncate">{{ firstStop ? `Повести к точке 1: ${firstStop.target.name}` : 'Повести группу' }}</span>
-            </button>
-            <button
-              v-if="firstStop"
-              type="button"
-              class="self-center rounded-full px-space-md py-2 font-label-md text-label-md text-on-surface-variant active:scale-95 disabled:opacity-60"
-              :disabled="leading || gathering.checked_in_count === 0"
-              @click="picking = true"
-            >
-              Начать с другого места
-            </button>
-            <p v-if="gathering.checked_in_count === 0" class="font-body-sm text-body-sm text-on-surface-variant">
-              Сначала отметьте хотя бы одного — встряхните телефоны вместе.
-            </p>
-            <button
-              v-if="!confirmingFinish"
-              type="button"
-              class="self-start font-label-md text-label-md text-error"
-              @click="confirmingFinish = true"
-            >
-              Закрыть сбор
-            </button>
-            <div v-else class="flex gap-space-sm">
-              <button type="button" class="flex-1 rounded-full bg-surface-container-high py-2.5 font-label-md text-label-md" @click="confirmingFinish = false">
-                Ещё собираем
-              </button>
-              <button type="button" class="flex-1 rounded-full bg-error py-2.5 font-label-md text-label-md text-on-error" @click="finish">
-                Закрыть
-              </button>
-            </div>
-          </template>
+          <!-- Закрыть сбор — действие редкое и обратное главному, поэтому оно под
+               списком, а не рядом с «Повести группу»: промахнуться нельзя. -->
+          <ConfirmAction
+            v-if="gathering.is_open"
+            label="Закрыть сбор"
+            icon="event_busy"
+            tone="neutral"
+            warning="Отметиться встряской больше не выйдет. Кто уже в группе — в ней и останется, повести их можно и после закрытия сбора."
+            confirm-label="Закрыть сбор"
+            :busy="closing"
+            @confirm="finish"
+          />
         </section>
+
+        <!-- Главное действие краеведа держим под большим пальцем: список
+             отметившихся растёт, и кнопка уезжала бы всё ниже. -->
+        <div
+          v-if="isGuide && gathering?.is_open"
+          class="sticky bottom-0 z-10 -mx-margin flex flex-col gap-space-xs border-t border-outline-variant/40 bg-parchment/95 px-margin pb-space-sm pt-space-sm backdrop-blur"
+        >
+          <button
+            type="button"
+            class="flex min-h-12 w-full flex-col items-center justify-center rounded-xl bg-primary-container px-space-md py-3 shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-60 short:py-2.5"
+            :disabled="leading || leadBlocked !== null"
+            @click="firstStop ? leadGroup(firstStop.target) : (picking = true)"
+          >
+            <span class="flex items-center gap-space-xs font-label-lg text-label-lg uppercase tracking-wide text-white">
+              <MsIcon :name="leading ? 'progress_activity' : 'directions_walk'" :size="18" :class="{ 'animate-spin': leading }" />
+              Повести группу
+            </span>
+            <span class="font-label-sm text-label-sm text-white/80">{{ leadHint }}</span>
+          </button>
+          <button
+            v-if="firstStop"
+            type="button"
+            class="min-h-11 self-center rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95 disabled:opacity-60"
+            :disabled="leading || leadBlocked !== null"
+            @click="picking = true"
+          >
+            Начать с другого места
+          </button>
+          <p v-if="leadBlocked" class="text-center font-body-sm text-body-sm text-on-surface-variant">{{ leadBlocked }}</p>
+        </div>
       </template>
     </template>
 
