@@ -86,7 +86,7 @@ function onDonated() {
       <div>
         <h2 class="font-headline-lg text-headline-lg text-on-surface font-bold">Целевые сборы отрядов</h2>
         <p class="font-body-md text-body-md text-outline">
-          Прямая адресная поддержка поисковых экспедиций — данные из search_hq_service
+          Прямая адресная поддержка поисковых экспедиций
         </p>
       </div>
     </div>
@@ -95,7 +95,7 @@ function onDonated() {
       v-if="loadStatus === 'loaded' && !campaigns.length"
       class="bg-surface-container-lowest rounded-lg p-6 text-on-surface-variant font-body-md text-body-md"
     >
-      В search_hq_service пока нет денежных сборов.
+      Пока нет денежных сборов.
     </p>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">

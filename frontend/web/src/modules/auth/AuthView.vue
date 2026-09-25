@@ -49,9 +49,9 @@ async function submit() {
       // Роль по умолчанию: краеведом или наставником человека отмечают в
       // профиле, на экране регистрации выбора роли нет.
       await register({ email: contact.value, password: password.value, role: 'family' })
-      // Имя — поле user_service (display_name), а не auth_service, поэтому
-      // отдельным запросом сразу после того, как появился access-токен. Если
-      // это упадёт — регистрацию не откатываем, имя дозаполнится в профиле.
+      // Имя хранится не там же, где логин с паролем, поэтому отдельным
+      // запросом сразу после того, как появился access-токен. Если это
+      // упадёт — регистрацию не откатываем, имя дозаполнится в профиле.
       if (name.value.trim()) {
         try {
           await updateMyProfile(session.accessToken, { display_name: name.value.trim() })

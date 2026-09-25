@@ -5,8 +5,7 @@ const BASE = '/api/search'
 // Коллективные и индивидуальные заявки на экскурсии (модуль 5 ТЗ) — реальный
 // бэкенд: экскурсия создаётся гидом заранее, участник записывается на неё —
 // как один человек (organization_name пусто, group_size=1) или как группа
-// (школа/клуб указывает organization_name и group_size), см.
-// search_hq_service/api/routers/excursions.py.
+// (школа/клуб указывает organization_name и group_size).
 // Токен необязателен (GET /excursions принимает и анонимов), но если он
 // есть — каждая экскурсия вернётся с viewer.registered/viewer.is_guide,
 // без этого фронт не может честно показать «вы уже записаны».

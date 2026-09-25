@@ -22,13 +22,13 @@ onMounted(async () => {
       <div class="flex flex-col">
         <span class="font-headline-sm text-headline-sm text-on-surface">Общий мемориал</span>
         <span class="font-body-sm text-body-sm text-on-surface-variant">
-          Готовые «живые фото», которые авторы решили показать всем — media_service, GET /clips
+          Готовые «живые фото», которые авторы решили показать всем
         </span>
       </div>
     </div>
 
     <p v-if="status === 'error'" class="font-body-sm text-body-sm text-error">
-      Не удалось загрузить общий мемориал — media_service недоступен
+      Не удалось загрузить общий мемориал — попробуйте позже
     </p>
     <p v-else-if="status === 'loaded' && !clips.length" class="font-body-sm text-body-sm text-on-surface-variant">
       Здесь появятся готовые ролики, как только кто-то отметит своё «живое фото» видимым для всех —

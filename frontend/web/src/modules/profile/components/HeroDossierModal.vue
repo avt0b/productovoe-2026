@@ -8,9 +8,8 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue', 'edit'])
 
-// Та же судьба, что в HeroStatus (user_service), но со своим оформлением —
-// эта карточка читается как архивное личное дело, а не как компактный чип
-// в списке.
+// Те же статусы судьбы, что и в компактном чипе списка, но со своим
+// оформлением — эта карточка читается как архивное личное дело.
 const STATUS_META = {
   killed_in_action: { label: 'Погиб в бою', icon: 'star', class: 'bg-primary text-on-primary' },
   missing_in_action: { label: 'Пропал без вести', icon: 'help', class: 'bg-tertiary text-on-tertiary' },

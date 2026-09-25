@@ -17,7 +17,7 @@ const emit = defineEmits(['open-upload', 'point-updated'])
 
 const { session } = useAuthSession()
 
-// Совпадает с _CURATOR_ROLES в map_service — менять статус может только модератор.
+// Менять статус может только модератор — так же решает и бэкенд.
 const canCurate = computed(() => session.user?.role === 'moderator' || session.user?.is_root)
 </script>
 

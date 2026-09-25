@@ -7,7 +7,7 @@ import * as routesApi from '../api.js'
 const routes = ref([])
 const loadStatus = ref('idle') // idle | loading | loaded | error
 
-// route_service не хранит фото обложки для демо-маршрутов (cover_url пуст),
+// Бэкенд не хранит фото обложки для демо-маршрутов (cover_url пуст),
 // картинки остаются тематическими заглушками — как и раньше.
 const FALLBACK_IMAGES = [
   'https://loremflickr.com/400/300/forest,trail?lock=301',
@@ -29,7 +29,7 @@ async function load() {
         location: route.city,
         imageUrl: route.cover_url || FALLBACK_IMAGES[i % FALLBACK_IMAGES.length],
         distanceKm: route.distance_km,
-        // route_service не хранит расчётное время — прикидываем по
+        // Бэкенд не хранит расчётное время — прикидываем по
         // семейному темпу ~18 мин/км, честно помечено «~» на карточке.
         durationMin: Math.round(route.distance_km * 18),
         ageTag: route.mode === 'family' ? 'Для семьи' : 'Общий маршрут',
@@ -61,7 +61,7 @@ function openRoute(route) {
     <div class="flex items-center justify-between">
       <h2 class="font-headline-lg text-headline-lg text-on-surface font-bold">Доступные маршруты</h2>
       <span class="font-label-md text-label-md text-on-surface-variant">
-        {{ routes.length }} {{ routes.length === 1 ? 'маршрут' : 'маршрута' }} — данные из route_service
+        {{ routes.length }} {{ routes.length === 1 ? 'маршрут' : 'маршрута' }}
       </span>
     </div>
 

@@ -4,11 +4,10 @@ import DirectionsButton from '@shared/components/DirectionsButton.vue'
 import PointReviews from '@shared/components/PointReviews.vue'
 import * as api from './api.js'
 
-// «Книга памяти» — та же лента народного архива (archive_service), что и
-// «Живая память», отфильтрованная по kind=soldier_card. Публичная ручка
-// отдаёт только подтверждённые записи (EntryService.search_public) —
-// поэтому счётчики и список ниже честно считают именно то, что реально
-// пришло с бэка, без выдумки.
+// «Книга памяти» — та же лента народного архива, что и «Живая память»,
+// отфильтрованная по kind=soldier_card. Публичная ручка отдаёт только
+// подтверждённые записи — поэтому счётчики и список ниже честно считают
+// именно то, что реально пришло с бэка, без выдумки.
 const entries = ref([])
 const status = ref('idle') // idle | loading | loaded | error
 const query = ref('')
@@ -88,7 +87,7 @@ function excerpt(entry) {
       <span class="font-archival text-archival uppercase text-tertiary">Книга памяти Орловской области</span>
       <h1 class="font-headline-lg text-headline-lg text-on-surface font-bold">Архив бойцов</h1>
       <p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">
-        Погибшие и пропавшие без вести в Великую Отечественную. Записи народного архива (archive_service) —
+        Погибшие и пропавшие без вести в Великую Отечественную. Записи народного архива —
         каждую подтвердил поисковик, краевед или модератор.
       </p>
 
@@ -147,7 +146,7 @@ function excerpt(entry) {
           Загружаем архив...
         </div>
         <p v-else-if="status === 'error'" class="font-body-sm text-body-sm text-error text-center py-8">
-          Не удалось загрузить архив — archive_service недоступен
+          Не удалось загрузить архив — попробуйте позже
         </p>
         <p v-else-if="!sorted.length" class="font-body-sm text-body-sm text-on-surface-variant text-center py-8">
           {{ query ? 'По запросу ничего не нашлось.' : 'Карточек бойцов пока нет — предложите первую в «Живой памяти».' }}

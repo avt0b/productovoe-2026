@@ -66,7 +66,7 @@ function earnedAt(code) {
       </div>
       <div class="flex flex-col">
         <h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Награды и полевые значки</h2>
-        <span class="font-body-sm text-body-sm text-on-surface-variant">user_service, GET /achievements/me</span>
+        <span class="font-body-sm text-body-sm text-on-surface-variant">Начисляются автоматически за активность</span>
       </div>
     </div>
 
@@ -74,7 +74,7 @@ function earnedAt(code) {
       Войдите, чтобы увидеть свои значки.
     </p>
     <p v-else-if="status === 'error'" class="font-body-sm text-body-sm text-error">
-      Не удалось загрузить значки — user_service недоступен
+      Не удалось загрузить значки — попробуйте позже
     </p>
 
     <div v-else-if="status === 'loaded'" class="grid grid-cols-2 sm:grid-cols-4 gap-4">

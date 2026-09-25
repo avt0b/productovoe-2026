@@ -4,8 +4,8 @@ const BASE = '/api/routes/routes'
 const POI_BASE = '/api/map/poi'
 const ARCHIVE_ENTRIES_BASE = '/api/archive/entries'
 
-// Слой «ВОВ» (map_service): захоронения, памятники, места боёв и т.д.
-// Ручка публичная, токен не нужен (map_service/api/routers/poi.py list_poi).
+// Слой «ВОВ»: захоронения, памятники, места боёв и т.д. Ручка публичная,
+// токен не нужен.
 export function listPoi(kind) {
   const params = kind ? `?kind=${kind}&limit=200` : '?limit=200'
   return http.get(`${POI_BASE}${params}`)
@@ -27,10 +27,9 @@ export function getRouteDetail(routeId) {
 // мобильном приложении (frontend/client, там же GPS/AR/NFC для точки на
 // месте). На web остаётся только просмотр маршрута для планирования.
 
-// archive_service: «народный архив» — неподтверждённые записи в прямоугольнике
-// вокруг маршрута, витрина для подсказки «рядом есть неподтверждённая заметка,
-// помоги проверить» (entries.py: GET /entries/nearby-pending). Публичная ручка,
-// токен не нужен.
+// «Народный архив» — неподтверждённые записи в прямоугольнике вокруг
+// маршрута, витрина для подсказки «рядом есть неподтверждённая заметка,
+// помоги проверить». Публичная ручка, токен не нужен.
 export function listNearbyPendingEntries({ minLat, minLon, maxLat, maxLon }) {
   const params = new URLSearchParams({
     min_lat: minLat,
@@ -42,7 +41,7 @@ export function listNearbyPendingEntries({ minLat, minLon, maxLat, maxLon }) {
   return http.get(`${ARCHIVE_ENTRIES_BASE}/nearby-pending?${params}`)
 }
 
-// Проверить может поисковик/краевед/наставник/модератор (EntryService.VERIFIER_ROLES).
+// Проверить может поисковик/краевед/наставник/модератор.
 export function verifyArchiveEntry(token, entryId, note = '') {
   return http.post(`${ARCHIVE_ENTRIES_BASE}/${entryId}/verify`, { note }, { token })
 }

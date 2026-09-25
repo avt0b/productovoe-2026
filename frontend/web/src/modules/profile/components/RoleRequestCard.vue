@@ -7,16 +7,13 @@ import { uploadVerificationDocument } from '../api.js'
 const { session } = useAuthSession()
 const { profile } = useProfileStore()
 
-// Роли реально разное разблокируют на бэке (permissions.py в каждом
-// сервисе): поисковик — создаёт отряд и заявки на сбор/выезд
-// (SQUAD_CREATOR_ROLES), краевед — ведёт экскурсии (GUIDE_ROLES); точки на
-// карте и подтверждение записей «Живой памяти» доступны обеим ролям
-// (_CONTRIBUTOR_ROLES/VERIFIER_ROLES). Но самой роли в auth_service (Role)
-// назначает только root через PATCH /admin/ops/users/{id}/role (админка,
-// frontend/admin) — очереди заявок «пользователь просит роль, модератор
-// подтверждает» на бэке нет вообще. Поэтому это, как и заявка краеведа
-// раньше, честный фронтовый черновик: документ реально грузится в
-// media_service, а сам факт заявки — только в этом браузере (ДЕМО).
+// Роли реально разное разблокируют на бэке: поисковик — создаёт отряд и
+// заявки на сбор/выезд, краевед — ведёт экскурсии; точки на карте и
+// подтверждение записей «Живой памяти» доступны обеим ролям. Но саму роль
+// назначает только администратор через админку — очереди заявок
+// «пользователь просит роль, модератор подтверждает» на бэке нет вообще.
+// Поэтому это честный фронтовый черновик: документ реально загружается, а
+// сам факт заявки — только в этом браузере (ДЕМО).
 const ROLES = [
   {
     id: 'local_historian',
@@ -152,7 +149,7 @@ function docTypeLabel(role, id) {
         </div>
         <div class="flex flex-col min-w-0">
           <h2 class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">Заявка на роль: {{ activeRole.label }}</h2>
-          <span class="font-body-sm text-body-sm text-on-surface-variant">auth_service, Role — свайпните карточку для другой роли</span>
+          <span class="font-body-sm text-body-sm text-on-surface-variant">Свайпните карточку для другой роли</span>
         </div>
       </div>
       <div class="flex items-center gap-1 shrink-0">

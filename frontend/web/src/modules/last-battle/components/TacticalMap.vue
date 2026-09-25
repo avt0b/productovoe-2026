@@ -77,7 +77,7 @@ const mapRef = ref(null)
         <div class="min-w-0">
           <span class="font-headline-sm text-headline-sm text-on-surface font-bold">Карта «Последний бой»</span>
           <p class="font-body-sm text-body-sm text-on-surface-variant truncate">
-            Орловская область • данные из map_service, клик по метке открывает досье
+            Орловская область • клик по метке открывает досье
           </p>
         </div>
       </div>

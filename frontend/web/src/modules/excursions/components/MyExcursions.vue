@@ -91,12 +91,12 @@ function openRating(ex) {
       <span class="material-symbols-outlined text-primary text-[22px]">event_available</span>
       <div class="flex flex-col">
         <span class="font-headline-sm text-headline-sm text-on-surface">Мои экскурсии</span>
-        <span class="font-body-sm text-body-sm text-on-surface-variant">search_hq_service, GET /excursions/mine</span>
+        <span class="font-body-sm text-body-sm text-on-surface-variant">Экскурсии, куда вы записаны</span>
       </div>
     </div>
 
     <p v-if="status === 'error'" class="font-body-sm text-body-sm text-error">
-      Не удалось загрузить ваши экскурсии — search_hq_service недоступен
+      Не удалось загрузить ваши экскурсии — попробуйте позже
     </p>
 
     <template v-else-if="status === 'loaded'">

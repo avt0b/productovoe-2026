@@ -10,8 +10,7 @@ const emit = defineEmits(['updated'])
 
 const { session } = useAuthSession()
 
-// Совпадает с _CURATOR_ROLES в map_service/services/last_stand_service.py —
-// менять статус может только модератор (или is_root).
+// Менять статус может только модератор (или is_root) — так же решает и бэкенд.
 const STEPS = [
   { id: 'discovered', label: 'Обнаружено' },
   { id: 'archive_confirmed', label: 'Подтверждено архивом' },
