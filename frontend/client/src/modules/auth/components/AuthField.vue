@@ -12,15 +12,8 @@ withDefaults(
     placeholder?: string
     type?: 'text' | 'password' | 'email'
     autocomplete?: string
-    /**
-     * Какую клавиатуру открыть на телефоне. Для чисел — `numeric` при
-     * `type="text"`, а не `type="number"`: у того колесо мыши меняет
-     * значение и пропускается буква «e».
-     */
-    inputmode?: 'text' | 'numeric' | 'email'
-    maxlength?: number
   }>(),
-  { type: 'text', placeholder: '', autocomplete: 'off', inputmode: undefined, maxlength: undefined },
+  { type: 'text', placeholder: '', autocomplete: 'off' },
 )
 
 defineSlots<{
@@ -49,8 +42,6 @@ const id = useId()
         :type="type"
         :placeholder="placeholder"
         :autocomplete="autocomplete"
-        :inputmode="inputmode"
-        :maxlength="maxlength"
         class="w-full border-none bg-transparent font-body-md text-body-md text-white outline-none placeholder:text-white/45 focus-visible:ring-0 focus-visible:ring-offset-0"
       />
       <slot name="trailing" />

@@ -46,28 +46,11 @@ const submitting = ref(false)
 const submitLabel = computed(() => (mode.value === 'login' ? 'Войти в экспедицию' : 'Создать аккаунт'))
 
 /**
- * Возраст спрашиваем только затем, чтобы выставить детский режим: в сервисах
- * такого поля нет, никуда он не уходит. Младше 14 — режим включается сам,
- * 14 и старше — выключается. Ползунок рядом можно поправить руками, а потом
- * тот же режим переключают в профиле.
+ * Детский режим решает сам человек при регистрации — не спрашиваем возраст,
+ * просто даём переключатель. Потом его же можно поправить в профиле.
  */
-const KID_AGE_LIMIT = 14
 const preferences = usePreferencesStore()
-const age = ref('')
 const kidMode = ref(preferences.familyMode)
-const ageYears = computed(() => {
-  const years = Number(age.value)
-  return age.value && Number.isInteger(years) && years >= 1 && years <= 120 ? years : null
-})
-watch(age, (value) => {
-  // Только цифры: буква в поле возраста — опечатка, а не ответ.
-  const digits = value.replace(/\D/g, '').slice(0, 3)
-  if (digits !== value) age.value = digits
-})
-// Возраст решает заново при каждой правке — ручной выбор ползунком живёт до неё.
-watch(ageYears, (years) => {
-  if (years !== null) kidMode.value = years < KID_AGE_LIMIT
-})
 
 /** VK ID, Яндекс ID, MAX, Госуслуги: что включено на сервере. Не ответил — кнопки недоступны. */
 const providers = useAsync(async () => {
@@ -114,11 +97,6 @@ function landing(): RouteLocationRaw {
 async function submit(): Promise<void> {
   if (submitting.value) return
   const registering = mode.value === 'register'
-  // Демо-вход (пустые почта и пароль) аккаунта не заводит — возраст ему не нужен.
-  if (registering && (contact.value.trim() || password.value) && ageYears.value === null) {
-    signInError.value = 'Укажите возраст цифрами — по нему включится или выключится детский режим'
-    return
-  }
   submitting.value = true
   signInError.value = null
   try {
@@ -276,36 +254,23 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
           :inert="mode !== 'register'"
         >
           <!--
-            Экран входа зажат в высоту телефона без прокрутки: имя и возраст —
-            одной строкой, детский режим — короткой плашкой, а подсказка про
-            демо-вход на этой вкладке схлопывается. Иначе на низком экране
-            регистрация выталкивала бы кнопки за нижний край.
+            Экран входа зажат в высоту телефона без прокрутки: детский режим —
+            короткой плашкой сразу под именем, а подсказка про демо-вход на
+            этой вкладке схлопывается. Иначе на низком экране регистрация
+            выталкивала бы кнопки за нижний край.
           -->
           <div class="overflow-hidden">
-            <div class="mb-space-sm flex items-start gap-space-md">
-              <AuthField
-                v-model="name"
-                class="min-w-0 flex-1"
-                label="Как к вам обращаться"
-                icon="person"
-                placeholder="Имя и фамилия"
-                autocomplete="name"
-              />
-              <AuthField
-                v-model="age"
-                class="w-20 shrink-0"
-                label="Возраст"
-                icon="calendar_month"
-                placeholder="Лет"
-                inputmode="numeric"
-                :maxlength="3"
-              />
-            </div>
+            <AuthField
+              v-model="name"
+              class="mb-space-sm"
+              label="Как к вам обращаться"
+              icon="person"
+              placeholder="Имя и фамилия"
+              autocomplete="name"
+            />
 
             <div class="mb-space-sm flex items-center justify-between gap-space-sm rounded-xl border border-white/15 bg-white/10 px-space-sm py-1.5">
-              <p class="min-w-0 truncate font-label-md text-label-md text-white">
-                Детский режим <span class="font-label-sm text-label-sm text-white/60">· до {{ KID_AGE_LIMIT }} лет</span>
-              </p>
+              <p class="min-w-0 truncate font-label-md text-label-md text-white">Детский режим</p>
               <ToggleSwitch v-model="kidMode" label="Детский режим" />
             </div>
           </div>
