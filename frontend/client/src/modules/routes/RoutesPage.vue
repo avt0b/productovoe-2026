@@ -347,6 +347,7 @@ function openStop(stop: RouteStop): void {
           :error="null"
           empty
           empty-icon="route"
+          empty-mascot="search"
           empty-text="Опубликованных семейных маршрутов пока нет"
         />
 

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useSessionStore } from '@/core/session'
+import Mascot from '@/ui/Mascot.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import SheetDialog from '@/ui/SheetDialog.vue'
 
@@ -53,13 +54,8 @@ function later(): void {
     @close="later"
   >
     <div class="flex flex-col gap-space-md pb-space-sm">
-      <div class="flex items-start gap-space-sm rounded-2xl bg-surface-container-low p-space-md">
-        <span
-          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-primary"
-          aria-hidden="true"
-        >
-          <MsIcon name="explore" :size="20" />
-        </span>
+      <div class="flex items-center gap-space-sm rounded-2xl bg-surface-container-low p-space-md">
+        <Mascot pose="wave" :size="112" class="-my-space-sm" />
         <p class="font-body-md text-body-md text-on-surface">
           Маршруты по местам боёв, экскурсии с краеведами, народный архив и помощь поисковым отрядам — всё это разные
           разделы. Покажем, где что, и с чего начать именно вам.

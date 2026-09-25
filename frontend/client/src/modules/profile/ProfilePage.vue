@@ -7,6 +7,7 @@ import { usePreferencesStore } from '@/core/preferences'
 import { useSessionStore } from '@/core/session'
 import { fetchNotifications } from '@/features/notifications/api'
 import AccountRequired from '@/ui/AccountRequired.vue'
+import Mascot from '@/ui/Mascot.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
@@ -136,16 +137,18 @@ const counters = computed<HeroCounter[]>(() => [
 
       <SettingsSection :profile="data?.profile ?? null" :squads="data?.squads ?? []" @saved="applyProfile" />
 
+      <!-- Совёнок-следопыт: он же ведёт обучение, по нему эту строку и находят. -->
       <button
         v-if="router.hasRoute('onboarding')"
         type="button"
-        class="flex items-center gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md text-left shadow-document active:scale-[0.99]"
+        class="flex items-center gap-space-sm rounded-2xl bg-surface-container-lowest py-space-sm pl-space-sm pr-space-md text-left shadow-document active:scale-[0.99]"
         @click="router.push({ name: 'onboarding' })"
       >
-        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
-          <MsIcon name="help" :size="20" />
+        <Mascot pose="point" :size="72" />
+        <span class="min-w-0 flex-1">
+          <span class="block font-label-lg text-label-lg text-on-surface">Как пользоваться приложением</span>
+          <span class="block font-body-sm text-body-sm text-on-surface-variant">Обучение по шагам и шпаргалка</span>
         </span>
-        <span class="min-w-0 flex-1 font-label-lg text-label-lg text-on-surface">Как пользоваться приложением</span>
         <MsIcon name="chevron_right" :size="20" class="shrink-0 text-on-surface-variant" />
       </button>
 

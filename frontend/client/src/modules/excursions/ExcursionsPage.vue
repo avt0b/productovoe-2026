@@ -118,6 +118,7 @@ const TABS: { value: Tab; title: string }[] = [
       :error="error"
       :empty="!data?.length"
       empty-icon="groups"
+      empty-mascot="watch"
       :empty-text="tab === 'mine' ? 'Вы пока не записаны ни на одну экскурсию' : 'Ближайших экскурсий пока нет'"
       @retry="retry"
     >

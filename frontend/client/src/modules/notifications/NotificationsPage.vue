@@ -74,6 +74,7 @@ async function open(item: AppNotification): Promise<void> {
         :error="error"
         :empty="!loading && !error && !items.length"
         empty-icon="notifications"
+        empty-mascot="watch"
         empty-text="Уведомлений пока нет"
         @retry="retry"
       >
