@@ -167,6 +167,7 @@ async function removeRoute(): Promise<void> {
         :paths="paths"
         :center="nextPoint"
         label="Точки маршрута по порядку"
+        expandable
         class="h-56 w-full rounded-2xl shadow-document short:h-44"
       />
 

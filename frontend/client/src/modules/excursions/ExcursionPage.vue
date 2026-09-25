@@ -244,7 +244,13 @@ function openWalk(): void {
         </p>
       </div>
 
-      <GeoMap v-model:selected="selectedPoint" :markers="markers" :paths="routePaths" class="h-44 w-full rounded-2xl shadow-document" />
+      <GeoMap
+        v-model:selected="selectedPoint"
+        :markers="markers"
+        :paths="routePaths"
+        expandable
+        class="h-44 w-full rounded-2xl shadow-document"
+      />
 
       <!-- Маршрут после сбора: куда краевед поведёт группу и что там будет. -->
       <section v-if="stops.length" class="flex flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
