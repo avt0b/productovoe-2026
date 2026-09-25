@@ -111,8 +111,54 @@ def test_process_one_marks_failed_on_network_error(monkeypatch):
     )
 
     assert worker.process_one() is True
-    assert calls["failed"][0] == "clip-1"
-    assert "ConnectError" in calls["failed"][1]
+    assert calls["failed"] == (
+        "clip-1",
+        "Озвучка текста (Yandex SpeechKit): не удалось подключиться к сервису",
+    )
+
+
+def test_failed_step_and_rejected_key_are_named(monkeypatch):
+    import httpx
+
+    calls = {}
+    monkeypatch.setattr(worker.media_service, "claim_next", lambda: dict(CLIP))
+    monkeypatch.setattr(worker.speechkit, "synthesize", lambda text, voice: b"WAV")
+    monkeypatch.setattr(worker, "_fetch_photo", lambda url: b"JPEG")
+
+    def rejected(**kw):
+        request = httpx.Request("POST", "https://api.ranvik.ru/v1/videos/generations")
+        response = httpx.Response(401, request=request)
+        raise httpx.HTTPStatusError("401", request=request, response=response)
+
+    monkeypatch.setattr(worker.ranvik, "animate", rejected)
+    monkeypatch.setattr(
+        worker.media_service,
+        "mark_failed",
+        lambda clip_id, *, error: calls.setdefault("failed", error),
+    )
+
+    worker.process_one()
+
+    assert calls["failed"] == "Оживление фото (Ranvik): сервис не принял ключ доступа (401)"
+
+
+def test_own_photo_is_read_from_storage_not_downloaded(monkeypatch):
+    monkeypatch.setattr(worker.storage, "own_object", lambda url: ("media", "a/photo.jpg"))
+    monkeypatch.setattr(worker.storage, "read_object", lambda bucket, key: f"{bucket}:{key}".encode())
+
+    def no_http(url):
+        raise AssertionError("своё фото нельзя качать по публичной ссылке")
+
+    monkeypatch.setattr(worker, "_download", no_http)
+
+    assert worker._fetch_photo("https://example.ru/storage/media/a/photo.jpg") == b"media:a/photo.jpg"
+
+
+def test_foreign_photo_is_downloaded(monkeypatch):
+    monkeypatch.setattr(worker.storage, "own_object", lambda url: None)
+    monkeypatch.setattr(worker, "_download", lambda url: b"HTTP:" + url.encode())
+
+    assert worker._fetch_photo("https://upload.wikimedia.org/x.jpg") == b"HTTP:https://upload.wikimedia.org/x.jpg"
 
 
 def test_voice_style_falls_back_to_neutral_for_unknown_code():

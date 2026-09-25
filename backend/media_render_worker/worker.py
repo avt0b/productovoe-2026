@@ -29,13 +29,19 @@ def process_one() -> bool:
         return False
 
     clip_id = clip["id"]
+    # Какой шаг идёт — чтобы в ошибке было видно, что именно сломалось, а не
+    # «HTTPStatusError» без подробностей.
+    step = "Озвучка текста (Yandex SpeechKit)"
     try:
         text = _limit_narration(clip["narration_text"], settings.max_narration_chars)
         voice = speechkit.synthesize(text, clip["voice_style"])
+        step = "Загрузка фото героя"
         # Фото качаем сами и шлём данными: Ranvik не нужен доступ к нашему MinIO.
-        photo = _download(clip["source_photo_url"])
+        photo = _fetch_photo(clip["source_photo_url"])
 
+        step = "Оживление фото (Ranvik)"
         video_bytes = ranvik.animate(photo=photo, voice_wav=voice)
+        step = "Сохранение ролика"
         video_url = storage.upload_video(clip_id=clip_id, content=video_bytes)
 
         media_service.mark_ready(clip_id, video_url=video_url)
@@ -44,11 +50,38 @@ def process_one() -> bool:
         media_service.mark_failed(clip_id, error=str(exc))
         logger.warning("Клип %s: рендер не удался: %s", clip_id, exc)
     except httpx.HTTPError as exc:
-        media_service.mark_failed(
-            clip_id, error=f"Ошибка внешнего сервиса: {exc.__class__.__name__}"
-        )
-        logger.warning("Клип %s: сетевая ошибка при рендере: %s", clip_id, exc)
+        error = f"{step}: {_describe_http_error(exc)}"
+        media_service.mark_failed(clip_id, error=error)
+        logger.warning("Клип %s: %s (%s: %s)", clip_id, error, exc.__class__.__name__, exc)
     return True
+
+
+def _describe_http_error(exc: httpx.HTTPError) -> str:
+    """Почему не ответил внешний сервис — словами, которые поймёт автор клипа."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        if status in (401, 403):
+            return f"сервис не принял ключ доступа ({status})"
+        if status == 402:
+            return "на счёте сервиса закончились деньги (402)"
+        if status == 429:
+            return "сервис перегружен запросами, попробуйте позже (429)"
+        if status >= 500:
+            return f"сбой на стороне сервиса ({status}), попробуйте позже"
+        return f"сервис ответил ошибкой {status}"
+    if isinstance(exc, httpx.TimeoutException):
+        return "сервис не ответил вовремя"
+    if isinstance(exc, httpx.TransportError):
+        return "не удалось подключиться к сервису"
+    return exc.__class__.__name__
+
+
+def _fetch_photo(url: str) -> bytes:
+    """Фото из нашего MinIO читаем по S3 изнутри сети, чужое — качаем по ссылке."""
+    own = storage.own_object(url)
+    if own is not None:
+        return storage.read_object(*own)
+    return _download(url)
 
 
 def _limit_narration(text: str, max_chars: int) -> str:
