@@ -5,6 +5,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -38,6 +39,11 @@ class VolunteerTrip(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     location: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    # Место сбора выезда на карте. Не то же, что штаб отряда (`Squad.lat/lon`):
+    # отряд базируется в городе, а собираются у деревни, до которой ехать час.
+    # Необязательны: командир объявляет выезд заранее, а место уточняет потом.
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
     starts_on: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     capacity: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)

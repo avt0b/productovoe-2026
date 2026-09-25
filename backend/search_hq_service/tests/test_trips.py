@@ -165,3 +165,33 @@ def test_cancel_trip_notifies_registered_and_blocks_further_actions(client, lead
         client.patch(f"/trips/{trip['id']}", headers=leader_header, json={"title": "x"}).status_code
         == 409
     )
+
+
+def test_trip_keeps_meeting_point(client, leader_header):
+    """Место сбора выезда — своя точка, а не штаб отряда: отряд базируется в
+    городе, а собираются у деревни, до которой ехать час."""
+    squad = make_squad(client, leader_header)
+    trip = make_trip(client, leader_header, squad["id"], lat=53.0781, lon=36.1203).json()
+    assert (trip["lat"], trip["lon"]) == (53.0781, 36.1203)
+
+    # Место уточнили позже — правится как остальные поля выезда.
+    moved = client.patch(
+        f"/trips/{trip['id']}", headers=leader_header, json={"lat": 53.08, "lon": 36.13}
+    )
+    assert moved.status_code == 200
+    assert (moved.json()["lat"], moved.json()["lon"]) == (53.08, 36.13)
+
+    # В списке координаты тоже есть — по ним выезд ставят на карту.
+    listed = next(t for t in client.get("/trips").json() if t["id"] == trip["id"])
+    assert (listed["lat"], listed["lon"]) == (53.08, 36.13)
+
+
+def test_trip_without_meeting_point_is_fine(client, leader_header):
+    squad = make_squad(client, leader_header)
+    trip = make_trip(client, leader_header, squad["id"]).json()
+    assert trip["lat"] is None and trip["lon"] is None
+
+
+def test_trip_meeting_point_out_of_range_is_422(client, leader_header):
+    squad = make_squad(client, leader_header)
+    assert make_trip(client, leader_header, squad["id"], lat=91, lon=36.1).status_code == 422

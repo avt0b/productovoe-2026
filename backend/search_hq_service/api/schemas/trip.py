@@ -2,12 +2,19 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from typing import Annotated
+
 from core.models import RegistrationStatus, TripStatus
+
+Lat = Annotated[float, Field(ge=-90, le=90)]
+Lon = Annotated[float, Field(ge=-180, le=180)]
 
 
 class TripCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     location: str = Field(default="", max_length=255)
+    lat: Lat | None = None
+    lon: Lon | None = None
     starts_on: date
     capacity: int = Field(default=10, ge=1, le=1000)
     description: str = ""
@@ -17,6 +24,8 @@ class TripCreate(BaseModel):
 class TripUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     location: str | None = Field(default=None, max_length=255)
+    lat: Lat | None = None
+    lon: Lon | None = None
     starts_on: date | None = None
     capacity: int | None = Field(default=None, ge=1, le=1000)
     description: str | None = None
@@ -37,6 +46,8 @@ class TripOut(BaseModel):
     squad_id: str
     title: str
     location: str
+    lat: float | None
+    lon: float | None
     starts_on: date
     capacity: int
     description: str

@@ -19,7 +19,7 @@ def test_old_trips_table_gets_new_columns(client):
     ensure_added_columns(engine)  # повторный запуск сервиса ничего не ломает
 
     columns = {column["name"] for column in inspect(engine).get_columns("volunteer_trips")}
-    assert {"status", "cancel_reason"} <= columns
+    assert {"status", "cancel_reason", "lat", "lon"} <= columns
     with engine.connect() as conn:
         status, reason = conn.execute(text("SELECT status, cancel_reason FROM volunteer_trips")).one()
     assert (status, reason) == ("planned", "")

@@ -42,6 +42,8 @@ def init_db() -> None:
 _ADDED_COLUMNS = (
     ("volunteer_trips", "status", "VARCHAR(16) NOT NULL DEFAULT 'planned'"),
     ("volunteer_trips", "cancel_reason", "VARCHAR(500) NOT NULL DEFAULT ''"),
+    ("volunteer_trips", "lat", "FLOAT"),
+    ("volunteer_trips", "lon", "FLOAT"),
     ("squads", "kind", "VARCHAR(16) NOT NULL DEFAULT 'squad'"),
 )
 
