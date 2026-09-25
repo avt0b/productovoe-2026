@@ -132,13 +132,15 @@ function confirm(): void {
       </button>
       <InlineNotice v-if="geolocationProblem(status)" tone="error">{{ geolocationProblem(status) }}</InlineNotice>
 
-      <GeoMap
-        :markers="markers"
-        :center="point ?? OREL_CENTER"
-        class="h-64 w-full overflow-hidden rounded-2xl"
-        label="Тап по карте ставит точку"
-        @pick="pick"
-      />
+      <Transition appear name="map-in">
+        <GeoMap
+          :markers="markers"
+          :center="point ?? OREL_CENTER"
+          class="h-64 w-full overflow-hidden rounded-2xl"
+          label="Тап по карте ставит точку"
+          @pick="pick"
+        />
+      </Transition>
 
       <button
         type="button"
@@ -152,3 +154,25 @@ function confirm(): void {
     </div>
   </SheetDialog>
 </template>
+
+<style scoped>
+/* Карта — не мгновенно, а проявляется: заметнее на первом открытии экрана, чем резкий скачок плиток. */
+.map-in-enter-active {
+  transition:
+    opacity 320ms ease-out,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.map-in-enter-from {
+  opacity: 0;
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-in-enter-active {
+    transition: opacity 150ms linear;
+  }
+  .map-in-enter-from {
+    transform: none;
+  }
+}
+</style>

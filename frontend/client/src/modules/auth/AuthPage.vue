@@ -4,6 +4,7 @@ import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 
 import { useAsync } from '@/core/async'
 import { errorText } from '@/core/format'
+import { usePreferencesStore } from '@/core/preferences'
 import {
   clearPendingLogin,
   completeExternalLogin,
@@ -14,6 +15,7 @@ import {
   type PendingLogin,
 } from '@/core/session'
 import MsIcon from '@/ui/MsIcon.vue'
+import ToggleSwitch from '@/ui/ToggleSwitch.vue'
 
 import AuthField from './components/AuthField.vue'
 import SsoButtons from './components/SsoButtons.vue'
@@ -42,6 +44,13 @@ watch(signInError, (value) => {
 const submitting = ref(false)
 
 const submitLabel = computed(() => (mode.value === 'login' ? 'Войти в экспедицию' : 'Создать аккаунт'))
+
+/**
+ * Детский режим решает сам человек при регистрации — не спрашиваем возраст,
+ * просто даём переключатель. Потом его же можно поправить в профиле.
+ */
+const preferences = usePreferencesStore()
+const kidMode = ref(preferences.familyMode)
 
 /** VK ID, Яндекс ID, MAX, Госуслуги: что включено на сервере. Не ответил — кнопки недоступны. */
 const providers = useAsync(async () => {
@@ -87,15 +96,18 @@ function landing(): RouteLocationRaw {
 /** Вход по почте и регистрация. Удачный исход ведёт в профиль исследователя. */
 async function submit(): Promise<void> {
   if (submitting.value) return
+  const registering = mode.value === 'register'
   submitting.value = true
   signInError.value = null
   try {
     await session.signIn({
-      method: mode.value === 'login' ? 'password' : 'register',
+      method: registering ? 'register' : 'password',
       contact: contact.value,
       password: password.value,
-      name: mode.value === 'register' ? name.value : undefined,
+      name: registering ? name.value : undefined,
     })
+    // Только после удачной регистрации: не вышло — настройку не трогаем.
+    if (registering) preferences.familyMode = kidMode.value
     await router.replace(landing())
   } catch (reason) {
     signInError.value = errorText(reason)
@@ -241,6 +253,11 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
           :class="mode === 'register' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
           :inert="mode !== 'register'"
         >
+          <!--
+            Экран входа зажат в высоту телефона без прокрутки: подсказка про
+            демо-вход на этой вкладке схлопывается, иначе на низком экране
+            регистрация выталкивала бы кнопки за нижний край.
+          -->
           <div class="overflow-hidden">
             <AuthField
               v-model="name"
@@ -284,6 +301,19 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
           </template>
         </AuthField>
 
+        <div
+          class="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+          :class="mode === 'register' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+          :inert="mode !== 'register'"
+        >
+          <div class="overflow-hidden">
+            <div class="mb-space-md flex items-center justify-between gap-space-sm rounded-xl border border-white/15 bg-white/10 px-space-sm py-1.5">
+              <p class="min-w-0 truncate font-label-md text-label-md text-white">Детский режим</p>
+              <ToggleSwitch v-model="kidMode" label="Детский режим" />
+            </div>
+          </div>
+        </div>
+
         <button
           type="submit"
           class="flex w-full items-center justify-center space-x-space-sm rounded-xl bg-primary-container py-3.5 font-label-lg text-label-lg uppercase tracking-wide text-white shadow-stamp transition-all hover:bg-primary active:scale-[0.99] disabled:opacity-70 short:py-2.5"
@@ -322,8 +352,8 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
 
         <div
           class="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
-          :class="signInError ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'"
-          :inert="signInError !== null"
+          :class="signInError || mode === 'register' ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'"
+          :inert="signInError !== null || mode === 'register'"
         >
           <div class="overflow-hidden">
             <p class="mt-space-sm text-center font-label-sm text-label-sm text-white/75">

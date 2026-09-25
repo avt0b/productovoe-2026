@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
+import { plural } from '@/core/format'
 import MsIcon from '@/ui/MsIcon.vue'
 
 import { ACHIEVEMENTS, type Achievement, type MyEntry, type MyTrip } from '../data'
@@ -58,14 +59,16 @@ const earnedCount = computed(() => earnedCodes.value.size)
 
 interface Rank {
   title: string
+  /** Родительный падеж — для «До «…» — ещё N значков», именительный сюда не встаёт. */
+  titleGenitive: string
   icon: string
 }
 
 /** Пороги — доля собранных значков, не абсолютные числа: набор роли и без роли разного размера. */
 const RANKS: readonly (Rank & { atLeast: number })[] = [
-  { atLeast: 0, title: 'Юный следопыт', icon: 'explore' },
-  { atLeast: 0.34, title: 'Разведчик', icon: 'travel_explore' },
-  { atLeast: 0.7, title: 'Хранитель памяти', icon: 'military_tech' },
+  { atLeast: 0, title: 'Юный следопыт', titleGenitive: 'Юного следопыта', icon: 'explore' },
+  { atLeast: 0.34, title: 'Разведчик', titleGenitive: 'Разведчика', icon: 'travel_explore' },
+  { atLeast: 0.7, title: 'Хранитель памяти', titleGenitive: 'Хранителя памяти', icon: 'military_tech' },
 ]
 
 const progress = computed(() => (totalCount.value ? earnedCount.value / totalCount.value : 0))
@@ -157,13 +160,56 @@ watch(
   },
   { immediate: true },
 )
+
+// --- серия посещений ---
+
+const STREAK_KEY = 'marshruty.client.visit-streak'
+
+/** Локальный календарный день, `YYYY-MM-DD` — не UTC-полночь, иначе вечером день сменился бы раньше времени. */
+function today(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function daysBetween(a: string, b: string): number {
+  return Math.round((new Date(`${b}T00:00:00`).getTime() - new Date(`${a}T00:00:00`).getTime()) / 86_400_000)
+}
+
+/**
+ * Считаем только заходы в приложение — честная активность на этом
+ * устройстве, а не выдуманные очки. Пропустили день — серия начинается
+ * заново с одного, а не обнуляется в ноль: сегодняшний визит уже состоялся.
+ */
+function bumpStreak(): number {
+  try {
+    const raw = localStorage.getItem(STREAK_KEY)
+    const stored = raw ? (JSON.parse(raw) as { date: string; count: number }) : null
+    const now = today()
+    if (stored?.date === now) return stored.count
+    const count = stored && daysBetween(stored.date, now) === 1 ? stored.count + 1 : 1
+    localStorage.setItem(STREAK_KEY, JSON.stringify({ date: now, count }))
+    return count
+  } catch {
+    return 1 // приватный режим — серию не запомнить, но сегодняшний визит честно один
+  }
+}
+
+const streak = ref(bumpStreak())
+const streakLabel = computed(() => `${streak.value} ${plural(streak.value, ['день', 'дня', 'дней'])} подряд`)
 </script>
 
 <template>
   <section class="relative flex flex-col gap-space-sm">
-    <div>
-      <p class="font-archival text-archival uppercase text-on-surface-variant">Игра следопыта</p>
-      <h2 class="font-headline-md text-headline-md text-on-surface">Звание и задание дня</h2>
+    <div class="flex items-end justify-between gap-space-sm">
+      <div>
+        <p class="font-archival text-archival uppercase text-on-surface-variant">Игра следопыта</p>
+        <h2 class="font-headline-md text-headline-md text-on-surface">Звание и задание дня</h2>
+      </div>
+      <!-- Заходы подряд на этом устройстве — честная и простая причина открыть приложение снова завтра. -->
+      <span v-if="streak > 1" class="flex shrink-0 items-center gap-1 rounded-full bg-tertiary-fixed px-2.5 py-1 font-label-sm text-label-sm text-on-tertiary-fixed">
+        <MsIcon name="event_available" :size="14" filled />
+        {{ streakLabel }}
+      </span>
     </div>
 
     <div class="flex flex-col gap-space-md rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
@@ -174,7 +220,7 @@ watch(
         <div class="min-w-0 flex-1">
           <p class="font-headline-sm text-headline-sm text-on-surface">{{ rank.title }}</p>
           <p class="font-body-sm text-body-sm text-on-surface-variant">
-            {{ toNext ? `До «${nextRank!.title}» — ещё ${toNext} ${toNext === 1 ? 'значок' : 'значка'}` : 'Высшее звание — все значки собраны' }}
+            {{ toNext ? `До «${nextRank!.titleGenitive}» — ещё ${toNext} ${plural(toNext, ['значок', 'значка', 'значков'])}` : 'Высшее звание — все значки собраны' }}
           </p>
         </div>
       </div>

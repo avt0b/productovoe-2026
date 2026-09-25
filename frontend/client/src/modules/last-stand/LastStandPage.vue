@@ -288,17 +288,19 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
 
       <StatusFilters v-model="visibleStatuses" :counts="counts" />
 
-      <GeoMap
-        v-model:selected="selectedId"
-        :markers="markers"
-        :circles="circles"
-        :user="userPosition"
-        :locating="geoStatus === 'locating'"
-        label="Орловская область"
-        expandable
-        class="h-80 w-full rounded-2xl shadow-document short:h-64"
-        @locate="startLocating"
-      />
+      <Transition appear name="map-in">
+        <GeoMap
+          v-model:selected="selectedId"
+          :markers="markers"
+          :circles="circles"
+          :user="userPosition"
+          :locating="geoStatus === 'locating'"
+          label="Орловская область"
+          expandable
+          class="h-80 w-full rounded-2xl shadow-document short:h-64"
+          @locate="startLocating"
+        />
+      </Transition>
 
       <InlineNotice v-if="geoProblem" tone="info" icon="location_off">{{ geoProblem }}</InlineNotice>
 
@@ -345,3 +347,25 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
     </SheetDialog>
   </div>
 </template>
+
+<style scoped>
+/* Карта — не мгновенно, а проявляется: заметнее на первом открытии экрана, чем резкий скачок плиток. */
+.map-in-enter-active {
+  transition:
+    opacity 320ms ease-out,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.map-in-enter-from {
+  opacity: 0;
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-in-enter-active {
+    transition: opacity 150ms linear;
+  }
+  .map-in-enter-from {
+    transform: none;
+  }
+}
+</style>

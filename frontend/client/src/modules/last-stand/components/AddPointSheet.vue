@@ -132,16 +132,18 @@ async function remove(): Promise<void> {
     <form class="flex flex-col gap-space-lg" @submit.prevent="submit">
       <fieldset class="flex flex-col gap-space-sm">
         <legend class="mb-space-xs font-archival text-archival uppercase text-on-surface-variant">Где</legend>
-        <GeoMap
-          :selected="point ? 'new' : null"
-          :markers="markers"
-          :user="position"
-          :locating="geoStatus === 'locating'"
-          label="Нажмите на карту, чтобы поставить точку"
-          class="h-56 w-full rounded-2xl shadow-document short:h-44"
-          @pick="setPoint"
-          @locate="useMyPosition"
-        />
+        <Transition appear name="map-in">
+          <GeoMap
+            :selected="point ? 'new' : null"
+            :markers="markers"
+            :user="position"
+            :locating="geoStatus === 'locating'"
+            label="Нажмите на карту, чтобы поставить точку"
+            class="h-56 w-full rounded-2xl shadow-document short:h-44"
+            @pick="setPoint"
+            @locate="useMyPosition"
+          />
+        </Transition>
         <button
           type="button"
           class="flex items-center justify-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
@@ -246,3 +248,25 @@ async function remove(): Promise<void> {
     </form>
   </SheetDialog>
 </template>
+
+<style scoped>
+/* Карта — не мгновенно, а проявляется: заметнее на первом открытии экрана, чем резкий скачок плиток. */
+.map-in-enter-active {
+  transition:
+    opacity 320ms ease-out,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.map-in-enter-from {
+  opacity: 0;
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-in-enter-active {
+    transition: opacity 150ms linear;
+  }
+  .map-in-enter-from {
+    transform: none;
+  }
+}
+</style>
