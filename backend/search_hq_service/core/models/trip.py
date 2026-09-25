@@ -23,6 +23,11 @@ class RegistrationStatus(str, enum.Enum):
     cancelled = "cancelled"
 
 
+class TripStatus(str, enum.Enum):
+    planned = "planned"
+    cancelled = "cancelled"
+
+
 class VolunteerTrip(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Выезд «Выходные с поисковиком»."""
 
@@ -38,6 +43,14 @@ class VolunteerTrip(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     # Чек-лист новичка (лопата, щуп, перчатки, регистрация на «Память народа»…).
     checklist: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+    status: Mapped[TripStatus] = mapped_column(
+        Enum(TripStatus, name="trip_status", native_enum=False, length=16),
+        default=TripStatus.planned,
+        nullable=False,
+        index=True,
+    )
+    cancel_reason: Mapped[str] = mapped_column(String(500), default="", nullable=False)
 
     squad: Mapped[Squad] = relationship(back_populates="trips")
     registrations: Mapped[list["TripRegistration"]] = relationship(

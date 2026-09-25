@@ -2,7 +2,11 @@
 import { computed, onMounted, ref } from 'vue'
 import FundraisingCard from './FundraisingCard.vue'
 import DonationModal from './DonationModal.vue'
+import { useAuthSession } from '@modules/auth'
+import { checkForNewAchievements } from '@modules/profile'
 import * as fundraisingApi from '../api.js'
+
+const { session } = useAuthSession()
 
 const needs = ref([])
 const squadsById = ref({})
@@ -26,7 +30,9 @@ async function load() {
 onMounted(load)
 
 const campaigns = computed(() =>
-  needs.value.map((need) => {
+  [...needs.value]
+    .sort((a, b) => (a.status === b.status ? 0 : a.status === 'open' ? -1 : 1))
+    .map((need) => {
     const squad = squadsById.value[need.squad_id]
     const percent = need.target_amount ? Math.min(100, Math.round((need.collected_amount / need.target_amount) * 100)) : 0
     return {
@@ -62,9 +68,15 @@ function openDonation(campaign) {
   donationOpen.value = true
 }
 
-function onDonated({ needId, amount }) {
-  const need = needs.value.find((n) => n.id === needId)
-  if (need) need.collected_amount += amount
+function onDonated() {
+  // Бэкенд сам закрывает сбор, когда collected_amount достигает target_amount
+  // (NeedService._credit) — локально просто прибавлять сумму недостаточно,
+  // status тоже может смениться на closed. Перезагружаем список целиком,
+  // чтобы карточка и кнопка сразу отражали реальное состояние с бэка.
+  load()
+  // donor начисляется сразу при донате (без ЮKassa) — салютуем прямо тут,
+  // не дожидаясь, пока человек откроет профиль.
+  checkForNewAchievements(session.accessToken, session.user?.id).catch(() => {})
 }
 </script>
 
@@ -74,7 +86,7 @@ function onDonated({ needId, amount }) {
       <div>
         <h2 class="font-headline-lg text-headline-lg text-on-surface font-bold">Целевые сборы отрядов</h2>
         <p class="font-body-md text-body-md text-outline">
-          Прямая адресная поддержка поисковых экспедиций — данные из search_hq_service
+          Прямая адресная поддержка поисковых экспедиций
         </p>
       </div>
     </div>
@@ -83,7 +95,7 @@ function onDonated({ needId, amount }) {
       v-if="loadStatus === 'loaded' && !campaigns.length"
       class="bg-surface-container-lowest rounded-lg p-6 text-on-surface-variant font-body-md text-body-md"
     >
-      В search_hq_service пока нет открытых денежных сборов.
+      Пока нет денежных сборов.
     </p>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -38,6 +38,11 @@ def close_need(need_id: str, principal: CurrentPrincipal, service: NeedServiceDe
     return NeedOut.model_validate(service.close(principal, need_id))
 
 
+@router.delete("/{need_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_need(need_id: str, principal: CurrentPrincipal, service: NeedServiceDep) -> None:
+    service.delete(principal, need_id)
+
+
 @router.post(
     "/{need_id}/donations", response_model=DonationOut, status_code=status.HTTP_201_CREATED
 )
@@ -48,7 +53,11 @@ def donate(
     service: NeedServiceDep,
 ) -> DonationOut:
     donation = service.donate(
-        principal, need_id, amount=payload.amount, comment=payload.comment
+        principal,
+        need_id,
+        amount=payload.amount,
+        comment=payload.comment,
+        return_url=payload.return_url,
     )
     return DonationOut.model_validate(donation)
 

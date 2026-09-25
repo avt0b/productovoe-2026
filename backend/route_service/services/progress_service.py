@@ -7,6 +7,11 @@ from core.models import RouteProgress
 from core.security import Principal
 from repositories.progress_repository import ProgressRepository
 from repositories.route_repository import RouteRepository
+from services.achievement_client import award_achievement
+from services.stats_client import increment_stat
+
+ACHIEVEMENT_FIRST_ROUTE = "first_route_completed"
+STAT_ROUTES_COMPLETED = "routes_completed"
 
 
 class ProgressService:
@@ -21,35 +26,45 @@ class ProgressService:
             raise NotFound("Маршрут не найден")
         progress = self.repo.get(route_id, principal.user_id)
         if progress is None:
-            progress = self.repo.add(
-                RouteProgress(route_id=route_id, user_id=principal.user_id)
-            )
+            progress = self.repo.add(RouteProgress(route_id=route_id, user_id=principal.user_id))
             self.db.commit()
             self.db.refresh(progress)
         return progress
 
-    def get_mine(self, principal: Principal, route_id: str) -> RouteProgress:
-        progress = self.repo.get(route_id, principal.user_id)
-        if progress is None:
-            raise NotFound("Маршрут ещё не начат")
-        return progress
+    def get_mine(self, principal: Principal, route_id: str) -> RouteProgress | None:
+        """None — маршрут ещё не начат. Это обычное состояние, а не ошибка: клиент
+        спрашивает прогресс при каждом открытии карты."""
+        return self.repo.get(route_id, principal.user_id)
 
     def complete_waypoint(
-        self, principal: Principal, route_id: str, waypoint_id: str
+        self, principal: Principal, route_id: str, waypoint_id: str, answer: str | None = None
     ) -> RouteProgress:
         progress = self.start(principal, route_id)
         waypoints = self.routes.waypoints_of(route_id)
-        ids = [w.id for w in waypoints]
-        if waypoint_id not in ids:
+        by_id = {w.id: w for w in waypoints}
+        if waypoint_id not in by_id:
             raise NotFound("Точка не принадлежит маршруту")
 
         done = set(progress.completed_waypoint_ids)
         done.add(waypoint_id)
+        ids = list(by_id)
         # Порядок по маршруту.
         progress.completed_waypoint_ids = [wid for wid in ids if wid in done]
         progress.current_index = min(len(progress.completed_waypoint_ids), len(ids))
-        if len(done) >= len(ids) and ids:
+        just_finished = len(done) >= len(ids) and ids and progress.completed_at is None
+        if just_finished:
             progress.completed_at = datetime.now(UTC)
+
+        waypoint = by_id[waypoint_id]
+        if waypoint.expected_answer and answer is not None:
+            is_correct = answer.strip().casefold() == waypoint.expected_answer.strip().casefold()
+            progress.answers = {**progress.answers, waypoint_id: is_correct}
+
         self.db.commit()
         self.db.refresh(progress)
+
+        if just_finished:
+            award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_FIRST_ROUTE)
+            increment_stat(user_id=principal.user_id, metric=STAT_ROUTES_COMPLETED)
+
         return progress

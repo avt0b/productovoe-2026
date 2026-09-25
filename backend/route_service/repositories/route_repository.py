@@ -63,9 +63,7 @@ class RouteRepository:
 
     def waypoints_of(self, route_id: str) -> Sequence[Waypoint]:
         return self.db.scalars(
-            select(Waypoint)
-            .where(Waypoint.route_id == route_id)
-            .order_by(Waypoint.order_index)
+            select(Waypoint).where(Waypoint.route_id == route_id).order_by(Waypoint.order_index)
         ).all()
 
     def next_order_index(self, route_id: str) -> int:

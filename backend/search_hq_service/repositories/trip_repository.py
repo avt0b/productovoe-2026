@@ -19,6 +19,9 @@ class TripRepository:
         self.db.flush()
         return trip
 
+    def delete(self, trip: VolunteerTrip) -> None:
+        self.db.delete(trip)
+
     def search(
         self,
         *,
@@ -51,14 +54,32 @@ class TripRepository:
         return reg
 
     def count_active_registrations(self, trip_id: str) -> int:
-        return self.db.scalar(
-            select(func.count())
-            .select_from(TripRegistration)
+        return (
+            self.db.scalar(
+                select(func.count())
+                .select_from(TripRegistration)
+                .where(
+                    TripRegistration.trip_id == trip_id,
+                    TripRegistration.status == RegistrationStatus.registered,
+                )
+            )
+            or 0
+        )
+
+    def trips_of_volunteer(
+        self, user_id: str, *, upcoming_only: bool = False
+    ) -> Sequence[VolunteerTrip]:
+        stmt = (
+            select(VolunteerTrip)
+            .join(TripRegistration, TripRegistration.trip_id == VolunteerTrip.id)
             .where(
-                TripRegistration.trip_id == trip_id,
+                TripRegistration.user_id == user_id,
                 TripRegistration.status == RegistrationStatus.registered,
             )
-        ) or 0
+        )
+        if upcoming_only:
+            stmt = stmt.where(VolunteerTrip.starts_on >= datetime.now(UTC).date())
+        return self.db.scalars(stmt.order_by(VolunteerTrip.starts_on.asc())).all()
 
     def registrations_for(self, trip_id: str) -> Sequence[TripRegistration]:
         return self.db.scalars(

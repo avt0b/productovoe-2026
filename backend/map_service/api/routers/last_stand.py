@@ -34,6 +34,18 @@ def list_points(
     return [LastStandOut.model_validate(r) for r in rows]
 
 
+@router.get("/mine", response_model=list[LastStandOut])
+def my_points(
+    principal: CurrentPrincipal,
+    service: LastStandServiceDep,
+    limit: Annotated[int, Query(ge=1, le=500)] = 200,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[LastStandOut]:
+    """Точки «Последнего боя», добавленные самим запрашивающим."""
+    rows = service.search(created_by=principal.user_id, limit=limit, offset=offset)
+    return [LastStandOut.model_validate(r) for r in rows]
+
+
 @router.get("/nearby", response_model=list[LastStandNearbyOut])
 def points_nearby(
     service: LastStandServiceDep,
@@ -82,13 +94,9 @@ def set_point_status(
     principal: CurrentPrincipal,
     service: LastStandServiceDep,
 ) -> LastStandOut:
-    return LastStandOut.model_validate(
-        service.set_status(principal, point_id, payload.status)
-    )
+    return LastStandOut.model_validate(service.set_status(principal, point_id, payload.status))
 
 
 @router.delete("/{point_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_point(
-    point_id: str, principal: CurrentPrincipal, service: LastStandServiceDep
-) -> None:
+def delete_point(point_id: str, principal: CurrentPrincipal, service: LastStandServiceDep) -> None:
     service.delete(principal, point_id)

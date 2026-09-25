@@ -5,14 +5,21 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from core.exceptions import Conflict, NotFound, PermissionDenied
-from core.models import ArchiveEntry, EntryStatus
+from core.models import ArchiveEntry, EntryKind, EntryStatus
 from core.security import Principal
 from repositories.entry_repository import EntryRepository
+from services import achievement_client
+from services.achievement_client import award_achievement
+from services.stats_client import increment_stat
 
 logger = logging.getLogger(__name__)
 
-# Кто может верифицировать записи (краевед / наставник / модератор).
-VERIFIER_ROLES = {"local_historian", "mentor", "moderator"}
+# Кто может верифицировать записи (поисковик / краевед).
+VERIFIER_ROLES = {"searcher", "local_historian"}
+ACHIEVEMENT_ARCHIVE_HELPER = "archive_helper"
+# Сколько подтверждённых записей делает краеведа «Хранителем архива».
+ARCHIVE_KEEPER_THRESHOLD = 10
+STAT_FINDS_COUNT = "finds_count"
 
 
 def _can_verify(principal: Principal) -> bool:
@@ -33,9 +40,7 @@ class EntryService:
         if entry.status is EntryStatus.verified:
             return entry
         # неопубликованное видят автор и верификаторы
-        if principal and (
-            _can_verify(principal) or entry.submitted_by == principal.user_id
-        ):
+        if principal and (_can_verify(principal) or entry.submitted_by == principal.user_id):
             return entry
         raise NotFound
 
@@ -43,23 +48,30 @@ class EntryService:
         filters.setdefault("status", EntryStatus.verified)
         return self.repo.search(**filters)
 
+    def summary_public(self, *, kind: EntryKind | None = None) -> dict:
+        return self.repo.summary(status=EntryStatus.verified, kind=kind)
+
     def search_moderation(
         self, principal: Principal, *, status: EntryStatus | None = None, **filters
     ) -> Sequence[ArchiveEntry]:
         if not _can_verify(principal):
-            raise PermissionDenied("Очередь модерации доступна краеведам и модераторам")
+            raise PermissionDenied("Очередь модерации доступна поисковикам и краеведам")
         return self.repo.search(status=status, **filters)
 
     def list_mine(self, principal: Principal, **filters) -> Sequence[ArchiveEntry]:
         return self.repo.search(submitted_by=principal.user_id, **filters)
 
+    def search_nearby_pending(
+        self, *, bbox: tuple[float, float, float, float], limit: int = 100
+    ) -> Sequence[ArchiveEntry]:
+        """Публичная витрина без прав верификатора — намеренно куцая (см. EntryNearbyOut)."""
+        return self.repo.search(status=EntryStatus.pending, bbox=bbox, limit=limit)
+
     # --- запись ---
 
     def create(self, principal: Principal, data: dict) -> ArchiveEntry:
         entry = self.repo.add(
-            ArchiveEntry(
-                submitted_by=principal.user_id, status=EntryStatus.pending, **data
-            )
+            ArchiveEntry(submitted_by=principal.user_id, status=EntryStatus.pending, **data)
         )
         self.db.commit()
         self.db.refresh(entry)
@@ -126,7 +138,9 @@ class EntryService:
         self, principal: Principal, entry_id: str, status: EntryStatus, note: str
     ) -> ArchiveEntry:
         if not _can_verify(principal):
-            raise PermissionDenied("Проверять записи могут краеведы, наставники и модераторы")
+            raise PermissionDenied(
+                "Проверять записи могут поисковики, краеведы, наставники и модераторы"
+            )
         entry = self.repo.get(entry_id)
         if entry is None:
             raise NotFound
@@ -136,4 +150,11 @@ class EntryService:
         entry.review_note = note
         self.db.commit()
         self.db.refresh(entry)
+        award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_ARCHIVE_HELPER)
+        if status is EntryStatus.verified:
+            increment_stat(user_id=entry.submitted_by, metric=STAT_FINDS_COUNT)
+            if self.repo.count_verified_by(principal.user_id) >= ARCHIVE_KEEPER_THRESHOLD:
+                achievement_client.award_achievement(
+                    user_id=principal.user_id, code=achievement_client.HISTORIAN_ARCHIVE_KEEPER
+                )
         return entry

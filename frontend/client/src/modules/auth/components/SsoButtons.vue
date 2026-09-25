@@ -1,41 +1,65 @@
 <script setup lang="ts">
-import type { SignInMethod } from '@/core/session'
+import { computed } from 'vue'
+
+import type { ExternalProvider, ProviderInfo } from '@/core/session'
 import MsIcon from '@/ui/MsIcon.vue'
 
-defineProps<{
-  /** Способ входа, который сейчас в работе. */
-  active: SignInMethod | null
+/**
+ * Вход через VK ID, Яндекс ID, Госуслуги и MAX. Что включено на сервере,
+ * решает `auth_service` (`/auth/external/providers`): выключенную кнопку не
+ * нажать — лучше честно недоступная, чем молчащая.
+ */
+const props = defineProps<{
+  /** Что умеет сервер входа. `null` — список не пришёл: сервер не ответил. */
+  providers: ProviderInfo[] | null
+  /** Способ входа, который сейчас в работе, — крутилка только на нём. */
+  active: ExternalProvider | null
   disabled: boolean
 }>()
 
-defineEmits<{ select: [method: SignInMethod] }>()
+defineEmits<{ select: [provider: ExternalProvider] }>()
 
-/** Внешние провайдеры входа. Пока все ведут в ту же заглушку, что и пароль. */
-const providers = [
-  { method: 'gosuslugi', title: 'Госуслуги', icon: 'account_balance', tone: 'bg-primary/10 text-primary' },
-  { method: 'vk-id', title: 'VK ID', icon: 'share', tone: 'bg-secondary/15 text-secondary' },
-  { method: 'sber-id', title: 'Сбер ID', icon: 'payments', tone: 'bg-secondary-fixed text-on-secondary-fixed' },
-] as const satisfies readonly { method: SignInMethod; title: string; icon: string; tone: string }[]
+/**
+ * Кнопки стоят на фоновом снимке, поэтому плашки белые, а не по поверхности темы.
+ * У VK ID и Яндекс ID — монограмма: по ней сервис узнают быстрее, чем по
+ * значку из общего набора, а фирменные цвета мимо палитры контракт не пускает.
+ */
+const LOOK: readonly { provider: ExternalProvider; title: string; mark?: string; icon?: string; tone: string }[] = [
+  { provider: 'vk', title: 'VK ID', mark: 'VK', tone: 'text-secondary' },
+  { provider: 'yandex', title: 'Яндекс ID', mark: 'Я', tone: 'text-primary' },
+  { provider: 'gosuslugi', title: 'Госуслуги', icon: 'account_balance', tone: 'text-tertiary' },
+  { provider: 'max', title: 'MAX', icon: 'chat', tone: 'text-on-surface' },
+]
+
+const buttons = computed(() =>
+  LOOK.map((look) => ({ ...look, enabled: props.providers?.find((item) => item.provider === look.provider)?.enabled ?? false })),
+)
 </script>
 
 <template>
-  <div class="grid grid-cols-3 gap-space-sm">
+  <div class="grid grid-cols-4 gap-space-xs">
     <button
-      v-for="provider in providers"
-      :key="provider.method"
+      v-for="(button, index) in buttons"
+      :key="button.provider"
       type="button"
-      class="flex flex-col items-center justify-center rounded-xl bg-surface-container-low px-1 py-2.5 transition-colors hover:bg-surface-container disabled:opacity-60"
-      :disabled="disabled"
-      @click="$emit('select', provider.method)"
+      class="flex min-w-0 flex-col items-center justify-center rounded-lg border border-white/20 bg-white/10 px-1 py-2.5 backdrop-blur-sm transition-colors hover:border-white/40 hover:bg-white/20 active:scale-95 disabled:opacity-50 short:py-2"
+      :disabled="disabled || !button.enabled"
+      :title="button.enabled ? undefined : 'Этот способ входа на сервере не настроен'"
+      :aria-label="`Войти через ${button.title}`"
+      @click="$emit('select', button.provider)"
     >
-      <div class="mb-1 flex h-7 w-7 items-center justify-center rounded-full" :class="provider.tone">
-        <MsIcon
-          :name="active === provider.method ? 'progress_activity' : provider.icon"
-          :size="15"
-          :class="{ 'animate-spin': active === provider.method }"
-        />
+      <div class="mb-1 flex h-7 w-7 items-center justify-center rounded-full bg-white/90" :class="button.tone">
+        <MsIcon v-if="active === button.provider" name="progress_activity" :size="15" class="animate-spin" />
+        <span v-else-if="button.mark" class="font-label-md text-label-md font-extrabold leading-none" aria-hidden="true">
+          {{ button.mark }}
+        </span>
+        <MsIcon v-else :name="button.icon ?? 'account_circle'" :size="15" />
       </div>
-      <span class="truncate font-label-sm text-label-sm text-on-surface">{{ provider.title }}</span>
+      <span
+        class="ribbon-shimmer w-full truncate text-center font-label-sm text-label-sm text-white"
+        :style="{ animationDelay: `${2000 + index * 260}ms` }"
+        >{{ button.title }}</span
+      >
     </button>
   </div>
 </template>

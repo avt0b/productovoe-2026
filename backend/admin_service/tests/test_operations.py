@@ -57,7 +57,7 @@ def test_list_users_is_readable_by_viewer(client, superadmin, fake_upstream):
 def test_set_user_role_forbidden_for_viewer(client, superadmin, fake_upstream):
     headers = _viewer_headers(client)
     response = client.patch(
-        "/admin/ops/users/u1/role", headers=headers, json={"role": "mentor"}
+        "/admin/ops/users/u1/role", headers=headers, json={"role": "local_historian"}
     )
     assert response.status_code == 403
     assert fake_upstream.calls == []
@@ -79,14 +79,14 @@ def test_set_user_role_success_calls_upstream_and_writes_audit(
         "auth",
         "PATCH",
         f"/internal/users/{user_id}/role",
-        {"id": user_id, "email": "soldier@example.com", "role": "mentor"},
+        {"id": user_id, "email": "soldier@example.com", "role": "local_historian"},
     )
 
     response = client.patch(
-        f"/admin/ops/users/{user_id}/role", headers=headers, json={"role": "mentor"}
+        f"/admin/ops/users/{user_id}/role", headers=headers, json={"role": "local_historian"}
     )
     assert response.status_code == 200
-    assert response.json()["role"] == "mentor"
+    assert response.json()["role"] == "local_historian"
 
     patch_call = next(c for c in fake_upstream.calls if c["method"] == "PATCH")
     assert patch_call == {
@@ -95,7 +95,7 @@ def test_set_user_role_success_calls_upstream_and_writes_audit(
         "path": f"/internal/users/{user_id}/role",
         "actor_id": actor.id,
         "params": None,
-        "json": {"role": "mentor"},
+        "json": {"role": "local_historian"},
     }
 
     audit = client.get(
@@ -122,7 +122,7 @@ def test_set_user_role_upstream_failure_returns_error_and_no_audit(
     )
 
     response = client.patch(
-        f"/admin/ops/users/{user_id}/role", headers=headers, json={"role": "mentor"}
+        f"/admin/ops/users/{user_id}/role", headers=headers, json={"role": "local_historian"}
     )
     # UpstreamUnavailable — доменная ошибка с кодом 502, а не голый 500.
     assert response.status_code == 502
@@ -180,6 +180,89 @@ def test_verify_profile_success_calls_upstream_and_writes_audit(
     ).json()
     assert audit["total"] == 1
     assert audit["items"][0]["target_label"] == "Иван Краевед"
+
+
+# --- Заявки на роль ----------------------------------------------------------
+
+
+def test_list_role_applications_readable_by_viewer(client, superadmin, fake_upstream):
+    headers = _viewer_headers(client)
+    fake_upstream.set_response(
+        "user",
+        "GET",
+        "/internal/role-applications",
+        {"items": [{"id": "app-1", "status": "pending"}], "total": 1, "limit": 50, "offset": 0},
+    )
+    response = client.get("/admin/ops/role-applications", headers=headers)
+    assert response.status_code == 200
+    call = fake_upstream.calls[0]
+    assert call["service"] == "user"
+    assert call["path"] == "/internal/role-applications"
+    assert call["params"] == {"limit": 50, "offset": 0, "status": "pending"}
+
+
+def test_approve_role_application_forbidden_for_viewer(client, superadmin, fake_upstream):
+    headers = _viewer_headers(client)
+    response = client.post(
+        "/admin/ops/role-applications/app-1/approve", headers=headers, json={"note": ""}
+    )
+    assert response.status_code == 403
+    assert fake_upstream.calls == []
+
+
+def test_approve_role_application_success_calls_upstream_and_writes_audit(
+    client, superadmin, fake_upstream
+):
+    actor, headers = _headers_for(client, superadmin, AdminRole.moderator)
+    app_id = "app-1"
+    fake_upstream.set_response(
+        "user",
+        "POST",
+        f"/internal/role-applications/{app_id}/approve",
+        {"id": app_id, "requested_role": "searcher", "status": "approved"},
+    )
+
+    response = client.post(
+        f"/admin/ops/role-applications/{app_id}/approve",
+        headers=headers,
+        json={"note": "состоит в отряде"},
+    )
+    assert response.status_code == 200
+
+    call = fake_upstream.calls[0]
+    assert call == {
+        "service": "user",
+        "method": "POST",
+        "path": f"/internal/role-applications/{app_id}/approve",
+        "actor_id": actor.id,
+        "params": None,
+        "json": {"note": "состоит в отряде"},
+    }
+
+    audit = client.get(
+        "/admin/audit", headers=headers, params={"action": "role_application.approve"}
+    ).json()
+    assert audit["total"] == 1
+    assert audit["items"][0]["target_service"] == "user_service"
+
+
+def test_reject_role_application_upstream_failure_returns_error_and_no_audit(
+    client, superadmin, fake_upstream
+):
+    headers = auth_headers(client)
+    app_id = "app-down"
+    fake_upstream.fail(
+        "user",
+        "POST",
+        f"/internal/role-applications/{app_id}/reject",
+        detail="user_service недоступен",
+    )
+
+    response = client.post(
+        f"/admin/ops/role-applications/{app_id}/reject", headers=headers, json={"note": ""}
+    )
+    assert response.status_code == 502
+    assert response.json()["detail"] == "user_service недоступен"
 
 
 # --- Модерация народного архива ---------------------------------------------

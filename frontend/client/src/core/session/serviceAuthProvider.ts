@@ -1,16 +1,18 @@
 import { ApiError, apiRequest, ServiceUnavailableError } from '@/core/api'
 
 import { stubAuthProvider } from './stubAuthProvider'
-import type { AuthProvider, SessionTokens, SessionUser, SignInRequest, UserRole } from './types'
+import type { AuthProvider, SessionTokens, SessionUser, SignInRequest, SignInResult, UserRole } from './types'
 
 /**
  * Вход через `auth_service`: почта и пароль, пара JWT-токенов.
  *
- * Демо-вход никуда не делся — без него окна на заглушках нельзя показать без
- * сервера. Демо получается, если оставить почту и пароль пустыми или нажать
- * Госуслуги / VK ID / Сбер ID (их интеграции пока нет). У демо-сессии нет
- * токена, поэтому то, что пишет в сервисы от имени человека (запись на
+ * Демо-вход никуда не делся — без него приложение нельзя показать без
+ * сервера. Демо получается, если оставить почту и пароль пустыми. У демо-сессии
+ * нет токена, поэтому то, что пишет в сервисы от имени человека (запись на
  * экскурсию, бамп), в ней недоступно.
+ *
+ * Вход через VK ID, Яндекс ID, MAX и Госуслуги — `externalAuth.ts`: он заканчивается той
+ * же парой токенов, её превращает в сессию `fromExternalLogin`.
  */
 
 interface TokenPairDto {
@@ -34,17 +36,13 @@ const ROLE_TITLES: Record<UserRole, string> = {
   family: 'Участник маршрутов',
   searcher: 'Поисковик',
   local_historian: 'Краевед',
-  mentor: 'Наставник',
-  moderator: 'Модератор',
 }
 
 /** Имена, введённые при регистрации. В `auth_service` имён нет — профиль появится в `user_service`. */
 const NAMES_KEY = 'marshruty.client.names'
 
-const DEMO_METHODS = new Set(['gosuslugi', 'vk-id', 'sber-id'])
-
 function isDemoRequest(request: SignInRequest): boolean {
-  return DEMO_METHODS.has(request.method) || (!request.contact?.trim() && !request.password)
+  return !request.contact?.trim() && !request.password
 }
 
 function readNames(): Record<string, string> {
@@ -80,8 +78,22 @@ function toUser(dto: UserDto): SessionUser {
     headline: ROLE_TITLES[dto.role] ?? ROLE_TITLES.family,
     city: '',
     role: dto.role,
+    isRoot: dto.is_root,
     email: dto.email,
   }
+}
+
+/** Ответ `/auth/external/complete`: та же пара токенов и имя от провайдера. */
+export interface ExternalCompleteDto extends TokenPairDto {
+  user: UserDto
+  display_name: string
+  is_new_user: boolean
+}
+
+/** Сессия после входа через VK ID, Яндекс ID, MAX или Госуслуги. Имя берём у провайдера — в auth_service имён нет. */
+export function fromExternalLogin(response: ExternalCompleteDto): SignInResult {
+  rememberName(response.user.email, response.display_name)
+  return { user: toUser(response.user), tokens: toTokens(response) }
 }
 
 /** Ошибки сервиса — человеческим языком: сервер не ответил, пароль короткий. */
@@ -90,7 +102,7 @@ async function explain<T>(request: () => Promise<T>): Promise<T> {
     return await request()
   } catch (reason) {
     if (reason instanceof ServiceUnavailableError) {
-      throw new Error('Сервер входа недоступен. Оставьте поля пустыми, чтобы войти в демо-режиме')
+      throw new Error('Сервер входа не отвечает. Проверьте подключение или оставьте поля пустыми для демо-режима')
     }
     if (reason instanceof ApiError && reason.status === 422) {
       throw new Error('Проверьте почту и пароль: пароль — не короче 8 символов')

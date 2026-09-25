@@ -64,11 +64,11 @@ def test_verify_with_wrong_key_403(client):
 def test_stats_shape(client):
     make_profile(client, role="family", squad_id="squad-1")
     make_profile(client, role="local_historian", subscribed_to_search=True)
-    mentor = make_profile(client, role="mentor")
+    searcher = make_profile(client, role="searcher")
 
-    # верифицируем одного (mentor), чтобы pending_verification и by_role различались
+    # верифицируем одного (searcher), чтобы pending_verification и by_role различались
     client.patch(
-        f"/internal/profiles/{mentor}/verify",
+        f"/internal/profiles/{searcher}/verify",
         headers=INTERNAL_HEADERS,
         params={"is_verified": True},
     )
@@ -82,7 +82,7 @@ def test_stats_shape(client):
     assert body["pending_verification"] == 2
     assert body["subscribed_to_search"] == 1
     assert body["with_squad"] == 1
-    assert body["by_role"] == {"family": 1, "local_historian": 1, "mentor": 1}
+    assert body["by_role"] == {"family": 1, "local_historian": 1, "searcher": 1}
     # family не участвует в "ожидают верификации роли"
     assert body["pending_verification_by_role"] == {"local_historian": 1}
     assert body["avg_alert_radius_km"] == 20.0
@@ -93,7 +93,7 @@ def test_stats_shape(client):
 
 def test_list_profiles_ok(client):
     make_profile(client, role="family", display_name="Иван", city="Орёл")
-    make_profile(client, role="mentor", display_name="Пётр", city="Москва")
+    make_profile(client, role="searcher", display_name="Пётр", city="Москва")
 
     r = client.get("/internal/profiles", headers=INTERNAL_HEADERS)
     assert r.status_code == 200
@@ -107,12 +107,12 @@ def test_list_profiles_ok(client):
 
 def test_list_profiles_filters_by_role(client):
     make_profile(client, role="family")
-    make_profile(client, role="mentor")
+    make_profile(client, role="searcher")
 
-    r = client.get("/internal/profiles", headers=INTERNAL_HEADERS, params={"role": "mentor"})
+    r = client.get("/internal/profiles", headers=INTERNAL_HEADERS, params={"role": "searcher"})
     body = r.json()
     assert body["total"] == 1
-    assert body["items"][0]["role"] == "mentor"
+    assert body["items"][0]["role"] == "searcher"
 
 
 def test_list_profiles_filters_by_query(client):
@@ -141,9 +141,7 @@ def test_list_profiles_filters_by_is_verified(client):
         params={"is_verified": True},
     )
 
-    r = client.get(
-        "/internal/profiles", headers=INTERNAL_HEADERS, params={"is_verified": True}
-    )
+    r = client.get("/internal/profiles", headers=INTERNAL_HEADERS, params={"is_verified": True})
     body = r.json()
     assert body["total"] == 1
     assert body["items"][0]["id"] == verified
@@ -168,11 +166,14 @@ def test_verify_bypasses_role_restriction(client):
     target = make_profile(client, role="family")
 
     # обычный JWT family не может верифицировать (см. test_profiles.py)
-    assert client.patch(
-        f"/profiles/{target}/verify",
-        headers=auth_header(role="family"),
-        json={"is_verified": True},
-    ).status_code == 403
+    assert (
+        client.patch(
+            f"/profiles/{target}/verify",
+            headers=auth_header(role="family"),
+            json={"is_verified": True},
+        ).status_code
+        == 403
+    )
 
     # а внутренний ключ — может, независимо от роли актора
     r = client.patch(
@@ -184,12 +185,11 @@ def test_verify_bypasses_role_restriction(client):
     assert r.json()["is_verified"] is True
 
     # изменение видно и через /internal/profiles/{id}, и через публичный /profiles/{id}
-    assert client.get(
-        f"/internal/profiles/{target}", headers=INTERNAL_HEADERS
-    ).json()["is_verified"] is True
-    assert client.get(
-        f"/profiles/{target}", headers=auth_header()
-    ).json()["is_verified"] is True
+    assert (
+        client.get(f"/internal/profiles/{target}", headers=INTERNAL_HEADERS).json()["is_verified"]
+        is True
+    )
+    assert client.get(f"/profiles/{target}", headers=auth_header()).json()["is_verified"] is True
 
 
 def test_verify_works_with_custom_actor_header(client):

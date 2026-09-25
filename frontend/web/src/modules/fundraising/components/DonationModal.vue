@@ -47,9 +47,9 @@ async function pay() {
   }
   step.value = 'processing'
   try {
-    // search_hq_service пока не интегрирован с платёжным провайдером (см.
-    // README сервиса — «Интеграция ЮKassa/CloudPayments» в планах). Реально
-    // сохраняется сумма и комментарий, деньги физически не списываются.
+    // Бэкенд пока не интегрирован с платёжным провайдером (интеграция
+    // ЮKassa/CloudPayments в планах). Реально сохраняется сумма и
+    // комментарий, деньги физически не списываются.
     const methodLabel = methods.find((m) => m.id === form.method)?.label
     await fundraisingApi.donate(session.accessToken, props.campaign.id, {
       amount: effectiveAmount.value,
@@ -136,7 +136,7 @@ function close() {
           <span>Пожертвовать {{ effectiveAmount }} ₽</span>
         </button>
         <span class="text-center font-body-sm text-body-sm text-on-surface-variant">
-          Сумма реально сохранится в search_hq_service — платёжного провайдера пока нет, деньги не списываются
+          Сумма реально сохранится — платёжного провайдера пока нет, деньги не списываются
         </span>
       </template>
 

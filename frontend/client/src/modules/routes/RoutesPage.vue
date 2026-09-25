@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
+import { getMyProgress } from '@/core/services/routes'
+import { can, useSessionStore } from '@/core/session'
 import {
   distanceKm,
   formatDistance,
@@ -13,34 +15,104 @@ import {
   type LatLon,
 } from '@/core/geo'
 import DemoDataBadge from '@/ui/DemoDataBadge.vue'
-import GeoMap from '@/ui/geo/GeoMap.vue'
 import MsIcon from '@/ui/MsIcon.vue'
+import GeoMap from '@/ui/geo/GeoMap.vue'
+import InlineNotice from '@/ui/InlineNotice.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
+import AddPlaceSheet from './components/AddPlaceSheet.vue'
 import FeaturedRouteCard from './components/FeaturedRouteCard.vue'
+import RoutePromptsCard from './components/RoutePromptsCard.vue'
 import PlaceCard from './components/PlaceCard.vue'
+import PlacesList from './components/PlacesList.vue'
 import RouteFilters from './components/RouteFilters.vue'
 import RoutesSearchBar from './components/RoutesSearchBar.vue'
-import { PLACE_KINDS, fetchRoutesOverview, type RouteStop } from './data'
+import TimelineFilter from './components/TimelineFilter.vue'
+import { PLACE_KINDS, TIMELINE_YEARS, fetchRoutesOverview, type MapPlace, type RouteStop } from './data'
 
 const router = useRouter()
+const session = useSessionStore()
 const { data, loading, error, retry } = useAsync(fetchRoutesOverview)
+
+/** Краевед ведёт свои маршруты — вход в редактор виден только ему (`AUTHOR_ROLES` в route_service). */
+const canAuthor = computed(() => session.hasAccount && can.authorRoute(session.user))
+/** Дополнять слой «ВОВ» могут ещё и поисковики (`_CONTRIBUTOR_ROLES` в map_service). */
+const canAddPlace = computed(() => session.hasAccount && can.addPoi(session.user))
+const addingPlace = ref(false)
+/** Правит и убирает точку её автор или администратор — так же, как решает сервис. */
+const editedPlace = ref<MapPlace | null>(null)
+
+function canEditPlace(place: MapPlace): boolean {
+  if (!session.hasAccount || data.value?.source === 'demo') return false
+  return can.moderate(session.user) || place.createdBy === session.user?.id
+}
+
+/** Точку убрали — карточку закрываем: показывать нечего. */
+async function placeRemoved(): Promise<void> {
+  selectedId.value = null
+  await retry()
+}
+
+/** Пройденные точки маршрута дня — только с аккаунтом и живыми данными: прогресс хранит `route_service`. */
+const completedIds = ref<string[] | null>(null)
+watch(
+  data,
+  async (overview) => {
+    completedIds.value = null
+    if (!overview?.route || overview.source !== 'live' || !session.hasAccount) return
+    try {
+      completedIds.value = (await getMyProgress(overview.route.id))?.completed_waypoint_ids ?? null
+    } catch {
+      // Прогресс — дополнение к карте: не загрузился — карта и маршрут всё равно на месте.
+    }
+  },
+  { immediate: true },
+)
 const { position: userPosition, status: geoStatus, start: startLocating } = useGeolocation()
 
 const query = ref('')
 /** Выбранные виды мест. Пусто — на карте все. */
 const activeKinds = ref<Set<string>>(new Set())
+/** Выбранные годы хронологии. Пусто — вся война. */
+const activeYears = ref<Set<number>>(new Set())
 const selectedId = ref<string | null>(null)
 
 const normalizedQuery = computed(() => query.value.trim().toLowerCase())
 
-const visiblePlaces = computed(() =>
+/** Поиск и фильтр по виду места — без года: по ним же считаем, что показывать на шкале. */
+const matchedPlaces = computed(() =>
   (data.value?.places ?? []).filter(
     (place) =>
       (activeKinds.value.size === 0 || activeKinds.value.has(place.kind)) &&
       (!normalizedQuery.value || `${place.title} ${place.description}`.toLowerCase().includes(normalizedQuery.value)),
   ),
 )
+
+/** Сколько мест приходится на каждый год — с учётом поиска и вида места. */
+const yearCounts = computed(() => {
+  const counts = Object.fromEntries(TIMELINE_YEARS.map((year) => [year, 0])) as Record<number, number>
+  for (const place of matchedPlaces.value) {
+    if (place.year !== null && place.year in counts) counts[place.year] += 1
+  }
+  return counts
+})
+
+const visiblePlaces = computed(() =>
+  // Год выбран — места без даты прячем: утверждать, что событие было в 1943-м,
+  // когда в архивной записи года нет, нельзя.
+  activeYears.value.size === 0
+    ? matchedPlaces.value
+    : matchedPlaces.value.filter((place) => place.year !== null && activeYears.value.has(place.year)),
+)
+
+/** Хоть что-то отфильтровано — значит, есть что сбросить. */
+const hasFilters = computed(() => Boolean(normalizedQuery.value) || activeKinds.value.size > 0 || activeYears.value.size > 0)
+
+function resetFilters(): void {
+  query.value = ''
+  activeKinds.value = new Set()
+  activeYears.value = new Set()
+}
 
 const stops = computed(() => data.value?.route?.stops ?? [])
 
@@ -109,6 +181,7 @@ function openStop(stop: RouteStop): void {
     <div class="z-30 flex flex-col gap-space-sm px-margin pb-space-sm pt-space-xs">
       <RoutesSearchBar v-model="query" />
       <RouteFilters v-if="data?.filters.length" v-model="activeKinds" :filters="data.filters" />
+      <TimelineFilter v-if="data?.places.length" v-model="activeYears" :counts="yearCounts" />
     </div>
 
     <div v-if="loading || error" class="px-margin">
@@ -125,35 +198,37 @@ function openStop(stop: RouteStop): void {
         :user="userPosition"
         :locating="geoStatus === 'locating'"
         :label="data.route?.title"
-        class="h-[420px] w-full"
+        class="h-[420px] w-full short:h-64"
         @locate="startLocating"
       />
 
-      <div class="flex flex-col gap-space-sm px-margin pt-space-md">
-        <p
-          v-if="geoProblem"
-          class="flex items-start gap-2 rounded-DEFAULT bg-surface-container-high px-3 py-2 font-body-sm text-body-sm text-on-surface-variant"
-          role="status"
-        >
-          <MsIcon name="location_off" :size="18" class="mt-0.5 shrink-0" />
-          {{ geoProblem }}
-        </p>
+      <div class="flex flex-col gap-space-md px-margin pt-space-md">
+        <InlineNotice v-if="geoProblem" icon="location_off">{{ geoProblem }}</InlineNotice>
 
-        <p
-          v-if="visiblePlaces.length === 0"
-          class="flex items-start gap-2 rounded-DEFAULT bg-surface-container-high px-3 py-2 font-body-sm text-body-sm text-on-surface-variant"
-          role="status"
-        >
-          <MsIcon name="filter_alt_off" :size="18" class="mt-0.5 shrink-0" />
-          Под поиск и фильтры мест нет
-        </p>
+        <InlineNotice v-if="visiblePlaces.length === 0" icon="filter_alt_off">
+          Под поиск и фильтры мест нет.
+          <button v-if="hasFilters" type="button" class="underline underline-offset-2" @click="resetFilters">
+            Показать все
+          </button>
+        </InlineNotice>
 
         <PlaceCard
           v-if="selectedPlace"
           :key="selectedPlace.id"
           :place="selectedPlace"
           :distance="distanceFromUser(selectedPlace)"
+          :can-edit="canEditPlace(selectedPlace)"
           @close="selectedId = null"
+          @edit="editedPlace = selectedPlace"
+        />
+
+        <!-- Список найденного: метки могут оказаться за краем карты, и без него кажется, что ничего не нашлось. -->
+        <PlacesList
+          v-if="visiblePlaces.length"
+          :places="visiblePlaces"
+          :selected-id="selectedId"
+          :user="userPosition"
+          @select="selectedId = $event"
         />
 
         <FeaturedRouteCard
@@ -162,9 +237,11 @@ function openStop(stop: RouteStop): void {
           :selected-stop-id="selectedStop?.id ?? null"
           :distance-to-stop="distanceFromUser(selectedStop ?? data.route.stops[0] ?? null)"
           :can-open="canOpenPoint"
+          :completed-ids="completedIds"
           @select-stop="selectedId = $event"
           @open-stop="openStop"
         />
+        <RoutePromptsCard v-if="data.route" :route="data.route" :prompts="data.prompts" />
         <StateBlock
           v-else
           :loading="false"
@@ -173,7 +250,57 @@ function openStop(stop: RouteStop): void {
           empty-icon="route"
           empty-text="Опубликованных семейных маршрутов пока нет"
         />
+
+        <!-- Краеведу — его собственные маршруты: черновики и опубликованные. -->
+        <RouterLink
+          v-if="canAuthor"
+          :to="{ name: 'my-routes' }"
+          class="flex items-center gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document active:scale-[0.99]"
+        >
+          <span
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container"
+            aria-hidden="true"
+          >
+            <MsIcon name="edit_note" :size="20" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-archival text-archival uppercase text-on-surface-variant">Краеведу</span>
+            <span class="block font-headline-sm text-headline-sm text-on-surface">Мои маршруты</span>
+            <span class="block font-body-sm text-body-sm text-on-surface-variant">Черновики, точки и публикация</span>
+          </span>
+          <MsIcon name="chevron_right" :size="20" class="shrink-0 text-on-surface-variant" />
+        </RouterLink>
+
+        <!-- «Дополнять данные» из ТЗ: памятника или окопа может не быть на карте. -->
+        <button
+          v-if="canAddPlace"
+          type="button"
+          class="flex items-center gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md text-left shadow-document active:scale-[0.99]"
+          @click="addingPlace = true"
+        >
+          <span
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tertiary-fixed text-on-tertiary-fixed"
+            aria-hidden="true"
+          >
+            <MsIcon name="add_location_alt" :size="20" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-archival text-archival uppercase text-on-surface-variant">Слой «ВОВ»</span>
+            <span class="block font-headline-sm text-headline-sm text-on-surface">Добавить место на карту</span>
+            <span class="block font-body-sm text-body-sm text-on-surface-variant">Памятник, захоронение, окоп — со ссылкой на источник</span>
+          </span>
+          <MsIcon name="chevron_right" :size="20" class="shrink-0 text-on-surface-variant" />
+        </button>
       </div>
     </template>
+
+    <AddPlaceSheet v-if="addingPlace" @close="addingPlace = false" @created="retry" />
+    <AddPlaceSheet
+      v-else-if="editedPlace"
+      :place="editedPlace"
+      @close="editedPlace = null"
+      @created="retry"
+      @removed="placeRemoved"
+    />
   </div>
 </template>

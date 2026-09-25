@@ -30,6 +30,8 @@ import ru.marshruty.ar.lineAt
 data class ArScreenActions(
     val onClose: () -> Unit = {},
     val onToggleMute: () -> Unit = {},
+    /** Пауза и продолжение рассказа: у памятника останавливаются и молчат. */
+    val onTogglePlay: () -> Unit = {},
     val onReplay: () -> Unit = {},
     val onAim: () -> Unit = {},
     val onMarkerTap: () -> Unit = {},
@@ -93,12 +95,19 @@ fun ArScreen(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                HudIconButton("✕", "Закрыть AR-режим", actions.onClose)
-                StepChip(spec.stepIndex, spec.stepTotal, spec.title)
+                HudIconButton(ArIcon.CLOSE, "Закрыть AR-режим", actions.onClose)
+                // Чип забирает остаток строки и ужимается сам. Раньше он рос по
+                // длине названия и выдавливал кнопку звука за край экрана.
+                StepChip(
+                    stepIndex = spec.stepIndex,
+                    stepTotal = spec.stepTotal,
+                    title = spec.title,
+                    modifier = Modifier.weight(1f),
+                )
                 HudIconButton(
-                    glyph = if (playback.isMuted) "🔇" else "🔊",
+                    icon = if (playback.isMuted) ArIcon.SOUND_OFF else ArIcon.SOUND_ON,
                     contentDescription = if (playback.isMuted) "Включить звук" else "Выключить звук",
                     onClick = actions.onToggleMute,
                 )
@@ -153,7 +162,9 @@ fun ArScreen(
                     spec = companion,
                     subtitle = spec.narration.subtitles.lineAt(playback.positionMillis)?.text,
                     isSpeaking = playback.isPlaying && !playback.isMuted,
+                    isPlaying = playback.isPlaying,
                     aimLabel = spec.target?.let { "Навести на цель" },
+                    onTogglePlay = actions.onTogglePlay,
                     onReplay = actions.onReplay,
                     onAim = actions.onAim,
                     onTrick = actions.onTrick,

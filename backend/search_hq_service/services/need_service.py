@@ -2,12 +2,18 @@ from collections.abc import Sequence
 
 from sqlalchemy.orm import Session
 
+from core.config import settings
 from core.exceptions import Conflict, NotFound, PermissionDenied
-from core.models import Donation, NeedKind, NeedStatus, SquadNeed
+from core.models import Donation, DonationStatus, NeedKind, NeedStatus, SquadNeed
 from core.security import Principal
 from repositories.need_repository import NeedRepository
 from repositories.squad_repository import SquadRepository
+from services import achievement_client
+from services.achievement_client import award_achievement
+from services.payment_gateway import get_gateway
 from services.permissions import is_staff
+
+ACHIEVEMENT_DONOR = "donor"
 
 
 class NeedService:
@@ -52,27 +58,125 @@ class NeedService:
         self.db.refresh(need)
         return need
 
+    def delete(self, principal: Principal, need_id: str) -> None:
+        need = self.get(need_id)
+        self._ensure_squad_manager(principal, self._leader_of(need))
+        if self.repo.has_succeeded_donations(need_id):
+            raise Conflict("В сбор уже поступили взносы — его можно только закрыть")
+        self.repo.delete(need)
+        self.db.commit()
+
     def donate(
-        self, principal: Principal, need_id: str, *, amount: int, comment: str
+        self,
+        principal: Principal,
+        need_id: str,
+        *,
+        amount: int,
+        comment: str,
+        return_url: str | None = None,
     ) -> Donation:
         need = self.get(need_id)
         if need.status is NeedStatus.closed:
             raise Conflict("Сбор закрыт")
         if need.kind is not NeedKind.funds:
             raise Conflict("Взносы принимает только денежный сбор")
-        donation = self.repo.add_donation(
-            Donation(need_id=need_id, donor_id=principal.user_id, amount=amount, comment=comment)
+
+        gateway = get_gateway()
+        if gateway is None:
+            # Без платёжного шлюза донат учитывается сразу — как было до интеграции ЮKassa.
+            donation = self.repo.add_donation(
+                Donation(
+                    need_id=need_id,
+                    donor_id=principal.user_id,
+                    amount=amount,
+                    comment=comment,
+                    status=DonationStatus.succeeded,
+                )
+            )
+            reached = self._credit(need, amount)
+            self.db.commit()
+            self.db.refresh(donation)
+            award_achievement(user_id=principal.user_id, code=ACHIEVEMENT_DONOR)
+            if reached:
+                self._credit_leader(need)
+            return donation
+
+        # С шлюзом донат висит pending, пока ЮKassa не подтвердит платёж.
+        payment = gateway.create_payment(
+            amount_rub=amount,
+            description=f"Взнос в сбор «{need.title}»",
+            return_url=return_url or settings.yookassa_return_url,
+            metadata={"need_id": need_id, "donor_id": principal.user_id},
         )
-        need.collected_amount += amount
-        if need.target_amount is not None and need.collected_amount >= need.target_amount:
-            need.status = NeedStatus.closed
+        donation = self.repo.add_donation(
+            Donation(
+                need_id=need_id,
+                donor_id=principal.user_id,
+                amount=amount,
+                comment=comment,
+                status=DonationStatus.pending,
+                payment_id=payment["id"],
+                confirmation_url=(payment.get("confirmation") or {}).get("confirmation_url"),
+            )
+        )
         self.db.commit()
         self.db.refresh(donation)
+        return donation
+
+    def confirm_payment(self, payment_id: str) -> Donation | None:
+        """Вызывается вебхуком ЮKassa. Статус берём отдельным запросом к API, а не из тела
+        вебхука — его может подделать кто угодно, у ЮKassa нет подписи в самом JSON."""
+        donation = self.repo.get_donation_by_payment_id(payment_id)
+        if donation is None or donation.status is not DonationStatus.pending:
+            return donation
+
+        gateway = get_gateway()
+        if gateway is None:
+            return donation
+        payment = gateway.get_payment(payment_id)
+        remote_status = payment.get("status")
+
+        reached_need = None
+        if remote_status == "succeeded":
+            donation.status = DonationStatus.succeeded
+            need = self.repo.get(donation.need_id)
+            if need is not None and self._credit(need, donation.amount):
+                reached_need = need
+        elif remote_status in ("canceled", "cancelled"):
+            donation.status = DonationStatus.canceled
+        else:
+            return donation
+
+        self.db.commit()
+        self.db.refresh(donation)
+        if donation.status is DonationStatus.succeeded and donation.donor_id:
+            award_achievement(user_id=donation.donor_id, code=ACHIEVEMENT_DONOR)
+        if reached_need is not None:
+            self._credit_leader(reached_need)
         return donation
 
     def donations_for(self, need_id: str) -> Sequence[Donation]:
         self.get(need_id)
         return self.repo.donations_for(need_id)
+
+    def _credit(self, need: SquadNeed, amount: int) -> bool:
+        """Зачесть взнос. `True` — этим взносом сбор собрал всю сумму и закрылся."""
+        need.collected_amount += amount
+        if (
+            need.status is NeedStatus.open
+            and need.target_amount is not None
+            and need.collected_amount >= need.target_amount
+        ):
+            need.status = NeedStatus.closed
+            return True
+        return False
+
+    def _credit_leader(self, need: SquadNeed) -> None:
+        leader_id = self._leader_of(need)
+        if leader_id:
+            achievement_client.award_achievement(
+                user_id=leader_id, code=achievement_client.SEARCHER_GOAL_REACHED
+            )
 
     # --- helpers ---
 

@@ -35,9 +35,18 @@ class ArchiveEntry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     lon: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # Необязательная связь с конкретной точкой (map_service), а не только
+    # близостью координат: точка «Последнего боя», к месту которой относится
+    # запись, и/или точка слоя «ВОВ» (памятник/захоронение/бой).
+    point_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    poi_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+
     event_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     date_text: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    # Фото к записи. Имя историческое — поле было единственным вложением.
     media_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Аудиовоспоминание — может быть у записи вместе с фото.
+    audio_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     submitted_by: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
 

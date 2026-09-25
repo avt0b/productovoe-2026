@@ -1,9 +1,12 @@
 import pytest
 
 
-@pytest.mark.parametrize("origin", ["http://localhost:5174", "https://localhost"])
+@pytest.mark.parametrize(
+    "origin", ["http://localhost:5174", "https://localhost", "http://localhost"]
+)
 def test_client_origin_allowed(client, origin):
-    # Клиентское приложение: dev-сервер Vite и APK на Capacitor (https://localhost).
+    # Клиентское приложение: dev-сервер Vite и APK на Capacitor (https://localhost,
+    # на стенде с сервисами по http — http://localhost).
     response = client.options(
         "/profiles/me", headers={"Origin": origin, "Access-Control-Request-Method": "GET"}
     )

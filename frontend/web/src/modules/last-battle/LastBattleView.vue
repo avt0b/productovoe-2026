@@ -20,7 +20,7 @@ const selectedId = ref(null)
 const statusFilter = ref(null)
 const loadStatus = ref('idle') // idle | loading | loaded | error
 
-// Роли, которым backend (map_service) разрешает POST /last-stand.
+// Роли, которым бэкенд разрешает добавлять новые точки.
 const canAddPoint = computed(() =>
   ['searcher', 'local_historian', 'mentor', 'moderator'].includes(session.user?.role) ||
   session.user?.is_root,
@@ -49,6 +49,11 @@ function onFilterChange(status) {
 function onPointCreated(point) {
   points.value.unshift(point)
   selectedId.value = point.id
+}
+
+function onPointUpdated(point) {
+  const i = points.value.findIndex((p) => p.id === point.id)
+  if (i !== -1) points.value[i] = point
 }
 
 onMounted(load)
@@ -80,10 +85,15 @@ onMounted(load)
           v-if="loadStatus === 'loaded' && !points.length"
           class="bg-surface-container-lowest rounded-lg p-6 shadow-sm text-on-surface-variant font-body-md text-body-md"
         >
-          В map_service пока нет точек с таким статусом.
+          Пока нет точек с таким статусом.
           <span v-if="canAddPoint">Добавьте первую кнопкой выше.</span>
         </p>
-        <ArchivalDossier v-else :point="selectedPoint" @open-upload="uploadModalOpen = true" />
+        <ArchivalDossier
+          v-else
+          :point="selectedPoint"
+          @open-upload="uploadModalOpen = true"
+          @point-updated="onPointUpdated"
+        />
       </div>
     </section>
 

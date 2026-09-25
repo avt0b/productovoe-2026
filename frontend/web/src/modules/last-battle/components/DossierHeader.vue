@@ -19,7 +19,7 @@ const dateAndPlace = computed(() => {
         v-if="point"
         class="px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm font-bold tracking-wide uppercase"
       >
-        Точка map_service № {{ point.id.slice(0, 8) }}
+        Точка № {{ point.id.slice(0, 8) }}
       </span>
       <span class="flex items-center gap-1.5 font-label-sm text-label-sm text-secondary font-bold">
         <span class="w-2 h-2 rounded-full bg-secondary" />

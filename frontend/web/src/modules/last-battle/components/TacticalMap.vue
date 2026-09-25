@@ -11,9 +11,27 @@ const emit = defineEmits(['select'])
 const FALLBACK_CENTER = [53.145, 36.47]
 
 const STATUS_META = {
-  discovered: { dot: 'bg-tertiary', label: 'Требует разведки' },
-  archive_confirmed: { dot: 'bg-primary', label: 'Подтверждено архивом' },
-  remains_raised: { dot: 'bg-secondary', label: 'Останки подняты' },
+  discovered: {
+    dot: 'bg-tertiary',
+    label: 'Требует разведки',
+    icon: 'search',
+    badgeClass: 'bg-tertiary',
+    tailClass: 'border-t-tertiary',
+  },
+  archive_confirmed: {
+    dot: 'bg-primary',
+    label: 'Подтверждено архивом',
+    icon: 'verified',
+    badgeClass: 'bg-primary',
+    tailClass: 'border-t-primary',
+  },
+  remains_raised: {
+    dot: 'bg-secondary',
+    label: 'Останки подняты',
+    icon: 'military_tech',
+    badgeClass: 'bg-secondary',
+    tailClass: 'border-t-secondary',
+  },
 }
 
 const legend = Object.values(STATUS_META)
@@ -25,6 +43,9 @@ const markers = computed(() =>
     lng: p.lon,
     title: p.soldier_name || 'Неизвестный боец',
     subtitle: [p.unit, STATUS_META[p.status]?.label].filter(Boolean).join(' • '),
+    icon: STATUS_META[p.status]?.icon ?? 'location_on',
+    badgeClass: STATUS_META[p.status]?.badgeClass,
+    tailClass: STATUS_META[p.status]?.tailClass,
   })),
 )
 
@@ -56,7 +77,7 @@ const mapRef = ref(null)
         <div class="min-w-0">
           <span class="font-headline-sm text-headline-sm text-on-surface font-bold">Карта «Последний бой»</span>
           <p class="font-body-sm text-body-sm text-on-surface-variant truncate">
-            Орловская область • данные из map_service, клик по метке открывает досье
+            Орловская область • клик по метке открывает досье
           </p>
         </div>
       </div>

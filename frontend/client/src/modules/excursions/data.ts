@@ -6,16 +6,29 @@ import type { UserRole } from '@/core/session'
  * Данные окна «Экскурсии» — `search_hq_service` (`/excursions`).
  *
  * Типы повторяют схемы сервиса (`api/schemas/excursion.py`), поля в snake_case,
- * как в ответе. Демо-набора нет намеренно: запись и бамп без сервера ничего не
+ * как в ответе. Сама встряска — модуль `features/bump`. Демо-набора нет намеренно: запись и бамп без сервера ничего не
  * значат, экран честно показывает ошибку.
  */
 
-export type ExcursionStatus = 'scheduled' | 'gathering' | 'finished' | 'cancelled'
+/** `walking` — группа собрана, краевед ведёт её к памятному месту. */
+export type ExcursionStatus = 'scheduled' | 'gathering' | 'walking' | 'finished' | 'cancelled'
 
 export interface ExcursionViewer {
   is_guide: boolean
   registered: boolean
   checked_in_at: string | null
+}
+
+/** Точка маршрута: после сбора краевед ведёт группу по ним по порядку. */
+export interface ExcursionStop {
+  id: string
+  position: number
+  name: string
+  lat: number
+  lon: number
+  poi_id: string | null
+  /** Что здесь рассказать или сделать. */
+  note: string
 }
 
 export interface Excursion {
@@ -36,6 +49,8 @@ export interface Excursion {
   checked_in_count: number
   /** Кем экскурсия приходится смотрящему. `null` — запрос без аккаунта. */
   viewer: ExcursionViewer | null
+  /** Маршрут после сбора. Нет у старого сервиса — экскурсия на одном месте. */
+  stops?: ExcursionStop[]
   created_at: string
 }
 
@@ -57,19 +72,18 @@ export interface Gathering {
   my_checked_in_at: string | null
 }
 
-export type BumpOutcome = 'matched' | 'no_pair' | 'already_checked_in'
-
-export interface BumpResult {
-  result: BumpOutcome
-  matched_user_ids: string[]
-  checked_in_at: string | null
-  checked_in_count: number
-}
-
 export interface Position {
   lat: number
   lon: number
   accuracy_m: number | null
+}
+
+export interface StopDraft {
+  name: string
+  lat: number
+  lon: number
+  poi_id: string | null
+  note: string
 }
 
 export interface ExcursionDraft {
@@ -81,10 +95,20 @@ export interface ExcursionDraft {
   poi_id: string | null
   starts_at: string
   capacity: number
+  /** Маршрут целиком: при правке заменяет прежний. */
+  stops: StopDraft[]
+}
+
+/** Больше точек сервис не примет (`MAX_STOPS`). */
+export const MAX_STOPS = 20
+
+/** Та же ли это точка: цель прогулки приходит без id точки маршрута. */
+export function sameSpot(a: { lat: number; lon: number }, b: { lat: number; lon: number }): boolean {
+  return Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lon - b.lon) < 1e-5
 }
 
 /** Кто водит экскурсии — как `GUIDE_ROLES` в search_hq_service. */
-const GUIDE_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['local_historian', 'mentor', 'moderator'])
+const GUIDE_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['local_historian'])
 
 export function isGuideRole(role: UserRole | undefined): boolean {
   return role !== undefined && GUIDE_ROLES.has(role)
@@ -113,12 +137,43 @@ export function createExcursion(draft: ExcursionDraft): Promise<Excursion> {
   return apiRequest('POST', 'hq', '/excursions', { body: draft, auth: true })
 }
 
+/** Поправить экскурсию — краевед, который её ведёт, или администратор. */
+export function updateExcursion(excursionId: string, patch: Partial<ExcursionDraft>): Promise<Excursion> {
+  return apiRequest('PATCH', 'hq', path(excursionId), { body: patch, auth: true })
+}
+
 export function cancelExcursion(excursionId: string): Promise<Excursion> {
   return apiRequest('POST', 'hq', path(excursionId, '/cancel'), { auth: true })
 }
 
-export function registerForExcursion(excursionId: string): Promise<unknown> {
-  return apiRequest('POST', 'hq', path(excursionId, '/registrations'), { auth: true })
+/**
+ * Коллективная заявка из ТЗ: школа или клуб записывается одной строкой на всю
+ * группу — сервис держит `organization_name` и `group_size` на регистрации.
+ * Человек идёт сам — тело не отправляем, сервис поставит группу из одного.
+ */
+export interface RegistrationDraft {
+  organization_name: string
+  group_size: number
+}
+
+export interface Participant {
+  id: string
+  excursion_id: string
+  user_id: string
+  organization_name: string
+  group_size: number
+  status: string
+  checked_in_at: string | null
+  created_at: string
+}
+
+export function registerForExcursion(excursionId: string, draft?: RegistrationDraft): Promise<Participant> {
+  return apiRequest('POST', 'hq', path(excursionId, '/registrations'), { body: draft, auth: true })
+}
+
+/** Кто записан. Сервис отдаёт список только краеведу этой экскурсии. */
+export function fetchParticipants(excursionId: string): Promise<Participant[]> {
+  return apiRequest('GET', 'hq', path(excursionId, '/participants'), { auth: true })
 }
 
 export function cancelRegistration(excursionId: string): Promise<void> {
@@ -137,14 +192,108 @@ export function fetchGathering(excursionId: string): Promise<Gathering> {
   return apiRequest('GET', 'hq', path(excursionId, '/gathering'), { auth: true })
 }
 
+// --- рейтинг гидов ---
+
+export interface GuideRating {
+  id: string
+  excursion_id: string
+  guide_id: string
+  rater_id: string
+  rating: number
+  comment: string
+  created_at: string
+}
+
+export interface GuideRatingSummary {
+  guide_id: string
+  average: number
+  count: number
+  recent: GuideRating[]
+}
+
+/** Оценка гида после экскурсии: 1–5 и, если есть что сказать, отзыв. */
+export function rateExcursion(excursionId: string, rating: number, comment: string): Promise<GuideRating> {
+  return apiRequest('POST', 'hq', path(excursionId, '/rating'), { body: { rating, comment }, auth: true })
+}
+
+export function fetchExcursionRatings(excursionId: string): Promise<GuideRating[]> {
+  return apiRequest('GET', 'hq', path(excursionId, '/rating'), {})
+}
+
+/** Средняя оценка краеведа по всем его экскурсиям — публичная, без аккаунта тоже видно. */
+export function fetchGuideRating(guideId: string): Promise<GuideRatingSummary> {
+  return apiRequest('GET', 'hq', `/guides/${encodeURIComponent(guideId)}/rating`, {})
+}
+
+// --- группа идёт к памятному месту ---
+
+export interface WalkDestination {
+  lat: number
+  lon: number
+  name: string
+  poi_id: string | null
+}
+
+export interface GroupMember {
+  user_id: string
+  is_guide: boolean
+  is_me: boolean
+  lat: number
+  lon: number
+  accuracy_m: number | null
+  updated_at: string
+}
+
+export interface Walk {
+  excursion_id: string
+  status: ExcursionStatus
+  is_guide: boolean
+  /** null — группа ещё не выходила. */
+  destination: WalkDestination | null
+  started_at: string | null
+  /** Краевед — первым; точки старше пары минут сервис не отдаёт. */
+  members: GroupMember[]
+}
+
+export interface WalkTarget {
+  lat: number
+  lon: number
+  name: string
+  poi_id: string | null
+}
+
+/** Краевед ведёт группу к месту. Первый раз — выход группы, потом — смена цели. */
+export function leadWalk(excursionId: string, target: WalkTarget): Promise<Walk> {
+  return apiRequest('POST', 'hq', path(excursionId, '/walk'), { body: target, auth: true })
+}
+
+export function fetchWalk(excursionId: string): Promise<Walk> {
+  return apiRequest('GET', 'hq', path(excursionId, '/walk'), { auth: true })
+}
+
+export function reportPosition(excursionId: string, position: Position): Promise<void> {
+  return apiRequest('PUT', 'hq', path(excursionId, '/walk/position'), { body: position, auth: true })
+}
+
+export function finishWalk(excursionId: string): Promise<Walk> {
+  return apiRequest('POST', 'hq', path(excursionId, '/walk/finish'), { auth: true })
+}
+
+
+/** Точки маршрута экскурсии как цели прогулки. */
+export function stopTargets(stops: ExcursionStop[] | undefined): WalkTarget[] {
+  return (stops ?? []).map((stop) => ({ lat: stop.lat, lon: stop.lon, name: stop.name, poi_id: stop.poi_id }))
+}
+
 /**
- * Встряска телефона. Время встряски сервер считает сам: телефон сообщает
- * только, сколько миллисекунд назад тряхнули, — часы телефонов расходятся.
- * Ответ приходит, когда нашлась встряска второй стороны, или через ~2 с.
+ * Куда вести дальше по маршруту. Цели ещё нет — к первой точке; идём к точке
+ * маршрута — к следующей за ней. Краевед свернул к месту не из маршрута или
+ * точки кончились — `null`: дальше он выбирает сам.
  */
-export function sendBump(excursionId: string, position: Position, shakenMsAgo: number): Promise<BumpResult> {
-  return apiRequest('POST', 'hq', path(excursionId, '/bumps'), {
-    body: { ...position, shaken_ms_ago: shakenMsAgo },
-    auth: true,
-  })
+export function nextStop(stops: WalkTarget[], current: { lat: number; lon: number } | null): { target: WalkTarget; number: number } | null {
+  if (!stops.length) return null
+  const at = current ? stops.findIndex((stop) => sameSpot(stop, current)) : -1
+  if (current && at < 0) return null
+  const index = at + 1
+  return index < stops.length ? { target: stops[index], number: index + 1 } : null
 }

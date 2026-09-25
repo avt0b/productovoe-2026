@@ -21,14 +21,10 @@ def claim_next(service: ClipServiceDep, response: Response) -> ClipOut | None:
 
 
 @router.post("/{clip_id}/ready", response_model=ClipOut)
-def mark_ready(
-    clip_id: str, payload: MarkReadyRequest, service: ClipServiceDep
-) -> ClipOut:
+def mark_ready(clip_id: str, payload: MarkReadyRequest, service: ClipServiceDep) -> ClipOut:
     return ClipOut.model_validate(service.mark_ready(clip_id, video_url=payload.video_url))
 
 
 @router.post("/{clip_id}/failed", response_model=ClipOut)
-def mark_failed(
-    clip_id: str, payload: MarkFailedRequest, service: ClipServiceDep
-) -> ClipOut:
+def mark_failed(clip_id: str, payload: MarkFailedRequest, service: ClipServiceDep) -> ClipOut:
     return ClipOut.model_validate(service.mark_failed(clip_id, error=payload.error))

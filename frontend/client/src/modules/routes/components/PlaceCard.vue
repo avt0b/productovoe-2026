@@ -7,16 +7,18 @@ defineProps<{
   place: MapPlace
   /** Расстояние от человека, если известно, где он. */
   distance: string | null
+  /** Место добавил этот человек (или он администратор) — его можно поправить и убрать. */
+  canEdit: boolean
 }>()
 
-defineEmits<{ close: [] }>()
+defineEmits<{ close: []; edit: [] }>()
 </script>
 
 <template>
-  <article class="flex flex-col gap-space-xs rounded-lg bg-surface-container-lowest p-space-md shadow-md">
+  <article class="flex flex-col gap-space-xs rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
     <div class="flex items-start justify-between gap-space-sm">
       <span
-        class="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-2.5 py-1 font-label-sm text-label-sm text-on-surface-variant"
+        class="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-2.5 py-1 font-archival text-archival uppercase text-on-surface-variant"
       >
         <MsIcon :name="PLACE_KINDS[place.kind].icon" :size="14" />
         {{ PLACE_KINDS[place.kind].title }}
@@ -33,7 +35,10 @@ defineEmits<{ close: [] }>()
 
     <h3 class="font-headline-sm text-headline-sm text-on-surface">{{ place.title }}</h3>
 
-    <p v-if="place.dateText || distance" class="flex flex-wrap items-center gap-x-space-sm font-label-md text-label-md text-outline">
+    <p
+      v-if="place.dateText || distance"
+      class="flex flex-wrap items-center gap-x-space-sm font-label-md text-label-md text-outline"
+    >
       <span v-if="place.dateText" class="inline-flex items-center gap-1">
         <MsIcon name="event" :size="15" />
         {{ place.dateText }}
@@ -50,5 +55,15 @@ defineEmits<{ close: [] }>()
       <MsIcon name="menu_book" :size="16" class="mt-0.5 shrink-0" />
       <span>{{ place.source }}</span>
     </p>
+
+    <button
+      v-if="canEdit"
+      type="button"
+      class="mt-space-xs flex items-center gap-space-xs self-start rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
+      @click="$emit('edit')"
+    >
+      <MsIcon name="edit" :size="18" />
+      Поправить место
+    </button>
   </article>
 </template>

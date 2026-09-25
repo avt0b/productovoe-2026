@@ -15,6 +15,11 @@ class ProfileRepository:
     def get(self, profile_id: str) -> Profile | None:
         return self.db.get(Profile, profile_id)
 
+    def get_many(self, profile_ids: Sequence[str]) -> Sequence[Profile]:
+        if not profile_ids:
+            return []
+        return self.db.scalars(select(Profile).where(Profile.id.in_(profile_ids))).all()
+
     def search(
         self, *, role: str | None = None, limit: int = 50, offset: int = 0
     ) -> Sequence[Profile]:

@@ -9,6 +9,17 @@ os.environ["JWT_SECRET"] = "test-secret-test-secret-test-secret-0123456789"
 os.environ["APP_ENV"] = "test"
 os.environ.pop("BOOTSTRAP_ROOT_EMAIL", None)
 os.environ.pop("BOOTSTRAP_ROOT_PASSWORD", None)
+# Внешний вход — выключен, что бы ни стояло в локальном .env: тесты включают нужное сами.
+os.environ["EXTERNAL_AUTH_MOCK"] = "false"
+for _key in (
+    "VK_ID_CLIENT_ID",
+    "VK_ID_CLIENT_SECRET",
+    "YANDEX_ID_CLIENT_ID",
+    "YANDEX_ID_CLIENT_SECRET",
+    "MAX_BOT_NAME",
+    "MAX_WEBHOOK_SECRET",
+):
+    os.environ[_key] = ""
 
 import pytest
 from fastapi.testclient import TestClient

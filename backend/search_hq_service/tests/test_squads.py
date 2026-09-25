@@ -7,10 +7,10 @@ def create_squad(client, header, **over):
     return client.post("/squads", headers=header, json=body)
 
 
-def test_only_searcher_or_moderator_creates(client):
+def test_only_searcher_or_root_creates(client):
     assert create_squad(client, auth_header(role="family")).status_code == 403
     assert create_squad(client, auth_header(role="searcher")).status_code == 201
-    assert create_squad(client, auth_header(role="moderator")).status_code == 201
+    assert create_squad(client, auth_header(is_root=True)).status_code == 201
 
 
 def test_leader_is_set_from_token(client, leader_header):
@@ -22,14 +22,22 @@ def test_only_leader_or_staff_edits(client, leader_header):
     squad = create_squad(client, leader_header).json()
 
     other = auth_header(role="searcher")
-    assert client.patch(f"/squads/{squad['id']}", headers=other, json={"name": "x"}).status_code == 403
+    assert (
+        client.patch(f"/squads/{squad['id']}", headers=other, json={"name": "x"}).status_code == 403
+    )
 
-    assert client.patch(
-        f"/squads/{squad['id']}", headers=leader_header, json={"name": "Высота-2"}
-    ).status_code == 200
-    assert client.patch(
-        f"/squads/{squad['id']}", headers=auth_header(is_root=True), json={"region": "Орёл"}
-    ).status_code == 200
+    assert (
+        client.patch(
+            f"/squads/{squad['id']}", headers=leader_header, json={"name": "Высота-2"}
+        ).status_code
+        == 200
+    )
+    assert (
+        client.patch(
+            f"/squads/{squad['id']}", headers=auth_header(is_root=True), json={"region": "Орёл"}
+        ).status_code
+        == 200
+    )
 
 
 def test_list_and_filter_by_region(client):
@@ -43,3 +51,26 @@ def test_delete_by_leader(client, leader_header):
     squad = create_squad(client, leader_header).json()
     assert client.delete(f"/squads/{squad['id']}", headers=leader_header).status_code == 204
     assert client.get(f"/squads/{squad['id']}").status_code == 404
+
+
+def test_squad_coordinates_and_bbox_filter(client):
+    inside = create_squad(
+        client, auth_header(role="searcher"), name="В Орле", lat=52.97, lon=36.07
+    ).json()
+    assert inside["lat"] == 52.97 and inside["lon"] == 36.07
+
+    outside = create_squad(
+        client, auth_header(role="searcher"), name="В Москве", lat=55.75, lon=37.62
+    ).json()
+
+    no_coords = create_squad(client, auth_header(role="searcher"), name="Без координат").json()
+    assert no_coords["lat"] is None and no_coords["lon"] is None
+
+    rows = client.get(
+        "/squads",
+        params={"min_lat": 52, "min_lon": 35, "max_lat": 53.5, "max_lon": 37},
+    ).json()
+    ids = {s["id"] for s in rows}
+    assert inside["id"] in ids
+    assert outside["id"] not in ids
+    assert no_coords["id"] not in ids

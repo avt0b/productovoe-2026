@@ -34,3 +34,6 @@ backend/*/keys/*.pem
 
 # Claude Code local tooling state
 .claude/
+docker/nginx/ssl/
+*.swp
+.env

@@ -26,3 +26,8 @@ class PermissionDenied(AppError):
 class Conflict(AppError):
     status_code = status.HTTP_409_CONFLICT
     detail = "Конфликт состояния"
+
+
+class ContentRejected(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    detail = "Соблюдайте правила нашего сообщества"

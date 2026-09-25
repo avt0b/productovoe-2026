@@ -86,7 +86,7 @@ async function submit() {
       </div>
 
       <p class="font-body-sm text-body-sm text-on-surface-variant">
-        Запись сразу уходит в map_service со статусом «Обнаружено» — доступна архивистам для проверки.
+        Запись сразу появится со статусом «Обнаружено» — доступна архивистам для проверки.
       </p>
 
       <form class="flex flex-col gap-3" @submit.prevent="submit">

@@ -22,6 +22,31 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!--
+              Метка с нашей ссылкой открывает приложение, даже когда оно закрыто.
+              Host не указан намеренно: экран NFC пишет на таблички ссылки вида
+              marshruty://routes/<точка>, marshruty://excursions/<id> и marshruty://nfc —
+              все они должны открывать приложение. Только своя схема: на чужие
+              метки (банковские карты, проездные) приложение не лезет.
+            -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="marshruty" />
+            </intent-filter>
+
+            <!--
+              Та же ссылка обычной ссылкой: из QR-кода, сообщения или
+              `adb shell am start`. Сюда же возвращается вход через VK ID и
+              Госуслуги — marshruty://auth/external?result_code=…
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="marshruty" />
+            </intent-filter>
+
         </activity>
 
         <provider
@@ -44,4 +69,8 @@
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
     <!-- Вибрация при совпавшем бампе на экскурсии: без разрешения navigator.vibrate в WebView молчит. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- NFC-метки на табличках у памятников. Разрешение выдаётся при установке, спрашивать нечего. -->
+    <uses-permission android:name="android.permission.NFC" />
+    <!-- required="false": на телефонах без NFC приложение ставится и работает, просто без меток. -->
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
 </manifest>

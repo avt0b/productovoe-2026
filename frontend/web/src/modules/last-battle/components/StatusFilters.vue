@@ -3,13 +3,13 @@ import { computed, ref } from 'vue'
 
 const props = defineProps({
   // Полный список точек текущего фильтра — используется только чтобы
-  // показать актуальный счётчик на активной вкладке (map_service не отдаёт
+  // показать актуальный счётчик на активной вкладке (бэкенд не отдаёт
   // счётчики по всем статусам одним запросом).
   countsSource: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['change'])
 
-// id соответствуют enum LastStandStatus в map_service (core/models/last_stand.py)
+// id соответствуют статусам точки на бэкенде
 const filters = [
   { id: null, label: 'Все точки', dot: 'bg-outline' },
   { id: 'discovered', label: 'Обнаружено (проверка)', dot: 'bg-tertiary animate-pulse' },
@@ -56,7 +56,7 @@ function select(id) {
 
     <div class="flex items-center gap-3 self-end lg:self-center">
       <span class="font-label-sm text-label-sm text-on-surface-variant">
-        Данные из <code class="font-mono">map_service</code>, слой «ВОВ» пока не подключён
+        Слой «ВОВ» пока не подключён
       </span>
     </div>
   </section>

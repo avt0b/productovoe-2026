@@ -2,6 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Шрифты лежат рядом с приложением, а не приходят из Google Fonts.
+ *
+ * В APK сети может не быть вовсе, а иконки Material Symbols рисуются
+ * лигатурами: без файла шрифта вместо значка на экране остаётся слово
+ * («search», «person»). Поэтому здесь сабсет из `public/fonts`:
+ * Manrope — кириллица и латиница, Material Symbols — только те иконки,
+ * которые есть в приложении (список собирается по `MsIcon`).
+ *
+ * Добавили новую иконку — обновите файл шрифта (README, «Шрифты и иконки»).
+ */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/manrope-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/manrope-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/manrope-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/manrope-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
+}
+
 @layer base {
   html,
   body,
@@ -23,7 +76,23 @@
 }
 
 @layer components {
-  /* Иконка Material Symbols: сам класс `material-symbols-outlined` приходит из CSS Google Fonts. */
+  /* Класс иконки — тот же, что отдавал CSS Google Fonts; лигатуры включает `liga`. */
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+  }
+
   .icon-filled {
     font-variation-settings: 'FILL' 1;
   }
@@ -38,10 +107,139 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  /*
+   * Шапка и нижняя панель висят поверх контента, поэтому их высоту экран
+   * отступает сам. Высота считается вместе с системными полосами: на телефоне
+   * шапка занимает полосу статуса плюс 4rem, иначе первый блок экрана
+   * оказывается под ней и до него не домотать.
+   */
+  .pt-header {
+    padding-top: calc(4rem + env(safe-area-inset-top, 0px));
+  }
+  /* Панель вкладок: 4rem самой панели, 1.25rem зазора снизу и системная полоса. */
+  .pb-nav {
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
   .no-scrollbar {
     scrollbar-width: none;
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /*
+   * Лист пергамента: тёплая основа, пятна выцветания по углам и зерно бумаги.
+   * Шум — inline-SVG в data-URI, а не картинка: в APK нет сети, внешний файл
+   * там просто не загрузится.
+   */
+  .bg-parchment {
+    background-color: theme('colors.parchment.base');
+    background-image:
+      radial-gradient(ellipse 60% 45% at 12% 8%, rgba(150, 118, 62, 0.14), transparent 70%),
+      radial-gradient(ellipse 55% 40% at 88% 22%, rgba(133, 102, 51, 0.11), transparent 70%),
+      radial-gradient(ellipse 70% 35% at 50% 100%, rgba(122, 92, 44, 0.13), transparent 70%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)' opacity='0.16'/%3E%3C/svg%3E");
+    background-blend-mode: normal, normal, normal, multiply;
+  }
+}
+
+/*
+ * Редкий отблеск в цветах георгиевской ленты: по тексту раз в несколько секунд
+ * проходит косая полоса охры с тонкой тёмной прожилкой, остальное время буквы
+ * своего цвета. Базовый цвет берётся из `--shimmer-base`, потому что при
+ * `background-clip: text` сам `color` уходит в прозрачный и `currentColor`
+ * внутри градиента взять уже неоткуда.
+ *
+ * Пауза занимает большую часть цикла — блик должен читаться как редкий
+ * отсвет живого огня, а не как бегущая строка.
+ */
+.ribbon-shimmer {
+  /*
+   * Базовый цвет приходит из `--shimmer-base`. Значение по умолчанию задано
+   * фолбэком `var(..., #fff)`, а не объявлением переменной: объявление здесь
+   * перебивало бы утилиту, которой цвет переопределяют на конкретном элементе.
+   *
+   * Цвет должен быть непрозрачным. С полупрозрачной базой браузер сводит её
+   * с непрозрачной охрой не только по тону, но и по альфе, и следом за бликом
+   * проходит полоса плотного белого. Текст приглушают `opacity` на элементе,
+   * а не прозрачностью базы.
+   */
+  background-size: 260% 100%;
+  background-repeat: no-repeat;
+  background-position: 135% 0;
+}
+
+/* Без поддержки обрезки фона по тексту буквы остаются обычными, а не пропадают. */
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .ribbon-shimmer {
+    /*
+     * Заливка и градиент включаются только здесь. Снаружи они дали бы белый
+     * прямоугольник за надписью там, где фон по тексту обрезать нечем.
+     * Заливка обязательна: градиент уже ширины текста и стоит за его краем,
+     * пока блик не пошёл, — без неё буквы вне градиента прозрачны.
+     */
+    background-color: var(--shimmer-base, #ffffff);
+    background-image: linear-gradient(
+      105deg,
+      var(--shimmer-base, #ffffff) 0 42%,
+      theme('colors.tertiary-fixed-dim') 46%,
+      theme('colors.tertiary-fixed') 49%,
+      theme('colors.on-tertiary-fixed-variant') 51%,
+      theme('colors.tertiary-fixed-dim') 54%,
+      var(--shimmer-base, #ffffff) 58% 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    /*
+     * Свойства перечислены по отдельности, без шортката `animation`: шорткат
+     * сбрасывал бы `animation-delay`, которым разведены блики на заголовке,
+     * описании и кнопках, чтобы отсвет шёл волной, а не вспыхивал разом.
+     */
+    animation-name: ribbon-shimmer;
+    animation-duration: 11s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+}
+
+@keyframes ribbon-shimmer {
+  /*
+   * Пауза занимает большую часть цикла, сам проход — остаток. Доля прохода
+   * задана здесь, а не длительностью: увеличивая только длительность, вместе
+   * с бликом растягивается и пауза, и отсвет начинает казаться случайным.
+   */
+  0%,
+  62% {
+    background-position: 135% 0;
+  }
+  100% {
+    background-position: -45% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ribbon-shimmer {
+    animation-name: none;
+    background-image: none;
+    color: var(--shimmer-base, #ffffff);
+  }
+}
+
+/*
+ * Автозаполнение. Chrome закрашивает поле с сохранённым паролем своим белым
+ * фоном и тёмным текстом — на тёмной форме поверх фотографии это выглядит
+ * как две белые плашки. Сам фон стилями не снимается: он рисуется поверх,
+ * и `background-color` его не перебивает. Работает единственный приём —
+ * отложить переход фона на срок, до которого дело не дойдёт, и отдельно
+ * задать цвет текста и каретки, которые автозаполнение тоже переопределяет.
+ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #ffffff;
+  caret-color: #ffffff;
+  transition: background-color 100000s ease-in-out 0s;
 }

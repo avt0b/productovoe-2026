@@ -16,6 +16,18 @@ def login(client, email="user@example.com", password="hackathon-2026"):
     return client.post("/auth/login", json={"email": email, "password": password})
 
 
+def register_as_local_historian(client, email):
+    """local_historian больше нельзя выбрать при регистрации (см.
+    test_register_cannot_self_assign_local_historian) — в тестах, которым
+    нужен такой пользователь, регистрируем обычным и повышаем через
+    внутреннюю ручку, как это в реальности делает user_service после
+    одобрения заявки."""
+    uid = register(client, email=email, role="family").json()["id"]
+    client.patch(
+        f"/internal/users/{uid}/role", headers=INTERNAL_HEADERS, json={"role": "local_historian"}
+    )
+
+
 # --- доступ по ключу -------------------------------------------------
 
 
@@ -43,7 +55,7 @@ def test_get_user_without_key_403(client):
 
 
 def test_set_role_without_key_403(client):
-    r = client.patch("/internal/users/whatever/role", json={"role": "mentor"})
+    r = client.patch("/internal/users/whatever/role", json={"role": "searcher"})
     assert r.status_code == 403
 
 
@@ -70,7 +82,7 @@ def test_stats_shape(client):
     baseline = client.get("/internal/stats", headers=INTERNAL_HEADERS).json()
 
     register(client, email="a@example.com", role="family")
-    register(client, email="b@example.com", role="local_historian")
+    register_as_local_historian(client, "b@example.com")
 
     r = client.get("/internal/stats", headers=INTERNAL_HEADERS)
     assert r.status_code == 200
@@ -111,7 +123,7 @@ def test_list_users_ok(client):
     baseline_total = client.get("/internal/users", headers=INTERNAL_HEADERS).json()["total"]
 
     register(client, email="a@example.com", role="family")
-    register(client, email="b@example.com", role="local_historian")
+    register_as_local_historian(client, "b@example.com")
 
     r = client.get("/internal/users", headers=INTERNAL_HEADERS)
     assert r.status_code == 200
@@ -125,7 +137,7 @@ def test_list_users_ok(client):
 
 def test_list_users_filters_by_role_and_query(client):
     register(client, email="a@example.com", role="family")
-    register(client, email="b@example.com", role="local_historian")
+    register_as_local_historian(client, "b@example.com")
 
     by_role = client.get(
         "/internal/users", headers=INTERNAL_HEADERS, params={"role": "local_historian"}
@@ -172,21 +184,24 @@ def test_get_user_missing_404(client):
 def test_set_role_changes_role_and_bypasses_self_assign_restriction(client):
     uid = register(client).json()["id"]
 
-    # Через /auth/register роль "moderator" нельзя выбрать самому — а через
-    # внутренний ключ admin_service обязан иметь возможность её назначить.
+    # Через /auth/register роль "local_historian" нельзя выбрать самому — она
+    # выдаётся по заявке. А через внутренний ключ user_service (после того,
+    # как админ одобрил заявку) обязан иметь возможность её назначить.
     r = client.patch(
-        f"/internal/users/{uid}/role", headers=INTERNAL_HEADERS, json={"role": "moderator"}
+        f"/internal/users/{uid}/role", headers=INTERNAL_HEADERS, json={"role": "local_historian"}
     )
     assert r.status_code == 200
-    assert r.json()["role"] == "moderator"
+    assert r.json()["role"] == "local_historian"
 
     check = client.get(f"/internal/users/{uid}", headers=INTERNAL_HEADERS)
-    assert check.json()["role"] == "moderator"
+    assert check.json()["role"] == "local_historian"
 
 
 def test_set_role_missing_user_404(client):
     r = client.patch(
-        "/internal/users/does-not-exist/role", headers=INTERNAL_HEADERS, json={"role": "mentor"}
+        "/internal/users/does-not-exist/role",
+        headers=INTERNAL_HEADERS,
+        json={"role": "local_historian"},
     )
     assert r.status_code == 404
 

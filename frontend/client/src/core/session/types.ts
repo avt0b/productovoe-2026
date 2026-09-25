@@ -1,5 +1,8 @@
-/** Роль в платформе — как в `auth_service`. */
-export type UserRole = 'family' | 'searcher' | 'local_historian' | 'mentor' | 'moderator'
+/**
+ * Роль в платформе — как в `auth_service`. Ролей три; четвёртая по продукту,
+ * администратор, — не роль, а флаг `is_root` (см. `SessionUser.isRoot`).
+ */
+export type UserRole = 'family' | 'searcher' | 'local_historian'
 
 /** Пользователь текущей сессии — ровно то, что нужно интерфейсу, без полей бэкенда. */
 export interface SessionUser {
@@ -11,6 +14,8 @@ export interface SessionUser {
   avatarUrl?: string
   /** Роль из `auth_service`. У демо-пользователя её нет. */
   role?: UserRole
+  /** Администратор платформы (`is_root`): стафф-права сервисов остались только у него. */
+  isRoot?: boolean
   email?: string
 }
 
@@ -23,10 +28,10 @@ export interface SessionTokens {
 }
 
 /**
- * Каким способом человек входит. Пароль и регистрация идут в `auth_service`,
- * Госуслуги / VK ID / Сбер ID пока ведут в демо-вход.
+ * Вход по паролю или регистрация в `auth_service`. VK ID, Яндекс ID, MAX и Госуслуги —
+ * отдельный путь через провайдера (`externalAuth.ts`).
  */
-export type SignInMethod = 'password' | 'register' | 'gosuslugi' | 'vk-id' | 'sber-id'
+export type SignInMethod = 'password' | 'register'
 
 export interface SignInRequest {
   method: SignInMethod
@@ -35,8 +40,11 @@ export interface SignInRequest {
   password?: string
   /** Имя при регистрации. */
   name?: string
-  /** Роль при регистрации: краевед или наставник водит экскурсии. */
-  role?: UserRole
+  /**
+   * Роль при регистрации. `auth_service` принимает только «семью»
+   * (`SELF_ASSIGNABLE_ROLES`), поисковиком и краеведом становятся по заявке.
+   */
+  role?: 'family'
 }
 
 export interface SignInResult {

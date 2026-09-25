@@ -6,7 +6,7 @@ from api.deps import CurrentPrincipal, NeedServiceDep, SquadServiceDep, TripServ
 from api.schemas.need import NeedCreate, NeedOut
 from api.schemas.squad import SquadCreate, SquadOut, SquadUpdate
 from api.schemas.trip import TripCreate, TripOut
-from core.models import NeedKind, NeedStatus
+from core.models import NeedKind, NeedStatus, SquadKind
 
 router = APIRouter(prefix="/squads", tags=["squads (поисковый штаб)"])
 
@@ -22,11 +22,19 @@ def create_squad(
 def list_squads(
     service: SquadServiceDep,
     region: Annotated[str | None, Query(max_length=120)] = None,
+    kind: Annotated[SquadKind | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=200)] = None,
+    min_lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    min_lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    max_lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    max_lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[SquadOut]:
-    rows = service.search(region=region, q=q, limit=limit, offset=offset)
+    bbox = None
+    if None not in (min_lat, min_lon, max_lat, max_lon):
+        bbox = (min_lat, min_lon, max_lat, max_lon)
+    rows = service.search(region=region, kind=kind, q=q, bbox=bbox, limit=limit, offset=offset)
     return [SquadOut.model_validate(s) for s in rows]
 
 
@@ -39,9 +47,7 @@ def get_squad(squad_id: str, service: SquadServiceDep) -> SquadOut:
 def update_squad(
     squad_id: str, payload: SquadUpdate, principal: CurrentPrincipal, service: SquadServiceDep
 ) -> SquadOut:
-    return SquadOut.model_validate(
-        service.update(principal, squad_id, payload.to_update_dict())
-    )
+    return SquadOut.model_validate(service.update(principal, squad_id, payload.to_update_dict()))
 
 
 @router.delete("/{squad_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -50,6 +56,7 @@ def delete_squad(squad_id: str, principal: CurrentPrincipal, service: SquadServi
 
 
 # --- вложенные потребности отряда ---
+
 
 @router.get("/{squad_id}/needs", response_model=list[NeedOut])
 def list_squad_needs(
@@ -70,6 +77,7 @@ def create_squad_need(
 
 
 # --- вложенные выезды отряда ---
+
 
 @router.get("/{squad_id}/trips", response_model=list[TripOut])
 def list_squad_trips(squad_id: str, service: TripServiceDep) -> list[TripOut]:

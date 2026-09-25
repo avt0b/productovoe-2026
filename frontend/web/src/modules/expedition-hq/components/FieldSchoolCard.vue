@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useAuthSession } from '@modules/auth'
+import { checkForNewAchievements } from '@modules/profile'
 import * as hqApi from '../api.js'
 
 const { session } = useAuthSession()
@@ -9,9 +10,9 @@ const trip = ref(null)
 const squadName = ref('')
 const loadStatus = ref('idle') // idle | loading | loaded | empty | error
 
-// checklist хранится на бэкенде одной строкой (TripOut.checklist), делим на
-// пункты сами; отметки "выполнено" — только локальный UX, у search_hq_service
-// нет ручки для персонального прогресса по чек-листу.
+// checklist хранится на бэкенде одной строкой, делим на пункты сами;
+// отметки "выполнено" — только локальный UX, у бэкенда нет ручки для
+// персонального прогресса по чек-листу.
 const checklist = ref([])
 
 const checkedCount = computed(() => checklist.value.filter((item) => item.checked).length)
@@ -51,9 +52,24 @@ async function enroll() {
   try {
     await hqApi.registerForTrip(session.accessToken, trip.value.id)
     enrollState.value = 'done'
+    // trip_volunteer начисляется сразу при регистрации — салютуем тут же.
+    checkForNewAchievements(session.accessToken, session.user?.id).catch(() => {})
   } catch (err) {
     enrollState.value = 'idle'
     enrollError.value = err.status === 409 ? 'Вы уже записаны на этот выезд' : (err.detail ?? 'Не удалось записаться')
+  }
+}
+
+async function cancelEnroll() {
+  if (enrollState.value !== 'done' || !trip.value) return
+  enrollState.value = 'cancelling'
+  enrollError.value = ''
+  try {
+    await hqApi.cancelRegistration(session.accessToken, trip.value.id)
+    enrollState.value = 'idle'
+  } catch (err) {
+    enrollState.value = 'done'
+    enrollError.value = err.detail ?? 'Не удалось отменить запись'
   }
 }
 
@@ -69,7 +85,7 @@ onMounted(load)
         <span class="material-symbols-outlined text-[16px]">school</span>
         <span>Полевая школа</span>
       </div>
-      <span class="text-secondary-fixed-dim font-label-sm text-label-sm uppercase tracking-wider">search_hq_service</span>
+      <span class="text-secondary-fixed-dim font-label-sm text-label-sm uppercase tracking-wider">Штаб экспедиции</span>
     </div>
 
     <p v-if="loadStatus === 'empty'" class="font-body-md text-body-md text-secondary-fixed-dim z-10">
@@ -138,7 +154,7 @@ onMounted(load)
               ? 'bg-secondary-fixed text-on-secondary-fixed'
               : 'bg-tertiary-fixed hover:bg-tertiary-fixed-dim text-on-tertiary-fixed'
           "
-          :disabled="enrollState !== 'idle'"
+          :disabled="enrollState === 'pending'"
           @click="enroll"
         >
           <span
@@ -156,6 +172,17 @@ onMounted(load)
                   : 'Записаться волонтером'
             }}
           </span>
+        </button>
+        <button
+          v-if="enrollState === 'done' || enrollState === 'cancelling'"
+          class="w-full py-2.5 px-6 rounded-full font-label-md text-label-md font-bold text-on-secondary hover:bg-on-secondary-fixed/15 transition-colors flex items-center justify-center gap-2"
+          :disabled="enrollState === 'cancelling'"
+          @click="cancelEnroll"
+        >
+          <span class="material-symbols-outlined text-[18px]" :class="{ 'animate-spin': enrollState === 'cancelling' }">
+            {{ enrollState === 'cancelling' ? 'sync' : 'close' }}
+          </span>
+          <span>{{ enrollState === 'cancelling' ? 'Отменяем...' : 'Отменить запись' }}</span>
         </button>
       </div>
     </template>

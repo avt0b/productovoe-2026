@@ -29,13 +29,12 @@ def test_register_rejects_short_password(client):
     assert r.status_code == 422
 
 
-def test_register_cannot_self_assign_moderator(client):
-    # Модератор подтверждает архив и закрывает сборы — назначить себя им нельзя.
-    assert register(client, role="moderator").status_code == 422
-    # Краевед и наставник выбирают роль сами: им водить экскурсии.
-    guide = register(client, email="guide@example.com", role="local_historian")
-    assert guide.status_code == 201
-    assert guide.json()["role"] == "local_historian"
+def test_register_cannot_self_assign_searcher_or_local_historian(client):
+    # И поисковик, и краевед подтверждают доверенные действия (сборы, архив,
+    # точки) — обе роли выдаются только по заявке и одобрению администратора,
+    # назначить их себе напрямую при регистрации нельзя.
+    assert register(client, role="local_historian").status_code == 422
+    assert register(client, email="searcher@example.com", role="searcher").status_code == 422
 
 
 def test_login_and_access_me(client):

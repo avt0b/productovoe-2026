@@ -1,27 +1,36 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 
 import MsIcon from '@/ui/MsIcon.vue'
 
-defineProps<{
+const props = defineProps<{
+  /** Фото бойца. Пока видео нет — движение изображается «дыханием» кадра. */
   image: string
+  /** Готовый ролик из `media_service`. */
+  videoUrl?: string | null
   line: string
+  /** Подпись в углу: имя бойца или «Пример оформления». */
+  caption: string
 }>()
 
 /** Сколько длится вспышка «перезапуска» портрета. */
 const REPLAY_FLASH_MS = 600
 
-const muted = ref(false)
+const muted = ref(true)
 const slow = ref(false)
 const replaying = ref(false)
+const video = ref<HTMLVideoElement | null>(null)
 let replayTimer: ReturnType<typeof setTimeout> | undefined
 
-/**
- * Видео живого портрета ещё нет — движение изображается «дыханием» кадра.
- * Когда появится ролик из `media_service`, заменится содержимое окна просмотра,
- * а кнопки останутся.
- */
+watch(slow, (value) => {
+  if (video.value) video.value.playbackRate = value ? 0.5 : 1
+})
+
 function replay(): void {
+  if (video.value) {
+    video.value.currentTime = 0
+    void video.value.play()
+  }
   replaying.value = false
   // Сброс на следующем кадре, чтобы анимация повторилась при быстром двойном нажатии.
   requestAnimationFrame(() => {
@@ -32,55 +41,77 @@ function replay(): void {
 }
 
 onBeforeUnmount(() => clearTimeout(replayTimer))
+
+// Новый клип — с начала и с тем же темпом.
+watch(
+  () => props.videoUrl,
+  () => requestAnimationFrame(() => video.value && (video.value.playbackRate = slow.value ? 0.5 : 1)),
+)
 </script>
 
 <template>
-  <div class="relative flex flex-col space-y-3 overflow-hidden rounded-sheet bg-inverse-surface p-3 text-inverse-on-surface shadow-xl">
-    <div class="relative flex aspect-[4/5] w-full items-end overflow-hidden rounded-[22px] bg-surface-dim">
+  <!-- Тёмная сцена — одно из мест, где DESIGN разрешает ночь: под ней фото и видео. -->
+  <div class="relative flex flex-col gap-space-sm overflow-hidden rounded-sheet bg-night p-space-sm text-white shadow-sheet">
+    <div class="relative flex aspect-[4/5] w-full items-end overflow-hidden rounded-2xl bg-night-soft short:aspect-square">
+      <video
+        v-if="videoUrl"
+        ref="video"
+        :src="videoUrl"
+        :poster="image"
+        :muted="muted"
+        autoplay
+        loop
+        playsinline
+        class="absolute inset-0 h-full w-full object-cover object-top"
+      />
       <img
+        v-else
         :src="image"
-        alt="Реконструированный портрет героя"
+        alt="Фото героя"
         class="portrait absolute inset-0 h-full w-full object-cover object-top"
         :class="{ 'portrait--slow': slow, 'portrait--flash': replaying }"
       />
-      <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/40" />
+      <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-night/20 via-transparent to-night/70" />
 
-      <div class="pointer-events-none absolute inset-x-3 top-3 flex items-center justify-between">
-        <div class="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 text-white shadow-sm backdrop-blur-md">
-          <span class="h-2 w-2 animate-pulse rounded-full bg-secondary-fixed-dim" />
-          <span class="font-label-sm text-label-sm">Нейрореставрация</span>
+      <div class="pointer-events-none absolute inset-x-3 top-3 flex items-center justify-between gap-2">
+        <div class="flex min-w-0 items-center gap-1.5 rounded-full border border-white/15 bg-night/45 px-space-sm py-1 text-white backdrop-blur-md">
+          <span class="h-2 w-2 shrink-0 rounded-full bg-secondary-fixed-dim motion-safe:animate-pulse" />
+          <span class="truncate font-label-sm text-label-sm">{{ caption }}</span>
         </div>
-        <!-- В макете было «Аутентичный голос». Голос синтезирован — выдавать его за подлинный нельзя. -->
-        <div class="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 text-white shadow-sm backdrop-blur-md">
-          <MsIcon name="graphic_eq" :size="14" class="text-tertiary-fixed" />
-          <span class="font-label-sm text-label-sm">Реконструкция голоса</span>
+        <!-- Голос синтезирован — выдавать его за подлинный нельзя. -->
+        <div class="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-night/45 px-space-sm py-1 text-white backdrop-blur-md">
+          <MsIcon name="graphic_eq" :size="15" class="text-tertiary-fixed" />
+          <span class="font-label-sm text-label-sm">Реконструкция</span>
         </div>
       </div>
 
-      <div class="relative z-10 w-full p-2.5">
-        <div class="flex items-center gap-2.5 rounded-xl bg-black/65 p-3 shadow-lg backdrop-blur-md">
+      <div class="relative z-10 w-full p-space-sm">
+        <div class="flex items-center gap-space-sm rounded-2xl border border-white/15 bg-night/45 p-space-sm shadow-sheet backdrop-blur-md">
           <MsIcon name="format_quote" :size="20" filled class="shrink-0 text-tertiary-fixed" />
-          <p class="font-body-sm text-body-sm italic leading-snug text-white">{{ line }}</p>
+          <p class="font-body-sm text-body-sm italic leading-snug text-white">«{{ line }}»</p>
         </div>
       </div>
     </div>
 
-    <div class="flex items-center justify-between px-2 pb-2 pt-1">
+    <div class="flex items-center justify-between px-space-xs pb-space-xs">
+      <!-- Звук есть только у готового видео; у фото-примера кнопки нет, а не выключенная пустышка. -->
       <button
+        v-if="videoUrl"
         type="button"
-        class="flex h-11 items-center gap-2 rounded-full bg-surface-container/20 px-4 text-inverse-on-surface transition-all hover:bg-surface-container/30 active:scale-95"
-        :class="{ 'opacity-60': muted }"
-        :aria-pressed="muted"
+        class="flex h-11 items-center gap-2 rounded-full bg-white/10 px-space-md text-white transition-colors duration-200 hover:bg-white/15 active:scale-95"
+        :class="{ 'text-white/70': muted }"
+        :aria-pressed="!muted"
         @click="muted = !muted"
       >
         <MsIcon :name="muted ? 'volume_off' : 'volume_up'" :size="20" />
         <span class="font-label-md text-label-md">{{ muted ? 'Без звука' : 'Звук вкл' }}</span>
       </button>
+      <span v-else class="font-label-sm text-label-sm text-white/70">Фото «дышит» — видео ещё нет</span>
 
       <button
         type="button"
         aria-label="Перезапустить видеопортрет"
-        class="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-on-primary shadow-lg shadow-primary/40 transition-transform duration-300 active:scale-90"
+        class="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-white/15 text-white backdrop-blur-md transition-transform duration-300 active:scale-90"
         :class="{ 'rotate-[360deg]': replaying }"
         @click="replay"
       >
@@ -89,8 +120,8 @@ onBeforeUnmount(() => clearTimeout(replayTimer))
 
       <button
         type="button"
-        class="flex h-11 items-center gap-1.5 rounded-full bg-surface-container/20 px-4 transition-all hover:bg-surface-container/30 active:scale-95"
-        :class="slow ? 'text-tertiary-fixed' : 'text-inverse-on-surface'"
+        class="flex h-11 items-center gap-1.5 rounded-full bg-white/10 px-space-md transition-colors duration-200 hover:bg-white/15 active:scale-95"
+        :class="slow ? 'text-tertiary-fixed' : 'text-white'"
         :aria-pressed="slow"
         aria-label="Замедленное воспроизведение"
         @click="slow = !slow"

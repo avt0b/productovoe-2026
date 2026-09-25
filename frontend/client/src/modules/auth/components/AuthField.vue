@@ -17,8 +17,6 @@ withDefaults(
 )
 
 defineSlots<{
-  /** Ссылка справа от подписи — «Забыли пароль?». */
-  'label-action'?: () => unknown
   /** Кнопка внутри поля справа — «показать пароль». */
   trailing?: () => unknown
 }>()
@@ -28,21 +26,23 @@ const id = useId()
 
 <template>
   <div class="flex flex-col space-y-space-xs">
-    <div class="flex items-center justify-between">
-      <label :for="id" class="font-label-md text-label-md text-on-surface-variant">{{ label }}</label>
-      <slot name="label-action" />
-    </div>
+    <label :for="id" class="font-label-md text-label-md text-white/70">{{ label }}</label>
+    <!--
+      Поле — строка, а не коробка: на фотографии рамка вокруг каждой графы
+      превращала форму в решётку. Остаётся одна линия снизу, в фокусе она
+      светлеет — так видно, какую графу сейчас заполняют.
+    -->
     <div
-      class="flex items-center rounded-full bg-surface-container-low px-space-md py-3 text-on-surface focus-within:bg-surface-container"
+      class="flex items-center border-b border-white/25 py-2.5 text-white transition-colors focus-within:border-white short:py-2"
     >
-      <MsIcon :name="icon" :size="18" class="mr-space-sm text-outline" />
+      <MsIcon :name="icon" :size="18" class="mr-space-sm text-white/55" />
       <input
         :id="id"
         v-model="model"
         :type="type"
         :placeholder="placeholder"
         :autocomplete="autocomplete"
-        class="w-full border-none bg-transparent font-body-md text-body-md text-on-surface outline-none placeholder:text-outline/70"
+        class="w-full border-none bg-transparent font-body-md text-body-md text-white outline-none placeholder:text-white/45 focus-visible:ring-0 focus-visible:ring-offset-0"
       />
       <slot name="trailing" />
     </div>

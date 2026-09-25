@@ -1,6 +1,7 @@
 def test_client_origins_allowed(client):
-    # Клиентское приложение: dev-сервер Vite и APK на Capacitor (https://localhost).
-    for origin in ("http://localhost:5174", "https://localhost"):
+    # Клиентское приложение: dev-сервер Vite и APK на Capacitor (https://localhost,
+    # на стенде с сервисами по http — http://localhost).
+    for origin in ("http://localhost:5174", "https://localhost", "http://localhost"):
         response = client.options(
             "/auth/login",
             headers={"Origin": origin, "Access-Control-Request-Method": "POST"},

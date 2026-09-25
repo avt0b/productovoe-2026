@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { setAuthHandlers } from '@/core/api'
+import { ApiError, setAuthHandlers } from '@/core/api'
 
 import { serviceAuthProvider } from './serviceAuthProvider'
-import type { AuthProvider, SessionTokens, SessionUser, SignInRequest } from './types'
+import type { AuthProvider, SessionTokens, SessionUser, SignInRequest, SignInResult } from './types'
 
 /** Источник сессии. Здесь, и только здесь, выбирается, откуда берётся вход. */
 const provider: AuthProvider = serviceAuthProvider
@@ -48,6 +48,8 @@ export const useSessionStore = defineStore('session', () => {
   const user = ref<SessionUser | null>(stored?.user ?? null)
   const tokens = ref<SessionTokens | null>(stored?.tokens ?? null)
   const pending = ref(false)
+  /** Сессию закрыл сервер, а не человек: каркас приложения уводит на вход. */
+  const expired = ref(false)
 
   const isAuthenticated = computed(() => user.value !== null)
   /**
@@ -66,10 +68,19 @@ export const useSessionStore = defineStore('session', () => {
       const result = await provider.signIn(request)
       user.value = result.user
       tokens.value = result.tokens
+      expired.value = false
       persist()
     } finally {
       pending.value = false
     }
+  }
+
+  /** Принять готовую сессию — после входа через VK ID, Яндекс ID, MAX или Госуслуги. */
+  function adopt(result: SignInResult): void {
+    user.value = result.user
+    tokens.value = result.tokens
+    expired.value = false
+    persist()
   }
 
   let refreshing: Promise<boolean> | null = null
@@ -85,11 +96,24 @@ export const useSessionStore = defineStore('session', () => {
         persist()
         return true
       })
-      .catch(() => false)
+      .catch((reason) => {
+        // Сервис входа отверг refresh-токен (отозван, истёк, база стенда
+        // пересоздана) — сессия мертва, и каждый запрос дальше получал бы 401.
+        // Нет сети — другое дело: токены ещё пригодятся, человека не выкидываем.
+        if (reason instanceof ApiError && reason.status < 500) expire()
+        return false
+      })
       .finally(() => {
         refreshing = null
       })
     return refreshing
+  }
+
+  function expire(): void {
+    user.value = null
+    tokens.value = null
+    expired.value = true
+    writeStored(null)
   }
 
   async function signOut(): Promise<void> {
@@ -105,7 +129,21 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  setAuthHandlers({ accessToken: () => tokens.value?.accessToken ?? null, refresh })
+  /**
+   * Уточнить пользователя сессии: имя и город приходят из профиля
+   * (`user_service`), а не из входа — в `auth_service` их нет.
+   */
+  function updateUser(patch: Partial<Pick<SessionUser, 'name' | 'city' | 'headline' | 'avatarUrl'>>): void {
+    if (!user.value) return
+    user.value = { ...user.value, ...patch }
+    persist()
+  }
 
-  return { user, tokens, pending, isAuthenticated, hasAccount, signIn, signOut, refresh }
+  setAuthHandlers({
+    accessToken: () => tokens.value?.accessToken ?? null,
+    expiresAt: () => tokens.value?.expiresAt ?? null,
+    refresh,
+  })
+
+  return { user, tokens, pending, expired, isAuthenticated, hasAccount, signIn, adopt, signOut, refresh, updateUser }
 })

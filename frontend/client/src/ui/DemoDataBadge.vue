@@ -11,7 +11,7 @@ import MsIcon from './MsIcon.vue'
 
 <template>
   <p
-    class="flex items-start gap-2 rounded-DEFAULT bg-tertiary-fixed/50 px-3 py-2 font-body-sm text-body-sm text-on-tertiary-fixed-variant"
+    class="flex items-start gap-space-sm rounded-DEFAULT bg-tertiary-fixed/50 px-space-sm py-2 font-body-sm text-body-sm text-on-tertiary-fixed-variant"
     role="status"
   >
     <MsIcon name="cloud_off" :size="18" class="mt-0.5 shrink-0" />

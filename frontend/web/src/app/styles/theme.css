@@ -1,59 +1,109 @@
 @import 'tailwindcss';
 
+/*
+ * Палитра перенесена из frontend/client/tailwind.config.js (Stitch, схема
+ * Material 3 + архивная тема: пергамент вместо холодного серого, акцент —
+ * цвета георгиевской ленты).
+ */
 @theme {
-  --color-on-secondary-fixed: #0f1f0f;
-  --color-tertiary-fixed: #ffdcbc;
-  --color-secondary-fixed: #d3e9cd;
-  --color-on-surface-variant: #59413d;
-  --color-outline: #8d706c;
-  --color-surface-variant: #e2e2e5;
-  --color-surface-bright: #f9f9fb;
-  --color-surface: #f9f9fb;
-  --color-tertiary-fixed-dim: #ffb86a;
-  --color-outline-variant: #e1bfba;
-  --color-secondary-fixed-dim: #b7ccb2;
-  --color-surface-container: #eeeef0;
-  --color-background: #f9f9fb;
-  --color-on-background: #1a1c1e;
-  --color-error-container: #ffdad6;
+  /* Пергамент: лист, на котором лежит всё приложение. */
+  --color-parchment-lightest: #fdf8ec;
+  --color-parchment-lighter: #f8f0dd;
+  --color-parchment-base: #f3e9d2;
+  --color-parchment-dim: #ecdfc2;
+  --color-parchment-deep: #e3d3ae;
+  --color-parchment-shade: #d6c295;
+  --color-parchment-line: #c2ab7c;
+  /* Охра и чёрный георгиевской ленты — «наградные» акценты. */
+  --color-ribbon-black: #241f18;
+  --color-ribbon-black-soft: #3a3227;
+  --color-ribbon-orange: #e8a33d;
+  --color-ribbon-orange-deep: #c97f1c;
+  --color-ribbon-orange-pale: #f6dcae;
+  /*
+   * Ночной слой: экран входа лежит на фотографии, и поверх неё нужен
+   * затемняющий подмалёвок плюс стеклянные поверхности формы. Значения — те
+   * же, что в мобильном клиенте (frontend/client/tailwind.config.js): экран
+   * входа в вебе и в приложении должен читаться как один и тот же.
+   */
+  --color-night: #0d0b09;
+  --color-night-soft: #1d1815;
+  /* Выцветшие чернила — текст и штампы на пергаменте. */
+  --color-ink: #2c2519;
+  --color-ink-muted: #6a5c44;
+  --color-ink-faded: #9a886a;
+  --color-background: #f3e9d2;
+  --color-surface: #f3e9d2;
+  --color-surface-bright: #f8f0dd;
+  --color-surface-dim: #e3d3ae;
   --color-surface-tint: #ae3024;
+  --color-surface-variant: #ecdfc2;
+  --color-surface-container-lowest: #fdf8ec;
+  --color-surface-container-low: #f8f0dd;
+  --color-surface-container: #ecdfc2;
+  --color-surface-container-high: #e3d3ae;
+  --color-surface-container-highest: #d6c295;
+  --color-inverse-surface: #2c2519;
+  --color-inverse-on-surface: #fdf8ec;
+  --color-primary: #a52a1f;
+  --color-primary-container: #c23c2b;
+  --color-on-primary: #fdf8ec;
   --color-on-primary-container: #fffbff;
-  --color-inverse-on-surface: #f0f0f3;
-  --color-surface-container-lowest: #ffffff;
-  --color-on-secondary-fixed-variant: #394b37;
-  --color-error: #ba1a1a;
-  --color-on-surface: #1a1c1e;
-  --color-secondary-container: #d3e9cd;
-  --color-primary-fixed: #ffdad5;
-  --color-inverse-primary: #ffb4a9;
-  --color-primary-container: #cd4637;
-  --color-surface-container-high: #e8e8ea;
-  --color-on-tertiary-fixed: #2c1700;
-  --color-tertiary-container: #a76500;
-  --color-on-secondary-container: #566954;
-  --color-on-error: #ffffff;
-  --color-on-primary: #ffffff;
-  --color-on-primary-fixed: #410000;
-  --color-on-primary-fixed-variant: #8c170f;
-  --color-secondary: #51634e;
-  --color-primary-fixed-dim: #ffb4a9;
-  --color-surface-container-low: #f3f3f6;
-  --color-on-error-container: #93000a;
-  --color-inverse-surface: #2f3133;
-  --color-surface-dim: #d9dadc;
-  --color-on-tertiary-fixed-variant: #683d00;
-  --color-on-tertiary: #ffffff;
+  --color-primary-fixed: #f6d9cf;
+  --color-primary-fixed-dim: #e8a999;
+  --color-on-primary-fixed: #3d0c06;
+  --color-on-primary-fixed-variant: #7e1d14;
+  --color-inverse-primary: #e8a999;
+  --color-secondary: #4d5e43;
+  --color-secondary-container: #d8e0c8;
+  --color-on-secondary: #fdf8ec;
+  --color-on-secondary-container: #3c4a35;
+  --color-secondary-fixed: #dde5cd;
+  --color-secondary-fixed-dim: #bcc9ae;
+  --color-on-secondary-fixed: #141d0f;
+  --color-on-secondary-fixed-variant: #39472f;
+  /* Третичный — латунь и охра: награды, отличия, акценты. */
+  --color-tertiary: #8a5a13;
+  --color-tertiary-container: #c97f1c;
+  --color-on-tertiary: #fdf8ec;
   --color-on-tertiary-container: #fffbff;
-  --color-tertiary: #854f00;
-  --color-on-secondary: #ffffff;
-  --color-primary: #ab2e22;
-  --color-surface-container-highest: #e2e2e5;
-
+  --color-tertiary-fixed: #f6dcae;
+  --color-tertiary-fixed-dim: #e8a33d;
+  --color-on-tertiary-fixed: #2c1a00;
+  --color-on-tertiary-fixed-variant: #6b4200;
+  --color-error: #a51b14;
+  --color-error-container: #f5d7ce;
+  --color-on-error: #fdf8ec;
+  --color-on-error-container: #7a0d09;
+  --color-on-surface: #2c2519;
+  --color-on-surface-variant: #6a5c44;
+  --color-on-background: #2c2519;
+  --color-outline: #9a886a;
+  --color-outline-variant: #c2ab7c;
+  /* Цвета, которые в макете client стояли прямо в разметке. */
+  --color-field: #4d5e43;
+  --color-field-muted: #5b6e58;
+  --color-field-line: #7a8d77;
+  --color-field-surface: #eef0e4;
+  --color-field-surface-high: #e6eada;
+  --color-map-paper: #f8f0dd;
+  --color-map-grid: #e3d3ae;
+  --color-map-forest: #dfe5d3;
+  --color-map-river: #bcd3cc;
+  --color-quest: #fdf8ec;
   --radius-DEFAULT: 1rem;
   --radius-lg: 2rem;
   --radius-xl: 3rem;
   --radius-full: 9999px;
-
+  /* Нижняя панель, плеер портрета, выезжающая карточка маршрута. */
+  --radius-sheet: 28px;
+  /* Тени тёплые: на пергаменте серая тень выглядит грязным пятном. */
+  --shadow-header: 0 1px 8px rgba(92, 69, 32, 0.07);
+  --shadow-nav: 0 10px 25px -5px rgba(92, 69, 32, 0.12);
+  --shadow-sheet: 0 12px 36px rgba(92, 69, 32, 0.13);
+  --shadow-float: 0 4px 16px rgba(92, 69, 32, 0.12);
+  --shadow-stamp: 0 2px 10px rgba(122, 29, 20, 0.28);
+  --shadow-document: 0 2px 0 rgba(255, 252, 242, 0.7) inset, 0 8px 24px rgba(92, 69, 32, 0.12);
   --spacing-gutter-tablet: 1.25rem;
   --spacing-margin-tablet: 2rem;
   --spacing-gutter-desktop: 1.5rem;
@@ -61,11 +111,11 @@
   --spacing-space-xs: 0.25rem;
   --spacing-space-md: 1rem;
   --spacing-space-xl: 2rem;
+  --spacing-space-2xl: 3rem;
   --spacing-margin-desktop: 3rem;
   --spacing-margin: 1rem;
   --spacing-space-lg: 1.5rem;
   --spacing-space-sm: 0.5rem;
-
   --font-body-lg: Manrope, sans-serif;
   --font-label-sm: Manrope, sans-serif;
   --font-headline-lg: Manrope, sans-serif;
@@ -78,61 +128,57 @@
   --font-body-sm: Manrope, sans-serif;
   --font-headline-lg-mobile: Manrope, sans-serif;
   --font-headline-xl: Manrope, sans-serif;
-
+  --font-archival: Manrope, sans-serif;
   --text-body-lg: 17px;
   --text-body-lg--line-height: 26px;
   --text-body-lg--font-weight: 400;
-
   --text-label-sm: 11px;
   --text-label-sm--line-height: 16px;
   --text-label-sm--letter-spacing: 0.04em;
   --text-label-sm--font-weight: 700;
-
   --text-headline-lg: 28px;
   --text-headline-lg--line-height: 36px;
   --text-headline-lg--letter-spacing: -0.01em;
   --text-headline-lg--font-weight: 700;
-
   --text-headline-xl-mobile: 30px;
   --text-headline-xl-mobile--line-height: 38px;
   --text-headline-xl-mobile--letter-spacing: -0.02em;
   --text-headline-xl-mobile--font-weight: 800;
-
   --text-label-lg: 15px;
   --text-label-lg--line-height: 20px;
   --text-label-lg--letter-spacing: 0.01em;
   --text-label-lg--font-weight: 600;
-
   --text-body-md: 15px;
   --text-body-md--line-height: 24px;
   --text-body-md--font-weight: 400;
-
   --text-headline-sm: 18px;
   --text-headline-sm--line-height: 26px;
   --text-headline-sm--font-weight: 600;
-
   --text-headline-md: 20px;
   --text-headline-md--line-height: 28px;
   --text-headline-md--font-weight: 700;
-
   --text-label-md: 13px;
   --text-label-md--line-height: 18px;
   --text-label-md--letter-spacing: 0.02em;
   --text-label-md--font-weight: 600;
-
   --text-body-sm: 13px;
   --text-body-sm--line-height: 20px;
   --text-body-sm--font-weight: 400;
-
   --text-headline-lg-mobile: 24px;
   --text-headline-lg-mobile--line-height: 32px;
   --text-headline-lg-mobile--letter-spacing: -0.01em;
   --text-headline-lg-mobile--font-weight: 700;
-
   --text-headline-xl: 40px;
   --text-headline-xl--line-height: 48px;
   --text-headline-xl--letter-spacing: -0.02em;
   --text-headline-xl--font-weight: 800;
+  /* Надзаголовки-рубрики: «ЭКСПЕДИЦИЯ ПАМЯТИ», «АРХИВ». */
+  --text-archival: 11px;
+  --text-archival--line-height: 14px;
+  --text-archival--letter-spacing: 0.18em;
+  --text-archival--font-weight: 700;
+  /* Ширина «телефона»: карточка входа не растягивается во весь экран. */
+  --container-app: 480px;
 }
 
 @layer base {
@@ -144,6 +190,7 @@
 
   body {
     overscroll-behavior: none;
+    background: var(--color-background);
   }
 
   .material-symbols-outlined {

@@ -1,9 +1,14 @@
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Request, status
+from fastapi.responses import StreamingResponse
 
-from api.deps import CurrentPrincipal, TripServiceDep
-from api.schemas.trip import RegistrationOut, TripOut, TripUpdate
+from api.chat_stream import chat_stream
+from api.deps import ChatServiceDep, CurrentPrincipal, TripServiceDep
+from api.schemas.chat import ChatMessageCreate, ChatMessageOut
+from api.schemas.trip import RegistrationOut, TripCancelIn, TripOut, TripUpdate
+from core.models import ChatSubjectType
 
 router = APIRouter(prefix="/trips", tags=["trips (Выходные с поисковиком)"])
 
@@ -19,6 +24,17 @@ def list_trips(
     return [TripOut.model_validate(t) for t in rows]
 
 
+# Раньше `/{trip_id}`: иначе «mine» разобрался бы как id выезда.
+@router.get("/mine", response_model=list[TripOut])
+def my_trips(
+    principal: CurrentPrincipal,
+    service: TripServiceDep,
+    upcoming_only: Annotated[bool, Query()] = True,
+) -> list[TripOut]:
+    """Выезды, на которые записан сам запрашивающий."""
+    return [TripOut.model_validate(t) for t in service.mine(principal, upcoming_only=upcoming_only)]
+
+
 @router.get("/{trip_id}", response_model=TripOut)
 def get_trip(trip_id: str, service: TripServiceDep) -> TripOut:
     return TripOut.model_validate(service.get(trip_id))
@@ -31,6 +47,22 @@ def update_trip(
     return TripOut.model_validate(service.update(principal, trip_id, payload.to_update_dict()))
 
 
+@router.delete("/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_trip(trip_id: str, principal: CurrentPrincipal, service: TripServiceDep) -> None:
+    service.delete(principal, trip_id)
+
+
+@router.post("/{trip_id}/cancel", response_model=TripOut)
+def cancel_trip(
+    trip_id: str,
+    principal: CurrentPrincipal,
+    service: TripServiceDep,
+    payload: TripCancelIn | None = None,
+) -> TripOut:
+    reason = (payload or TripCancelIn()).reason
+    return TripOut.model_validate(service.cancel(principal, trip_id, reason=reason))
+
+
 @router.post(
     "/{trip_id}/registrations", response_model=RegistrationOut, status_code=status.HTTP_201_CREATED
 )
@@ -41,10 +73,8 @@ def register_for_trip(
 
 
 @router.delete("/{trip_id}/registrations/me", status_code=status.HTTP_204_NO_CONTENT)
-def cancel_registration(
-    trip_id: str, principal: CurrentPrincipal, service: TripServiceDep
-) -> None:
-    service.cancel(principal, trip_id)
+def cancel_registration(trip_id: str, principal: CurrentPrincipal, service: TripServiceDep) -> None:
+    service.cancel_registration(principal, trip_id)
 
 
 @router.get("/{trip_id}/registrations", response_model=list[RegistrationOut])
@@ -53,3 +83,37 @@ def list_registrations(
 ) -> list[RegistrationOut]:
     rows = service.registrations_for(principal, trip_id)
     return [RegistrationOut.model_validate(r) for r in rows]
+
+
+# --- чат сбора ---
+
+
+@router.get("/{trip_id}/messages", response_model=list[ChatMessageOut])
+def list_trip_messages(
+    trip_id: str,
+    principal: CurrentPrincipal,
+    service: ChatServiceDep,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    since: Annotated[datetime | None, Query()] = None,
+) -> list[ChatMessageOut]:
+    """Последние сообщения по порядку; `since` — только написанные не раньше."""
+    rows = service.trip_messages(principal, trip_id, limit=limit, offset=offset, since=since)
+    return [ChatMessageOut.model_validate(r) for r in rows]
+
+
+@router.get("/{trip_id}/messages/stream", response_class=StreamingResponse)
+async def stream_trip_messages(
+    trip_id: str, request: Request, principal: CurrentPrincipal
+) -> StreamingResponse:
+    """Новые сообщения чата выезда — Server-Sent Events, событие `message`."""
+    return await chat_stream(request, principal, ChatSubjectType.trip, trip_id)
+
+
+@router.post(
+    "/{trip_id}/messages", response_model=ChatMessageOut, status_code=status.HTTP_201_CREATED
+)
+def post_trip_message(
+    trip_id: str, payload: ChatMessageCreate, principal: CurrentPrincipal, service: ChatServiceDep
+) -> ChatMessageOut:
+    return ChatMessageOut.model_validate(service.post_trip_message(principal, trip_id, payload.body))

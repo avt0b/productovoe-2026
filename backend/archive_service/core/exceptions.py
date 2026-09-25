@@ -26,3 +26,8 @@ class PermissionDenied(AppError):
 class Conflict(AppError):
     status_code = status.HTTP_409_CONFLICT
     detail = "Недопустимое состояние записи"
+
+
+class ServiceUnavailable(AppError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    detail = "Хранилище файлов недоступно"

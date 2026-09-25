@@ -1,8 +1,11 @@
 import { http } from '@shared/utils/httpClient.js'
 
 const ARCHIVE_BASE = '/api/archive/entries'
-const MEDIA_BASE = '/api/media/clips'
+const PROFILES_BASE = '/api/users/profiles'
 
+// «Живая память» — народный архив: малоизвестные подвиги, локальные события,
+// карточки бойцов, не попавшие в федеральные базы. Публичная лента отдаёт
+// только подтверждённые записи.
 export function listVerifiedEntries({ kind } = {}) {
   const params = new URLSearchParams()
   if (kind) params.set('kind', kind)
@@ -18,23 +21,34 @@ export function createEntry(token, payload) {
   return http.post(ARCHIVE_BASE, payload, { token })
 }
 
-// media_service — «Живое фото»
-export function listPublicClips() {
-  return http.get(MEDIA_BASE)
+// Очередь модерации — доступна только поисковикам/краеведам/наставникам/
+// модераторам, проверяется на самом бэке.
+export function listModerationEntries(token, status = 'pending') {
+  return http.get(`${ARCHIVE_BASE}/moderation?status=${status}`, { token })
 }
 
-export function listMyClips(token) {
-  return http.get(`${MEDIA_BASE}/mine`, { token })
+export function verifyEntry(token, entryId, note = '') {
+  return http.post(`${ARCHIVE_BASE}/${entryId}/verify`, { note }, { token })
 }
 
-export function createClip(token, payload) {
-  return http.post(MEDIA_BASE, payload, { token })
+export function rejectEntry(token, entryId, note = '') {
+  return http.post(`${ARCHIVE_BASE}/${entryId}/reject`, { note }, { token })
 }
 
-export function retryClip(token, clipId) {
-  return http.post(`${MEDIA_BASE}/${clipId}/retry`, {}, { token })
+export function uploadEntryPhoto(token, file) {
+  return http.upload('/api/media/uploads', file, { token })
 }
 
-export function shareClip(token, clipId, { recipient, note }) {
-  return http.post(`${MEDIA_BASE}/${clipId}/shares`, { recipient, note }, { token })
+// Та же ручка /uploads — бэкенд сам определяет аудио по content-type файла
+// (mp3/ogg/wav/m4a/webm, ≤30МБ) и кладёт результат в audio_url записи.
+export function uploadEntryAudio(token, file) {
+  return http.upload('/api/media/uploads', file, { token })
+}
+
+// Публичная ручка без токена — имена авторов для ленты одним запросом, без
+// N+1. Кого нет в ответе — тот не найден (удалённый аккаунт).
+export function getAuthorsBatch(ids) {
+  const unique = [...new Set(ids)].filter(Boolean)
+  if (unique.length === 0) return Promise.resolve([])
+  return http.get(`${PROFILES_BASE}/batch?ids=${unique.join(',')}`)
 }

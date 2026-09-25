@@ -1,5 +1,6 @@
 <script setup>
 import RoutesHero from './components/RoutesHero.vue'
+import RoutesPoiMap from './components/RoutesPoiMap.vue'
 import QuestPointLegend from './components/QuestPointLegend.vue'
 import RoutesList from './components/RoutesList.vue'
 </script>
@@ -7,6 +8,7 @@ import RoutesList from './components/RoutesList.vue'
 <template>
   <div class="flex flex-col w-full pb-16 gap-8">
     <RoutesHero />
+    <RoutesPoiMap />
     <QuestPointLegend />
     <RoutesList />
   </div>

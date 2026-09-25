@@ -28,18 +28,21 @@ def test_default_status_is_discovered(client):
     assert r.json()["status"] == "discovered"
 
 
-def test_status_change_moderator_only(client):
+def test_status_change_root_only(client):
     point = make_point(client, auth_header(role="searcher")).json()
 
-    assert client.patch(
-        f"/last-stand/{point['id']}/status",
-        headers=auth_header(role="searcher"),
-        json={"status": "archive_confirmed"},
-    ).status_code == 403
+    assert (
+        client.patch(
+            f"/last-stand/{point['id']}/status",
+            headers=auth_header(role="searcher"),
+            json={"status": "archive_confirmed"},
+        ).status_code
+        == 403
+    )
 
     r = client.patch(
         f"/last-stand/{point['id']}/status",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(is_root=True),
         json={"status": "remains_raised"},
     )
     assert r.status_code == 200
@@ -51,7 +54,7 @@ def test_list_filter_by_status(client):
     make_point(client, auth_header(role="searcher"))
     client.patch(
         f"/last-stand/{p1['id']}/status",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(is_root=True),
         json={"status": "archive_confirmed"},
     )
     confirmed = client.get("/last-stand", params={"status": "archive_confirmed"}).json()
@@ -73,3 +76,16 @@ def test_nearby_alert_radius(client):
 def test_anonymous_can_read(client):
     make_point(client, auth_header(role="searcher"))
     assert client.get("/last-stand").status_code == 200
+
+
+def test_mine_lists_only_own_points(client):
+    mine = auth_header(role="searcher", user_id="author-1")
+    other = auth_header(role="searcher", user_id="author-2")
+    make_point(client, mine, soldier_name="Моя находка")
+    make_point(client, other, soldier_name="Чужая находка")
+
+    r = client.get("/last-stand/mine", headers=mine)
+    assert r.status_code == 200
+    assert [p["soldier_name"] for p in r.json()] == ["Моя находка"]
+
+    assert client.get("/last-stand/mine").status_code == 401

@@ -3,18 +3,22 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.models import ClipStatus, VoiceStyle
+from core.public_url import PublicUrl
 
 
 class ClipCreate(BaseModel):
     soldier_name: str = Field(default="", max_length=255)
     source_photo_url: str = Field(min_length=1, max_length=500)
-    narration_text: str = Field(
-        default="Я сделал это, чтобы ты жил и видел голубое небо. Помни меня.",
-        max_length=2000,
-    )
+    # None — не тронуто клиентом: сервис подставит дефолтный монолог и, если
+    # указан archive_entry_id, допишет к нему краткую версию подвига из
+    # подтверждённой карточки бойца в archive_service.
+    narration_text: str | None = Field(default=None, max_length=2000)
     voice_style: VoiceStyle = VoiceStyle.era_male
     is_public: bool = False
     archive_entry_id: str | None = Field(default=None, max_length=36)
+    # Заполняется, когда заявка создана из карточки точки на карте
+    # («создать живое фото для неизвестного бойца из этого захоронения»).
+    poi_id: str | None = Field(default=None, max_length=36)
     # Этическая оговорка ТЗ — обязательное согласие. Дефолт False (не True),
     # чтобы непереданное поле и явный отказ вели к одной и той же доменной
     # ошибке 403 в ClipService.create, а не расходились на 422 vs 403.
@@ -36,17 +40,18 @@ class ClipOut(BaseModel):
 
     id: str
     soldier_name: str
-    source_photo_url: str
+    source_photo_url: PublicUrl
     narration_text: str
     voice_style: VoiceStyle
     submitted_by: str
     consent_memorial_use: bool
     is_public: bool
     status: ClipStatus
-    video_url: str | None
+    video_url: PublicUrl | None
     error: str
     rendered_at: datetime | None
     archive_entry_id: str | None
+    poi_id: str | None
     created_at: datetime
 
 

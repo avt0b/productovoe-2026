@@ -8,7 +8,7 @@ const { profile, saveMyProfile } = useProfileStore()
 
 const form = reactive({
   fullName: '',
-  phone: '+7 (920) 814-22-90',
+  phone: '',
   city: '',
   bio: '',
 })
@@ -34,9 +34,9 @@ async function onSubmit() {
   status.value = 'pending'
   error.value = ''
   try {
-    // squad_id ждёт связки с search_hq_service (список реальных отрядов), а
-    // "Телефон" вообще не хранится в user_service — поля остаются в форме
-    // для UX, но на бэкенд не уходят, пока там нет соответствующих полей.
+    // Отряд ждёт связки со списком реальных отрядов, а «Телефон» вообще не
+    // хранится на бэкенде — поля остаются в форме для UX, но на бэкенд не
+    // уходят, пока там нет соответствующих полей.
     await saveMyProfile({
       display_name: form.fullName || undefined,
       city: form.city || undefined,
@@ -52,7 +52,7 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="bg-surface-container-lowest p-6 rounded-DEFAULT shadow-sm flex flex-col">
+  <div class="bg-surface-container-lowest p-6 rounded-2xl shadow-document flex flex-col">
     <div class="flex items-center gap-3 mb-6">
       <div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center">
         <span class="material-symbols-outlined text-[20px]">badge</span>
@@ -84,6 +84,7 @@ async function onSubmit() {
           <input
             v-model="form.phone"
             type="tel"
+            placeholder="+7 ___ ___-__-__"
             class="w-full h-11 px-4 rounded-full bg-surface-container-low font-body-md text-body-md text-on-surface outline-none focus:bg-surface-container transition-colors"
           />
         </div>

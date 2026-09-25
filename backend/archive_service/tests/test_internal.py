@@ -90,7 +90,7 @@ def test_stats_timeseries_shape(client):
     e = create_entry(client, author).json()
     client.post(
         f"/entries/{e['id']}/verify",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(role="local_historian"),
         json={"note": "ok"},
     )
 
@@ -129,23 +129,17 @@ def test_list_entries_filters_by_status_and_kind(client):
     verified_src = create_entry(client, author, title="Вторая запись").json()
     client.post(
         f"/entries/{verified_src['id']}/verify",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(role="local_historian"),
         json={},
     )
 
-    r = client.get(
-        "/internal/entries", headers=INTERNAL_HEADER, params={"status": "pending"}
-    )
+    r = client.get("/internal/entries", headers=INTERNAL_HEADER, params={"status": "pending"})
     assert [x["id"] for x in r.json()["items"]] == [pending["id"]]
 
-    r = client.get(
-        "/internal/entries", headers=INTERNAL_HEADER, params={"status": "verified"}
-    )
+    r = client.get("/internal/entries", headers=INTERNAL_HEADER, params={"status": "verified"})
     assert [x["id"] for x in r.json()["items"]] == [verified_src["id"]]
 
-    r = client.get(
-        "/internal/entries", headers=INTERNAL_HEADER, params={"query": "Вторая"}
-    )
+    r = client.get("/internal/entries", headers=INTERNAL_HEADER, params={"query": "Вторая"})
     assert [x["id"] for x in r.json()["items"]] == [verified_src["id"]]
 
 
@@ -194,9 +188,7 @@ def test_internal_reject_bypasses_role_restrictions(client):
 
 def test_internal_delete_removes_entry_even_when_not_pending(client):
     e = create_entry(client, auth_header(user_id="author-1")).json()
-    client.post(
-        f"/entries/{e['id']}/verify", headers=auth_header(role="moderator"), json={}
-    )
+    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian"), json={})
 
     r = client.delete(
         f"/internal/entries/{e['id']}",
@@ -206,18 +198,14 @@ def test_internal_delete_removes_entry_even_when_not_pending(client):
 
     # запись реально удалена, обычный autor больше её не видит
     assert (
-        client.get(
-            f"/entries/{e['id']}", headers=auth_header(user_id="author-1")
-        ).status_code
+        client.get(f"/entries/{e['id']}", headers=auth_header(user_id="author-1")).status_code
         == 404
     )
 
 
 def test_internal_delete_logs_non_pending_deletion(client, caplog):
     e = create_entry(client, auth_header(user_id="author-1")).json()
-    client.post(
-        f"/entries/{e['id']}/verify", headers=auth_header(role="moderator"), json={}
-    )
+    client.post(f"/entries/{e['id']}/verify", headers=auth_header(role="local_historian"), json={})
 
     with caplog.at_level("WARNING"):
         r = client.delete(

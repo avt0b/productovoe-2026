@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from core.models import Donation, NeedKind, NeedStatus, SquadNeed
+from core.models import Donation, DonationStatus, NeedKind, NeedStatus, SquadNeed
 
 
 class NeedRepository:
@@ -17,6 +17,19 @@ class NeedRepository:
         self.db.add(need)
         self.db.flush()
         return need
+
+    def delete(self, need: SquadNeed) -> None:
+        self.db.delete(need)
+
+    def has_succeeded_donations(self, need_id: str) -> bool:
+        return (
+            self.db.scalar(
+                select(Donation.id).where(
+                    Donation.need_id == need_id, Donation.status == DonationStatus.succeeded
+                )
+            )
+            is not None
+        )
 
     def search(
         self,
@@ -43,10 +56,14 @@ class NeedRepository:
         self.db.flush()
         return donation
 
+    def get_donation_by_payment_id(self, payment_id: str) -> Donation | None:
+        return self.db.scalar(select(Donation).where(Donation.payment_id == payment_id))
+
     def donations_for(self, need_id: str, *, limit: int = 200) -> Sequence[Donation]:
+        """Публичная и «мои взносы» лента — только реально прошедшие взносы, не pending/canceled."""
         return self.db.scalars(
             select(Donation)
-            .where(Donation.need_id == need_id)
+            .where(Donation.need_id == need_id, Donation.status == DonationStatus.succeeded)
             .order_by(Donation.created_at.desc())
             .limit(limit)
         ).all()

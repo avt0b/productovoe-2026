@@ -21,8 +21,12 @@ def test_update_me(client):
     r = client.put(
         "/profiles/me",
         headers=h,
-        json={"display_name": "Отряд Высота", "city": "Орёл", "subscribed_to_search": True,
-              "alert_radius_km": 30},
+        json={
+            "display_name": "Отряд Высота",
+            "city": "Орёл",
+            "subscribed_to_search": True,
+            "alert_radius_km": 30,
+        },
     )
     assert r.status_code == 200
     body = r.json()
@@ -36,6 +40,44 @@ def test_update_me_rejects_bad_radius(client):
     h = auth_header()
     client.get("/profiles/me", headers=h)
     assert client.put("/profiles/me", headers=h, json={"alert_radius_km": 9999}).status_code == 422
+
+
+def _named_profile(client, name: str, **token) -> str:
+    uid = str(uuid.uuid4())
+    h = auth_header(user_id=uid, **token)
+    client.get("/profiles/me", headers=h)
+    client.put(
+        "/profiles/me",
+        headers=h,
+        json={"display_name": name, "city": "Орёл", "home_lat": 52.97, "home_lon": 36.07},
+    )
+    return uid
+
+
+def test_batch_returns_public_cards_without_token(client):
+    anna = _named_profile(client, "Анна")
+    petr = _named_profile(client, "Пётр", role="local_historian")
+    missing = str(uuid.uuid4())
+
+    r = client.get("/profiles/batch", params={"ids": f"{anna}, {petr},{missing},{anna}"})
+    assert r.status_code == 200
+    cards = {card["id"]: card for card in r.json()}
+    assert set(cards) == {anna, petr}  # нет профиля — нет в ответе, повторы схлопнуты
+    assert cards[anna]["display_name"] == "Анна"
+    assert cards[petr]["role"] == "local_historian"
+    # Батч публичный — приватного в нём быть не должно.
+    for card in cards.values():
+        assert set(card) == {"id", "display_name", "avatar_url", "role", "is_verified"}
+
+
+def test_batch_empty_ids(client):
+    assert client.get("/profiles/batch").json() == []
+    assert client.get("/profiles/batch", params={"ids": " , "}).json() == []
+
+
+def test_batch_limits_ids(client):
+    too_many = ",".join(str(uuid.uuid4()) for _ in range(201))
+    assert client.get("/profiles/batch", params={"ids": too_many}).status_code == 422
 
 
 def test_get_other_profile_requires_auth(client):
@@ -57,14 +99,29 @@ def test_verify_profile_permissions(client):
     client.get("/profiles/me", headers=auth_header(user_id=target))
 
     # family не может
-    assert client.patch(
-        f"/profiles/{target}/verify", headers=auth_header(role="family"), json={"is_verified": True}
-    ).status_code == 403
+    assert (
+        client.patch(
+            f"/profiles/{target}/verify",
+            headers=auth_header(role="family"),
+            json={"is_verified": True},
+        ).status_code
+        == 403
+    )
 
-    # moderator может
+    # краевед (пиринговая верификация) больше не может — только администратор
+    assert (
+        client.patch(
+            f"/profiles/{target}/verify",
+            headers=auth_header(role="local_historian"),
+            json={"is_verified": True},
+        ).status_code
+        == 403
+    )
+
+    # администратор может
     r = client.patch(
         f"/profiles/{target}/verify",
-        headers=auth_header(role="moderator"),
+        headers=auth_header(is_root=True),
         json={"is_verified": True},
     )
     assert r.status_code == 200

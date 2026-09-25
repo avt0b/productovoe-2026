@@ -1,48 +1,59 @@
 <script setup lang="ts">
-import { formatNumber } from '@/core/format'
+import { computed } from 'vue'
+
+import { formatNumber, plural } from '@/core/format'
 import MsIcon from '@/ui/MsIcon.vue'
 
-import type { Season, SeasonStat } from '../data'
+import type { SeasonStats } from '../data'
 
-defineProps<{ season: Season }>()
+const props = defineProps<{ stats: SeasonStats }>()
 
-const TONES: Record<SeasonStat['tone'], string> = {
-  primary: 'text-primary',
-  secondary: 'text-secondary',
-  tertiary: 'text-tertiary',
-}
+/** Итоги «Последнего боя» по Орловщине. Цвета — как у стадий на его карте. */
+const tiles = computed(() => [
+  {
+    key: 'found',
+    value: props.stats.discovered,
+    label: plural(props.stats.discovered, ['ждёт проверки', 'ждут проверки', 'ждут проверки']),
+    tone: 'text-primary',
+  },
+  {
+    key: 'confirmed',
+    value: props.stats.confirmed,
+    label: plural(props.stats.confirmed, ['подтверждено архивом', 'подтверждены архивом', 'подтверждено архивом']),
+    tone: 'text-tertiary',
+  },
+  {
+    key: 'raised',
+    value: props.stats.raised,
+    label: plural(props.stats.raised, ['останки подняты', 'останков поднято', 'останков поднято']),
+    tone: 'text-secondary',
+  },
+])
 </script>
 
 <template>
-  <section class="relative overflow-hidden rounded-lg bg-surface-container-low p-5 shadow-sm">
-    <div class="pointer-events-none absolute -bottom-6 -right-6 h-32 w-32 rounded-full bg-primary-fixed/30 blur-2xl" />
-
-    <div class="mb-4 flex items-center gap-space-sm">
-      <div class="flex h-10 w-10 items-center justify-center rounded-full bg-tertiary-fixed text-tertiary shadow-sm">
-        <MsIcon name="military_tech" :size="22" filled />
-      </div>
-      <div>
-        <span class="block font-label-sm text-label-sm uppercase tracking-wider text-outline">{{ season.kicker }}</span>
-        <h2 class="font-headline-sm text-headline-sm text-on-surface">{{ season.title }}</h2>
-      </div>
-    </div>
-
-    <div class="my-1 grid grid-cols-3 gap-space-xs py-3">
-      <div
-        v-for="stat in season.stats"
-        :key="stat.label"
-        class="flex flex-col items-center rounded-md bg-surface-container-lowest p-2 text-center shadow-sm"
+  <section class="flex flex-col gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md shadow-document">
+    <div class="flex items-center justify-between gap-space-sm">
+      <p class="font-archival text-archival uppercase text-on-surface-variant">Итоги «Последнего боя»</p>
+      <RouterLink
+        :to="{ name: 'last-stand' }"
+        class="flex shrink-0 items-center gap-0.5 font-label-md text-label-md text-secondary transition-opacity hover:opacity-80"
       >
-        <span class="font-headline-xl-mobile text-headline-xl-mobile font-extrabold tracking-tight" :class="TONES[stat.tone]">
-          {{ formatNumber(stat.value) }}
-        </span>
-        <span class="mt-1 font-label-sm text-label-sm leading-tight text-on-surface-variant">{{ stat.label }}</span>
-      </div>
+        Карта мест
+        <MsIcon name="arrow_forward" :size="18" />
+      </RouterLink>
     </div>
 
-    <div class="mt-4 flex items-start gap-2 rounded-DEFAULT bg-surface-container/60 p-3">
-      <MsIcon name="format_quote" :size="18" class="mt-0.5 shrink-0 text-tertiary" />
-      <p class="font-body-sm text-body-sm italic leading-relaxed text-on-surface-variant">{{ season.quote }}</p>
-    </div>
+    <dl class="grid grid-cols-3 divide-x divide-outline-variant/60">
+      <div v-for="tile in tiles" :key="tile.key" class="flex flex-col-reverse items-center justify-end px-1 text-center">
+        <dt class="font-label-sm text-label-sm leading-tight text-on-surface-variant">{{ tile.label }}</dt>
+        <dd class="font-headline-lg text-headline-lg short:text-headline-lg-mobile" :class="tile.tone">{{ formatNumber(tile.value) }}</dd>
+      </div>
+    </dl>
+
+    <p class="flex items-start gap-space-xs border-t border-outline-variant/60 pt-space-sm font-body-sm text-body-sm italic text-on-surface-variant short:hidden">
+      <MsIcon name="format_quote" :size="18" class="shrink-0 text-tertiary" />
+      Война не окончена, пока не похоронен последний солдат
+    </p>
   </section>
 </template>

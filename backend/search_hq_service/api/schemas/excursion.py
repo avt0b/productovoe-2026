@@ -8,6 +8,7 @@ from core.models import ExcursionStatus, RegistrationStatus
 from core.timeutil import as_utc
 from services.bump_service import BumpOutcome, BumpResult
 from services.excursion_service import ExcursionView, GatheringState
+from services.walk_service import WalkState
 
 Lat = Annotated[float, Field(ge=-90, le=90)]
 Lon = Annotated[float, Field(ge=-180, le=180)]
@@ -15,6 +16,32 @@ Lon = Annotated[float, Field(ge=-180, le=180)]
 AccuracyM = Annotated[float | None, Field(default=None, ge=0, le=10_000)]
 # Все даты наружу — с поясом UTC, чтобы клиент не гадал, чьё это время.
 UtcDatetime = Annotated[datetime, AfterValidator(as_utc)]
+
+
+# Больше — уже не прогулка, а поход на несколько дней.
+MAX_STOPS = 20
+
+
+class StopIn(BaseModel):
+    """Точка маршрута, как её прислал краевед. Порядок — порядок в списке."""
+
+    name: str = Field(min_length=1, max_length=255)
+    lat: Lat
+    lon: Lon
+    poi_id: str | None = Field(default=None, max_length=36)
+    note: str = Field(default="", max_length=2000)
+
+
+class StopOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    position: int
+    name: str
+    lat: float
+    lon: float
+    poi_id: str | None
+    note: str
 
 
 class ExcursionCreate(BaseModel):
@@ -26,6 +53,8 @@ class ExcursionCreate(BaseModel):
     poi_id: str | None = Field(default=None, max_length=36)
     starts_at: datetime
     capacity: int = Field(default=20, ge=1, le=500)
+    # Куда группа пойдёт после сбора. Пусто — экскурсия на одном месте.
+    stops: list[StopIn] = Field(default_factory=list, max_length=MAX_STOPS)
 
 
 class ExcursionUpdate(BaseModel):
@@ -37,6 +66,8 @@ class ExcursionUpdate(BaseModel):
     poi_id: str | None = Field(default=None, max_length=36)
     starts_at: datetime | None = None
     capacity: int | None = Field(default=None, ge=1, le=500)
+    # Прислали — маршрут заменяется целиком; не прислали — остаётся прежним.
+    stops: list[StopIn] | None = Field(default=None, max_length=MAX_STOPS)
 
     def to_update_dict(self) -> dict:
         return self.model_dump(exclude_unset=True)
@@ -66,6 +97,7 @@ class ExcursionOut(BaseModel):
     checked_in_count: int
     # Роль того, кто смотрит. None — запрос без входа.
     viewer: ViewerOut | None
+    stops: list[StopOut]
     created_at: UtcDatetime
 
     @classmethod
@@ -88,6 +120,7 @@ class ExcursionOut(BaseModel):
             registered_count=view.registered_count,
             checked_in_count=view.checked_in_count,
             viewer=ViewerOut(**asdict(view.viewer)) if view.viewer else None,
+            stops=[StopOut.model_validate(stop) for stop in excursion.stops],
             created_at=excursion.created_at,
         )
 
@@ -97,12 +130,23 @@ class MyExcursionsOut(BaseModel):
     joined: list[ExcursionOut]
 
 
+class RegistrationCreate(BaseModel):
+    """Тело запроса необязательно: по умолчанию — обычная запись одного человека.
+    Школа/клуб указывает organization_name и group_size — коллективная заявка
+    (модуль 5 ТЗ) держится одной строкой-регистрацией на всю группу."""
+
+    organization_name: str = Field(default="", max_length=255)
+    group_size: int = Field(default=1, ge=1, le=300)
+
+
 class ParticipantOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     excursion_id: str
     user_id: str
+    organization_name: str
+    group_size: int
     status: RegistrationStatus
     checked_in_at: UtcDatetime | None
     created_at: UtcDatetime
@@ -171,3 +215,67 @@ class BumpOut(BaseModel):
     @classmethod
     def from_result(cls, result: BumpResult) -> "BumpOut":
         return cls(**asdict(result))
+
+
+class WalkLeadIn(BaseModel):
+    """Куда краевед ведёт группу: памятник из слоя «ВОВ» или точка на карте."""
+
+    lat: Lat
+    lon: Lon
+    name: str = Field(default="", max_length=255)
+    poi_id: str | None = Field(default=None, max_length=36)
+
+
+class PositionIn(BaseModel):
+    """Где сейчас телефон участника или краеведа."""
+
+    lat: Lat
+    lon: Lon
+    accuracy_m: AccuracyM
+
+
+class DestinationOut(BaseModel):
+    lat: float
+    lon: float
+    name: str
+    poi_id: str | None
+
+
+class GroupMemberOut(BaseModel):
+    user_id: str
+    is_guide: bool
+    is_me: bool
+    lat: float
+    lon: float
+    accuracy_m: float | None
+    updated_at: UtcDatetime
+
+
+class WalkOut(BaseModel):
+    excursion_id: str
+    status: ExcursionStatus
+    is_guide: bool
+    # null — группа ещё не выходила.
+    destination: DestinationOut | None
+    started_at: UtcDatetime | None
+    # Краевед — первым; точки старше пары минут не приходят.
+    members: list[GroupMemberOut]
+
+    @classmethod
+    def from_state(cls, state: WalkState) -> "WalkOut":
+        walk = state.walk
+        return cls(
+            excursion_id=state.excursion.id,
+            status=state.excursion.status,
+            is_guide=state.is_guide,
+            destination=DestinationOut(
+                lat=walk.destination_lat,
+                lon=walk.destination_lon,
+                name=walk.destination_name,
+                poi_id=walk.destination_poi_id,
+            )
+            if walk
+            else None,
+            started_at=walk.started_at if walk else None,
+            members=[GroupMemberOut(**asdict(member)) for member in state.members],
+        )
