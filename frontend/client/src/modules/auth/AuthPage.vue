@@ -254,10 +254,9 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
           :inert="mode !== 'register'"
         >
           <!--
-            Экран входа зажат в высоту телефона без прокрутки: детский режим —
-            короткой плашкой сразу под именем, а подсказка про демо-вход на
-            этой вкладке схлопывается. Иначе на низком экране регистрация
-            выталкивала бы кнопки за нижний край.
+            Экран входа зажат в высоту телефона без прокрутки: подсказка про
+            демо-вход на этой вкладке схлопывается, иначе на низком экране
+            регистрация выталкивала бы кнопки за нижний край.
           -->
           <div class="overflow-hidden">
             <AuthField
@@ -268,11 +267,6 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
               placeholder="Имя и фамилия"
               autocomplete="name"
             />
-
-            <div class="mb-space-sm flex items-center justify-between gap-space-sm rounded-xl border border-white/15 bg-white/10 px-space-sm py-1.5">
-              <p class="min-w-0 truncate font-label-md text-label-md text-white">Детский режим</p>
-              <ToggleSwitch v-model="kidMode" label="Детский режим" />
-            </div>
           </div>
         </div>
 
@@ -306,6 +300,19 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
             </button>
           </template>
         </AuthField>
+
+        <div
+          class="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+          :class="mode === 'register' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+          :inert="mode !== 'register'"
+        >
+          <div class="overflow-hidden">
+            <div class="mb-space-md flex items-center justify-between gap-space-sm rounded-xl border border-white/15 bg-white/10 px-space-sm py-1.5">
+              <p class="min-w-0 truncate font-label-md text-label-md text-white">Детский режим</p>
+              <ToggleSwitch v-model="kidMode" label="Детский режим" />
+            </div>
+          </div>
+        </div>
 
         <button
           type="submit"
