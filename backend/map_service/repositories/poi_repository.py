@@ -47,7 +47,9 @@ class POIRepository:
             stmt = stmt.where(
                 PointOfInterest.title.ilike(like) | PointOfInterest.description.ilike(like)
             )
-        stmt = stmt.order_by(PointOfInterest.created_at.desc()).limit(limit).offset(offset)
+        # id — второй ключ: у импорта сотни строк с одним created_at, без него
+        # страницы по offset перекрываются и часть точек теряется.
+        stmt = stmt.order_by(PointOfInterest.created_at.desc(), PointOfInterest.id.asc()).limit(limit).offset(offset)
         return self.db.scalars(stmt).all()
 
     def nearby_postgis(
