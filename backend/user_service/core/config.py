@@ -19,10 +19,12 @@ class Settings(BaseSettings):
     auth_service_url: str = "http://127.0.0.1:8001"
 
     # Клиентское приложение ходит в сервис напрямую: dev-сервер Vite и APK
-    # (Capacitor на Android отдаёт приложение с https://localhost).
+    # (Capacitor на Android отдаёт приложение с https://localhost, а на стенде
+    # с сервисами по http — с http://localhost).
     cors_origins: list[str] = [
         "http://localhost:5174",
         "http://127.0.0.1:5174",
+        "http://localhost",
         "https://localhost",
         "capacitor://localhost",
     ]
