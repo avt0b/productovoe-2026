@@ -192,7 +192,7 @@ internal fun DialoguePanel(
             if (onTrick != null) {
                 PanelButton(
                     icon = ArIcon.FLIP,
-                    label = "Сальто",
+                    label = "Показать",
                     onClick = onTrick,
                     modifier = Modifier.weight(1f),
                 )

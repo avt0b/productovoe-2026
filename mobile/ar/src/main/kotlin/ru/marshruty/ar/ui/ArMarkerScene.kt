@@ -41,7 +41,6 @@ import ru.marshruty.ar.data.QrScanner
 import ru.marshruty.ar.domain.CameraFieldOfView
 import ru.marshruty.ar.domain.CompanionPlacement
 import ru.marshruty.ar.domain.DEFAULT_COMPANION_HEIGHT_METERS
-import ru.marshruty.ar.domain.FlipTransform
 import ru.marshruty.ar.domain.MarkerPose
 import ru.marshruty.ar.domain.MarkerStatus
 import ru.marshruty.ar.domain.PlacementSmoother
@@ -51,7 +50,6 @@ import ru.marshruty.ar.domain.fieldOfViewFromIntrinsics
 import ru.marshruty.ar.domain.placeCompanion
 import ru.marshruty.ar.domain.poseInFrontOfCamera
 import ru.marshruty.ar.domain.qrTriggersCompanion
-import kotlin.math.sin
 import io.github.sceneview.node.Node as NodeImpl
 
 /**
@@ -70,7 +68,7 @@ import io.github.sceneview.node.Node as NodeImpl
 internal fun ArMarkerScene(
     marker: MarkerSpec,
     companionAsset: String?,
-    flip: () -> FlipTransform?,
+    salute: () -> Long?,
     onStatusChange: (MarkerStatus) -> Unit,
     onFieldOfView: (full: CameraFieldOfView, frameAspectRatio: Double) -> Unit,
     onUnavailable: () -> Unit,
@@ -89,7 +87,7 @@ internal fun ArMarkerScene(
         sceneAllowed = true
     }
     if (sceneAllowed) {
-        ArMarkerSceneContent(marker, companionAsset, flip, onStatusChange, onFieldOfView, onUnavailable, modifier)
+        ArMarkerSceneContent(marker, companionAsset, salute, onStatusChange, onFieldOfView, onUnavailable, modifier)
     } else {
         ArStartingPlaceholder(modifier)
     }
@@ -116,10 +114,12 @@ private fun ArMarkerSceneContent(
     /** GLB проводника в `assets`, или null — на точке маркер без персонажа. */
     companionAsset: String?,
     /**
-     * Текущая поза сальто. Функция, а не значение: её читает кадровый колбэк
-     * сцены, и на время трюка не нужно перерисовывать композицию каждый кадр.
+     * Момент нажатия кнопки «Воинское приветствие» (часы хоста) или null.
+     * Функция, а не значение: её читает кадровый колбэк сцены, и на время
+     * жеста не нужно перерисовывать композицию каждый кадр. Новое ненулевое
+     * значение запускает встроенный клип салюта один раз.
      */
-    flip: () -> FlipTransform?,
+    salute: () -> Long?,
     onStatusChange: (MarkerStatus) -> Unit,
     /**
      * Угол обзора кадра ARCore и соотношение сторон кадра в портрете. Кадр у ARCore
@@ -160,7 +160,7 @@ private fun ArMarkerSceneContent(
         value = loaded.instance
         awaitDispose { modelLoader.destroyModel(loaded) }
     }
-    val currentFlip = rememberUpdatedState(flip)
+    val currentSalute = rememberUpdatedState(salute)
     val currentOnUnavailable = rememberUpdatedState(onUnavailable)
     val currentOnFieldOfView = rememberUpdatedState(onFieldOfView)
 
@@ -172,7 +172,13 @@ private fun ArMarkerSceneContent(
     var placed by remember { mutableStateOf(false) }
     val memory = remember { TrackingMemory() }
     val rig = remember { CompanionRig() }
-    val smoother = remember { PlacementSmoother() }
+    // Сглаживание сильнее дефолтного: на слабом трекинге (маркер на экране,
+    // голая стена, съёмка в помещении) ARCore то и дело роняет окружение и
+    // пересчитывает мир — сырая поза от этого прыгает. Меньше positionFactor/
+    // yawFactor гасят дрожь и рывки; больший jumpMeters заставляет проводника
+    // на крупный дрейф МИРА плавно доехать, а не телепортироваться («убегать»).
+    // Настоящий перенос маркера (>1.2 м) всё ещё срабатывает сразу.
+    val smoother = remember { PlacementSmoother(positionFactor = 0.15, yawFactor = 0.08, jumpMeters = 1.2) }
     val qrScanner = remember { QrScanner() }
 
     LaunchedEffect(status) {
@@ -364,18 +370,22 @@ private fun ArMarkerSceneContent(
             // Четыре узла вместо одной матрицы — у каждого своя точка опоры. Присед
             // сжимает от ног, иначе ступни отрываются от картинки; оборот идёт
             // вокруг пояса, иначе персонаж крутится вокруг пяток.
-            Node(apply = { rig.anchor = this; onFrame = { nanos -> rig.update(nanos, currentFlip.value()) } }) {
+            Node(apply = { rig.anchor = this; onFrame = { nanos -> rig.update(nanos, currentSalute.value()) } }) {
                 Node(apply = { rig.body = this }) {
                     Node(apply = { rig.spin = this }) {
                         Node(
                             apply = {
                                 rig.sizer = this
+                                // Индексы клипов ChickAlive/ChickSalute — один раз.
+                                rig.setupAnimator(instance)
                                 // Последний узел создан — ставим всё дерево на место сразу,
                                 // иначе первый кадр модель ростом в метр стоит в начале координат.
-                                rig.update(frameTimeNanos = 0L, flip = null)
+                                rig.update(frameTimeNanos = 0L, saluteToken = null)
                             },
                         ) {
-                            ModelNode(modelInstance = instance)
+                            // autoAnimate = false: в модели ДВЕ анимации (idle + салют),
+                            // и авто-режим играл бы обе разом. Клипами управляет rig вручную.
+                            ModelNode(modelInstance = instance, autoAnimate = false)
                         }
                     }
                 }
@@ -400,7 +410,13 @@ private class TrackingMemory {
     var qrAccepted = false
 }
 
-/** Узлы проводника и их поза на текущий кадр. */
+/**
+ * Узлы проводника, его поза и проигрывание клипов на текущий кадр.
+ *
+ * Движение персонажа (дыхание, осмотр, салют) — это встроенные в glb клипы,
+ * а не трансформации узлов: их гоняет Filament-аниматор. Узлы отвечают только
+ * за место в мире, разворот к человеку и рост.
+ */
 private class CompanionRig {
     var anchor: NodeImpl? = null
     var body: NodeImpl? = null
@@ -409,28 +425,63 @@ private class CompanionRig {
     var placement: CompanionPlacement? = null
     var height: Float = DEFAULT_COMPANION_HEIGHT_METERS
 
-    fun update(frameTimeNanos: Long, flip: FlipTransform?) {
+    // Проигрывание клипов вручную (autoAnimate выключен).
+    private var animator: com.google.android.filament.gltfio.Animator? = null
+    private var idleIndex = -1
+    private var saluteIndex = -1
+    private var idleDuration = 1f
+    private var saluteDuration = 0f
+    // Токен последнего обработанного нажатия и момент старта салюта в часах кадров.
+    private var lastSaluteToken: Long? = null
+    private var saluteStartNanos = -1L
+
+    /** Найти индексы клипов ChickAlive/ChickSalute — один раз после загрузки модели. */
+    fun setupAnimator(instance: ModelInstance) {
+        val anim = instance.animator
+        animator = anim
+        for (i in 0 until anim.animationCount) {
+            when (anim.getAnimationName(i)) {
+                "ChickShow" -> { saluteIndex = i; saluteDuration = anim.getAnimationDuration(i) }
+                "ChickAlive" -> { idleIndex = i; idleDuration = anim.getAnimationDuration(i) }
+            }
+        }
+        // Если имён нет — пусть idle будет первым клипом, лишь бы персонаж «жил».
+        if (idleIndex < 0 && anim.animationCount > 0) {
+            idleIndex = 0; idleDuration = anim.getAnimationDuration(0)
+        }
+    }
+
+    /**
+     * @param saluteToken момент нажатия кнопки (часы хоста) или null. Новое
+     * ненулевое значение запускает салют один раз; дальше — снова цикл idle.
+     */
+    fun update(frameTimeNanos: Long, saluteToken: Long?) {
+        // Новое нажатие — засекаем старт салюта по часам кадров.
+        if (saluteToken != null && saluteToken != lastSaluteToken) {
+            lastSaluteToken = saluteToken
+            saluteStartNanos = frameTimeNanos
+        }
+        animator?.let { anim ->
+            val saluteElapsed = if (saluteStartNanos >= 0) (frameTimeNanos - saluteStartNanos) / 1_000_000_000f else Float.MAX_VALUE
+            if (saluteIndex >= 0 && saluteElapsed in 0f..saluteDuration) {
+                anim.applyAnimation(saluteIndex, saluteElapsed)
+            } else if (idleIndex >= 0) {
+                anim.applyAnimation(idleIndex, (frameTimeNanos / 1_000_000_000f) % idleDuration)
+            }
+            anim.updateBoneMatrices()
+        }
+
         val current = placement ?: return
-        val pivot = height * SPIN_PIVOT
         anchor?.apply {
             position = current.position.toPosition()
             rotation = Rotation(y = current.yawDegrees.toFloat())
         }
-        val breath = if (flip == null) {
-            sin(frameTimeNanos / 1_000_000.0 / BREATH_PERIOD_MILLIS * TWO_PI).toFloat() * BREATH_AMPLITUDE
-        } else {
-            0f
-        }
-        body?.apply {
-            position = Position(y = (flip?.liftFraction ?: 0f) * height * FLIP_LIFT)
-            scale = Scale(flip?.scaleX ?: 1f, (flip?.scaleY ?: 1f) + breath, flip?.scaleX ?: 1f)
-        }
-        spin?.apply {
-            position = Position(y = pivot)
-            rotation = Rotation(x = flip?.rotationDegrees ?: 0f)
-        }
+        // Дыхание/сальто больше не двигают узлы — это делают клипы. Промежуточные
+        // узлы держим нейтральными, рост задаёт только sizer.
+        body?.apply { position = Position(0f, 0f, 0f); scale = Scale(1f) }
+        spin?.apply { position = Position(0f, 0f, 0f); rotation = Rotation() }
         sizer?.apply {
-            position = Position(y = -pivot)
+            position = Position(0f, 0f, 0f)
             scale = Scale(height)
         }
     }
@@ -504,15 +555,5 @@ private const val IN_FRONT_DISTANCE_METERS = 1.8
  * человек подносит код и держит его дольше.
  */
 private const val QR_SCAN_INTERVAL_MILLIS = 250L
-
-/** Высота оси оборота в долях роста — примерно пояс. */
-private const val SPIN_PIVOT = 0.5f
-
-/** Высота подскока в сальто в долях роста. */
-private const val FLIP_LIFT = 0.6f
-
-private const val BREATH_PERIOD_MILLIS = 2600.0
-private const val BREATH_AMPLITUDE = 0.012f
-private const val TWO_PI = 2.0 * Math.PI
 
 private const val TAG = "ArMarkerScene"

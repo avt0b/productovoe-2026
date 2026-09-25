@@ -91,7 +91,7 @@ data class NarrationPlayback(
  * как неуважение, поэтому решение принимает бэкенд (флаг у типа точки),
  * а модуль его исполняет.
  */
-data class CompanionSpec(
+data class CompanionSpec @JvmOverloads constructor(
     val name: String,
     val subtitle: String,
     /**
@@ -108,6 +108,14 @@ data class CompanionSpec(
      * экран показывает плоского персонажа, а не пустоту.
      */
     val assetUri: String,
+    /**
+     * Необязательная папка с покадровыми PNG для плоского (компасного) режима,
+     * когда [assetUri] — это `.glb`. Нужна, чтобы один и тот же проводник был и
+     * 3D-моделью на табличке (ARCore), и плоской фигурой там, где ARCore нет
+     * (а его нет на многих устройствах). `null` — прежнее поведение: у `.glb`
+     * плоского вида нет. Игнорируется, если [assetUri] и так папка с кадрами.
+     */
+    val spriteUri: String? = null,
 ) : java.io.Serializable
 
 /** Цель наведения на местности. */

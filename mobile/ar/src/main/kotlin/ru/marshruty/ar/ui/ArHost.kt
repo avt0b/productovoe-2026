@@ -198,7 +198,11 @@ fun ArHost(
     val companionAsset = spec.companion?.assetUri.orEmpty()
     val isModel = companionAsset.endsWith(".glb", ignoreCase = true)
 
-    val frames = rememberCompanionFrames(if (isModel) "" else companionAsset)
+    // Плоскому режиму нужны PNG-кадры. Для .glb-проводника их берём из
+    // spriteUri (если задан) — так один персонаж и 3D на табличке, и плоский
+    // там, где ARCore нет. Для папки-ассета кадры лежат в ней самой.
+    val spriteFolder = spec.companion?.spriteUri ?: if (isModel) "" else companionAsset
+    val frames = rememberCompanionFrames(spriteFolder)
     val trickClip = frames.trickClip()
     val isSpeaking = isPlaying && !isMuted
 
@@ -332,7 +336,8 @@ fun ArHost(
                     activeMarker != null -> ArMarkerScene(
                         marker = activeMarker,
                         companionAsset = companionAsset.takeIf { isModel && spec.companion != null },
-                        flip = { flipState.value },
+                        // Нажатие «Воинского приветствия» → встроенный клип салюта в 3D.
+                        salute = { trickStartedAt },
                         onStatusChange = { markerStatus = it },
                         onFieldOfView = { full, frameAspect ->
                             val viewAspect = configuration.screenWidthDp.toDouble() /

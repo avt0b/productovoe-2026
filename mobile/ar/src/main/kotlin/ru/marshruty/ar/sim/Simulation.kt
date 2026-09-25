@@ -28,10 +28,17 @@ object Simulation {
     val Target = GeoPoint(latitude = 52.97012, longitude = 36.06673)
 
     val companion = CompanionSpec(
-        name = "Санитарный пёс Верный",
+        name = "Орлёнок Орлик",
         subtitle = "41-й СП",
-        // Временная затычка: настоящей модели проводника ещё нет.
-        assetUri = "companion/shrek.glb",
+        // Проводник-орлёнок: анимированная glb, нормализованная
+        // tools/normalize_companion.py (рост 1.0, ноги на нуле, лицом к +Z).
+        // Встроенный цикл «дыхание + осмотр» проигрывается автоматически
+        // (SceneView ModelNode.autoAnimate). Рядом лежат companion/chick_salute.glb
+        // и companion/chick_show.glb — жесты для отдельных точек.
+        assetUri = "companion/chick.glb",
+        // Плоские кадры того же орлёнка для компасного режима (когда ARCore нет):
+        // companion/chick/idle_000.png … idle_023.png.
+        spriteUri = "companion/chick",
     )
 
     /**
