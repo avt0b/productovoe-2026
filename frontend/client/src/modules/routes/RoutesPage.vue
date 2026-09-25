@@ -15,6 +15,7 @@ import {
   type LatLon,
 } from '@/core/geo'
 import { HelpButton } from '@/features/onboarding'
+import { PointSheet, usePointRoute } from '@/features/point-route'
 import DemoDataBadge from '@/ui/DemoDataBadge.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 import GeoMap from '@/ui/geo/GeoMap.vue'
@@ -70,6 +71,10 @@ watch(
   { immediate: true },
 )
 const { position: userPosition, status: geoStatus, start: startLocating } = useGeolocation()
+
+/** Маршрут от человека до выбранной точки — один на карту. */
+const pointRoute = usePointRoute({ position: userPosition, status: geoStatus, start: startLocating })
+const { path: routePath, focus: routeFocus, state: routeState } = pointRoute
 
 const query = ref('')
 /** Выбранные виды мест. Пусто — на карте все. */
@@ -142,10 +147,12 @@ const markers = computed<GeoMarker[]>(() => [
   })),
 ])
 
-/** Маршрут дня пунктиром — «след» из кейса. */
+/** Маршрут дня пунктиром — «след» из кейса. Поверх — путь от человека до выбранной точки. */
 const paths = computed<GeoPath[]>(() => {
   const route = data.value?.route
-  return route ? [{ id: route.id, points: route.stops, tone: 'secondary', dashed: true }] : []
+  const list: GeoPath[] = route ? [{ id: route.id, points: route.stops, tone: 'secondary', dashed: true }] : []
+  if (routePath.value) list.push(routePath.value)
+  return list
 })
 
 const selectedPlace = computed(() => data.value?.places.find((place) => place.id === selectedId.value) ?? null)
@@ -157,9 +164,59 @@ watch(data, (overview) => {
 })
 
 // Выбранное место спрятали поиском или фильтром — закрываем его карточку.
+// Спрятали то, куда ведёт маршрут, — маршрут тоже заканчиваем: вести некуда.
 watch(markers, (items) => {
   if (selectedId.value && !items.some((marker) => marker.id === selectedId.value)) selectedId.value = null
+  const routed = pointRoute.target.value
+  if (routed && !items.some((marker) => marker.id === routed.id)) pointRoute.stop()
 })
+
+/** Карточка внизу раскрытой карты: место слоя «ВОВ» или точка маршрута дня. */
+const sheetPoint = computed(() => {
+  const place = selectedPlace.value
+  if (place) {
+    const facts = [
+      place.dateText ? { icon: 'event', text: place.dateText } : null,
+      place.source ? { icon: 'menu_book', text: place.source } : null,
+    ].filter((fact) => fact !== null)
+    return {
+      point: { id: place.id, lat: place.lat, lon: place.lon },
+      kicker: PLACE_KINDS[place.kind].title,
+      icon: PLACE_KINDS[place.kind].icon,
+      title: place.title,
+      description: place.description,
+      facts,
+    }
+  }
+  const stop = selectedStop.value
+  const route = data.value?.route
+  if (stop && route) {
+    return {
+      point: { id: stop.id, lat: stop.lat, lon: stop.lon },
+      kicker: `Точка ${stop.step} · ${route.title}`,
+      icon: 'flag',
+      title: stop.title,
+      description: stop.kidTask ? `Задание: ${stop.kidTask}` : '',
+      facts: stop.hasAr ? [{ icon: 'view_in_ar', text: 'Есть AR-точка' }] : [],
+    }
+  }
+  return null
+})
+
+/**
+ * Закрыли карточку. Пока маршрут ведёт к другой точке, возвращаемся к ней —
+ * иначе управлять маршрутом было бы неоткуда. Закрыли карточку той точки,
+ * куда ведём, — маршрут закончен.
+ */
+function closeSheet(): void {
+  const routed = pointRoute.target.value
+  if (routed && routed.id !== selectedId.value) {
+    selectedId.value = routed.id
+    return
+  }
+  pointRoute.stop()
+  selectedId.value = null
+}
 
 function distanceFromUser(target: LatLon | null): string | null {
   return target && userPosition.value ? formatDistance(distanceKm(userPosition.value, target)) : null
@@ -202,10 +259,46 @@ function openStop(stop: RouteStop): void {
         :user="userPosition"
         :locating="geoStatus === 'locating'"
         :label="data.route?.title"
+        :focus="routeFocus"
+        :follow="routeState === 'active'"
         expandable
+        expand-on-select
         class="h-[420px] w-full short:h-64"
         @locate="startLocating"
-      />
+      >
+        <template v-if="sheetPoint" #sheet>
+          <PointSheet
+            :key="sheetPoint.point.id"
+            :point="sheetPoint.point"
+            :routing="pointRoute"
+            :kicker="sheetPoint.kicker"
+            :icon="sheetPoint.icon"
+            :title="sheetPoint.title"
+            :description="sheetPoint.description"
+            :facts="sheetPoint.facts"
+            @close="closeSheet"
+          >
+            <button
+              v-if="selectedStop && canOpenPoint"
+              type="button"
+              class="flex h-11 items-center justify-center gap-space-xs rounded-full border border-white/20 bg-white/10 font-label-lg text-label-lg text-white transition-colors hover:bg-white/20 active:scale-[0.98]"
+              @click="openStop(selectedStop)"
+            >
+              <MsIcon name="arrow_forward" :size="18" />
+              Открыть точку маршрута
+            </button>
+            <button
+              v-else-if="selectedPlace && canEditPlace(selectedPlace)"
+              type="button"
+              class="flex h-11 items-center justify-center gap-space-xs rounded-full border border-white/20 bg-white/10 font-label-lg text-label-lg text-white transition-colors hover:bg-white/20 active:scale-[0.98]"
+              @click="editedPlace = selectedPlace"
+            >
+              <MsIcon name="edit" :size="18" />
+              Поправить место
+            </button>
+          </PointSheet>
+        </template>
+      </GeoMap>
 
       <div class="flex flex-col gap-space-md px-margin pt-space-md">
         <InlineNotice v-if="geoProblem" icon="location_off">{{ geoProblem }}</InlineNotice>
