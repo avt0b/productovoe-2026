@@ -1,9 +1,45 @@
 # HANDOFF — сторона B
 
-Ветка `feat/up-mobile-b` от `feat/up-mobile` (`ddedddf`), 4 коммита. Зона файлов
-не нарушена — `git diff feat/up-mobile...feat/up-mobile-b --stat` затрагивает
-только `src/modules/hq/**`, `src/modules/profile/**`, `src/modules/notifications/**`
-(новый), `src/features/notifications/**`.
+Ветка `feat/up-mobile-b` от `feat/up-mobile` (`ddedddf`), 7 коммитов. Основная
+зона файлов не нарушена — `src/modules/hq/**`, `src/modules/profile/**`,
+`src/modules/notifications/**` (новый), `src/features/notifications/**`. Три
+последних коммита — по прямой просьбе пользователя вне первоначального
+разбиения A/Б (возраст на экране входа, анимация карты по всем моим экранам,
+серия посещений); `modules/auth/**` в исходном плане было заморожено —
+пользователь снял это ограничение лично, в отчёте фиксирую факт правки.
+
+## Стенд клиента локально — на заметку стороне A тоже
+
+По умолчанию `core/server.ts` бьёт напрямую в порты бэкенда
+(`127.0.0.1:800x`), а в `docker-compose.yml` они на хост не пробрасываются —
+только nginx. Чтобы реально войти с настоящим аккаунтом (не демо), нужны:
+
+1. `frontend/client/.env.local` (в `.gitignore`, не коммитится) — адреса через
+   шлюз: `VITE_AUTH_API_URL=http://localhost/api` (без `/auth` — nginx для
+   этого location сам оставляет сегмент `/auth`, у остальных сервисов иначе,
+   см. комментарий в файле), `VITE_USER_API_URL=http://localhost/api/users`,
+   аналогично `map`/`search` (это и есть `hq`)/`archive`/`routes`/`media`.
+2. `CORS_ORIGINS` в корневом `.env` — добавить порт своего дев-сервера
+   (`http://localhost:5174` для A, `:5175` для B), иначе браузер тихо режет
+   запросы. Меняется — нужно пересоздать бэкенд-контейнеры
+   (`docker compose up -d --force-recreate <сервисы>`), `docker restart`
+   старый `.env` не перечитывает.
+
+## «Живое фото» — просто дошёл до настоящего бэка, фронт не трогал
+
+Проверил `modules/memory/data.ts`: контракт (`soldier_name`,
+`source_photo_url`, `narration_text`, `voice_style`, `consent_memorial_use`,
+`is_public`) уже один в один совпадает с реальной схемой `media_service`
+(`MemorialClip`), никакого демо-фолбэка на этих ручках нет — клиент и так
+шлёт заявки в настоящий `media_render_worker`. Менять на фронте было нечего.
+
+Прогнал реальный сквозной тест напрямую через API (POST /uploads → POST
+/clips → воркер забрал заявку): очередь claim/ready/failed работает,
+`media_render_worker` реально дозвонился до Yandex SpeechKit — и получил
+честный отказ **от настоящего Yandex, не от заглушки**: `Unauthenticated,
+Unknown api key`. Ключ, который был передан для этого стенда, не
+аутентифицируется — это не баг пайплайна, ключ нужно перевыпустить или
+проверить отдельно.
 
 ## B-1. Уведомления
 
