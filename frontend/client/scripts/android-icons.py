@@ -72,6 +72,7 @@ def main() -> None:
         '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n'
         f'    <color name="ic_launcher_background">{BACKGROUND}</color>\n</resources>\n',
         encoding="utf-8",
+        newline="\n",
     )
     print("готово:", ", ".join(DENSITIES))
 
