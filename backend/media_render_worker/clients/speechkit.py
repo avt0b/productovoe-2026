@@ -10,6 +10,7 @@ import wave
 import httpx
 
 from core.config import settings
+from core.errors import raise_for_status
 
 _ENDPOINT = "https://tts.api.cloud.yandex.net/speech/v1/tts:synthesize"
 _SAMPLE_RATE = 48000
@@ -38,7 +39,7 @@ def synthesize(text: str, voice_style: str) -> bytes:
         },
         timeout=settings.upstream_timeout_seconds,
     )
-    response.raise_for_status()
+    raise_for_status(response, "SpeechKit")
     return _wrap_wav(response.content)
 
 

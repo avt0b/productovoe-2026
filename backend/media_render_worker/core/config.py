@@ -31,7 +31,22 @@ class Settings(BaseSettings):
     poll_interval_seconds: float = 5.0
     upstream_timeout_seconds: float = 60.0
     # Сколько ждать рендера на Replicate, прежде чем считать заявку неудавшейся.
-    render_timeout_seconds: float = 300.0
+    # Холодный старт модели там — несколько минут; по истечении Replicate сам
+    # отменяет прогон (заголовок Cancel-After), чтобы не платить за брошенный.
+    render_timeout_seconds: float = 900.0
+
+    @property
+    def render_configured(self) -> bool:
+        """Заданы ли все четыре ключа — без любого из них рендер не начинаем."""
+        return all(
+            value.strip()
+            for value in (
+                self.yandex_api_key,
+                self.yandex_folder_id,
+                self.replicate_api_token,
+                self.replicate_model_version,
+            )
+        )
 
 
 settings = Settings()
