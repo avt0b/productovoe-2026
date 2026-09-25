@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
+import { usePreferencesStore } from '@/core/preferences'
 import { useSessionStore } from '@/core/session'
 import { fetchNotifications } from '@/features/notifications/api'
 import AccountRequired from '@/ui/AccountRequired.vue'
@@ -12,6 +13,7 @@ import StateBlock from '@/ui/StateBlock.vue'
 import BadgesSection from './components/BadgesSection.vue'
 import ExpeditionStatusCard from './components/ExpeditionStatusCard.vue'
 import FamilySection from './components/FamilySection.vue'
+import GameProgressCard from './components/GameProgressCard.vue'
 import HeroesSection from './components/HeroesSection.vue'
 import ProfileEditSheet from './components/ProfileEditSheet.vue'
 import ResearcherHeroCard from './components/ResearcherHeroCard.vue'
@@ -24,6 +26,7 @@ import { fetchProfile, nextTrip, type HeroCounter, type Profile, type ProfileOve
 
 const session = useSessionStore()
 const router = useRouter()
+const preferences = usePreferencesStore()
 
 /** Демо-режим без аккаунта: профиля в `user_service` нет, показываем гостя и семейный режим. */
 const overview = useAsync<ProfileOverview | null>(() => (session.hasAccount ? fetchProfile() : Promise.resolve(null)))
@@ -109,6 +112,15 @@ const counters = computed<HeroCounter[]>(() => [
         <ExpeditionStatusCard :trip="nextTrip(data.trips)" />
         <RolesSection v-if="session.user" :user="session.user" @open-token="tokenOpen = true" />
         <RoleRequestSection v-if="session.user" :user="session.user" :profile="data.profile" :organizations="data.squads" />
+        <GameProgressCard
+          v-if="preferences.familyMode"
+          :achievements="data.profile.achievements ?? []"
+          :trips="data.trips"
+          :entries="data.entries"
+          :excursions="data.excursions"
+          :routes-completed="data.profile.routes_completed ?? 0"
+          :role="session.user?.role"
+        />
         <BadgesSection
           :achievements="data.profile.achievements ?? []"
           :trips="data.trips"
