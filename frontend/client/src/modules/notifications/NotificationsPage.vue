@@ -61,7 +61,7 @@ async function open(item: AppNotification): Promise<void> {
         :disabled="markingAll"
         @click="readAll"
       >
-        <MsIcon :name="markingAll ? 'progress_activity' : 'done_all'" :size="18" :class="{ 'animate-spin': markingAll }" />
+        <MsIcon :name="markingAll ? 'progress_activity' : 'task_alt'" :size="18" :class="{ 'animate-spin': markingAll }" />
         Прочитать всё
       </button>
     </div>
@@ -73,7 +73,7 @@ async function open(item: AppNotification): Promise<void> {
         :loading="loading"
         :error="error"
         :empty="!loading && !error && !items.length"
-        empty-icon="notifications_off"
+        empty-icon="notifications"
         empty-text="Уведомлений пока нет"
         @retry="retry"
       >

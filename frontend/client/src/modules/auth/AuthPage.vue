@@ -4,6 +4,7 @@ import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 
 import { useAsync } from '@/core/async'
 import { errorText } from '@/core/format'
+import { usePreferencesStore } from '@/core/preferences'
 import {
   clearPendingLogin,
   completeExternalLogin,
@@ -14,6 +15,7 @@ import {
   type PendingLogin,
 } from '@/core/session'
 import MsIcon from '@/ui/MsIcon.vue'
+import ToggleSwitch from '@/ui/ToggleSwitch.vue'
 
 import AuthField from './components/AuthField.vue'
 import SsoButtons from './components/SsoButtons.vue'
@@ -42,6 +44,30 @@ watch(signInError, (value) => {
 const submitting = ref(false)
 
 const submitLabel = computed(() => (mode.value === 'login' ? 'Войти в экспедицию' : 'Создать аккаунт'))
+
+/**
+ * Возраст спрашиваем только затем, чтобы выставить детский режим: в сервисах
+ * такого поля нет, никуда он не уходит. Младше 14 — режим включается сам,
+ * 14 и старше — выключается. Ползунок рядом можно поправить руками, а потом
+ * тот же режим переключают в профиле.
+ */
+const KID_AGE_LIMIT = 14
+const preferences = usePreferencesStore()
+const age = ref('')
+const kidMode = ref(preferences.familyMode)
+const ageYears = computed(() => {
+  const years = Number(age.value)
+  return age.value && Number.isInteger(years) && years >= 1 && years <= 120 ? years : null
+})
+watch(age, (value) => {
+  // Только цифры: буква в поле возраста — опечатка, а не ответ.
+  const digits = value.replace(/\D/g, '').slice(0, 3)
+  if (digits !== value) age.value = digits
+})
+// Возраст решает заново при каждой правке — ручной выбор ползунком живёт до неё.
+watch(ageYears, (years) => {
+  if (years !== null) kidMode.value = years < KID_AGE_LIMIT
+})
 
 /** VK ID, Яндекс ID, MAX, Госуслуги: что включено на сервере. Не ответил — кнопки недоступны. */
 const providers = useAsync(async () => {
@@ -87,15 +113,23 @@ function landing(): RouteLocationRaw {
 /** Вход по почте и регистрация. Удачный исход ведёт в профиль исследователя. */
 async function submit(): Promise<void> {
   if (submitting.value) return
+  const registering = mode.value === 'register'
+  // Демо-вход (пустые почта и пароль) аккаунта не заводит — возраст ему не нужен.
+  if (registering && (contact.value.trim() || password.value) && ageYears.value === null) {
+    signInError.value = 'Укажите возраст цифрами — по нему включится или выключится детский режим'
+    return
+  }
   submitting.value = true
   signInError.value = null
   try {
     await session.signIn({
-      method: mode.value === 'login' ? 'password' : 'register',
+      method: registering ? 'register' : 'password',
       contact: contact.value,
       password: password.value,
-      name: mode.value === 'register' ? name.value : undefined,
+      name: registering ? name.value : undefined,
     })
+    // Только после удачной регистрации: не вышло — настройку не трогаем.
+    if (registering) preferences.familyMode = kidMode.value
     await router.replace(landing())
   } catch (reason) {
     signInError.value = errorText(reason)
@@ -241,15 +275,39 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
           :class="mode === 'register' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
           :inert="mode !== 'register'"
         >
+          <!--
+            Экран входа зажат в высоту телефона без прокрутки: имя и возраст —
+            одной строкой, детский режим — короткой плашкой, а подсказка про
+            демо-вход на этой вкладке схлопывается. Иначе на низком экране
+            регистрация выталкивала бы кнопки за нижний край.
+          -->
           <div class="overflow-hidden">
-            <AuthField
-              v-model="name"
-              class="mb-space-sm"
-              label="Как к вам обращаться"
-              icon="person"
-              placeholder="Имя и фамилия"
-              autocomplete="name"
-            />
+            <div class="mb-space-sm flex items-start gap-space-md">
+              <AuthField
+                v-model="name"
+                class="min-w-0 flex-1"
+                label="Как к вам обращаться"
+                icon="person"
+                placeholder="Имя и фамилия"
+                autocomplete="name"
+              />
+              <AuthField
+                v-model="age"
+                class="w-20 shrink-0"
+                label="Возраст"
+                icon="calendar_month"
+                placeholder="Лет"
+                inputmode="numeric"
+                :maxlength="3"
+              />
+            </div>
+
+            <div class="mb-space-sm flex items-center justify-between gap-space-sm rounded-xl border border-white/15 bg-white/10 px-space-sm py-1.5">
+              <p class="min-w-0 truncate font-label-md text-label-md text-white">
+                Детский режим <span class="font-label-sm text-label-sm text-white/60">· до {{ KID_AGE_LIMIT }} лет</span>
+              </p>
+              <ToggleSwitch v-model="kidMode" label="Детский режим" />
+            </div>
           </div>
         </div>
 
@@ -322,8 +380,8 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
 
         <div
           class="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
-          :class="signInError ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'"
-          :inert="signInError !== null"
+          :class="signInError || mode === 'register' ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'"
+          :inert="signInError !== null || mode === 'register'"
         >
           <div class="overflow-hidden">
             <p class="mt-space-sm text-center font-label-sm text-label-sm text-white/75">
