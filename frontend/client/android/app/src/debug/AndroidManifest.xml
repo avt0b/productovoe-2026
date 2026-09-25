@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Только для debug-сборки: стенд разработки поднимают по http (сервисы в
+  локальной сети, хранилище на соседнем порту), а начиная с targetSdk 28
+  Android не выпускает незашифрованные запросы без этого флага.
+
+  В релизную сборку манифест не попадает: боевой APK ходит на домен по https,
+  и разрешать ему http незачем.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:usesCleartextTraffic="true" />
+</manifest>

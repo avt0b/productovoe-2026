@@ -27,6 +27,13 @@ function servicesOverHttp(): boolean {
   }
 }
 
+/**
+ * Послабления для http-стенда включаются только тогда, когда сборка на него и
+ * нацелена. Сборка на домен получается строгой: незашифрованный трафик из неё
+ * не уйдёт даже по ошибке в адресе.
+ */
+const overHttp = servicesOverHttp()
+
 const config: CapacitorConfig = {
   appId: 'ru.marshruty.client',
   appName: 'Маршруты победы',
@@ -34,14 +41,12 @@ const config: CapacitorConfig = {
   server: {
     // Смена схемы — это смена origin: сессия из прежней сборки не переедет,
     // войти придётся заново.
-    androidScheme: servicesOverHttp() ? 'http' : 'https',
-    // Сервисы на хакатоне подняты по http в локальной сети. В проде — только https,
-    // и эти два флага (здесь и `allowMixedContent` ниже) надо убрать.
-    cleartext: true,
+    androidScheme: overHttp ? 'http' : 'https',
+    cleartext: overHttp,
   },
   android: {
-    // Страница с https://localhost ходит в http://<компьютер>:8003 — без этого WebView блокирует запросы.
-    allowMixedContent: true,
+    // Страница ходит в http://<компьютер>:8003 — без этого WebView блокирует запросы.
+    allowMixedContent: overHttp,
   },
 }
 
