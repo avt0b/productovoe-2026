@@ -50,6 +50,17 @@ const props = withDefaults(
      * уже занято.
      */
     expandable?: boolean
+    /**
+     * Нажатие на метку в превью сразу разворачивает карту: у окна есть
+     * карточка точки (слот `sheet`), а ей нужно место на весь экран.
+     */
+    expandOnSelect?: boolean
+    /**
+     * Что показать целиком — например, только что построенный маршрут. Вид
+     * подгоняется, только когда меняется `key`: маршрут перестраивается по
+     * ходу, и дёргать карту на каждый пересчёт нельзя.
+     */
+    focus?: { key: string | number; points: LatLon[] } | null
   }>(),
   {
     paths: () => [],
@@ -60,6 +71,8 @@ const props = withDefaults(
     center: () => OREL_CENTER,
     follow: false,
     expandable: false,
+    expandOnSelect: false,
+    focus: null,
   },
 )
 
@@ -124,6 +137,8 @@ const USER_ICON = L.divIcon({
 })
 
 const container = ref<HTMLDivElement | null>(null)
+/** Обёртка карточки точки: её высоту карта держит свободной, подгоняя вид. */
+const sheetBox = ref<HTMLDivElement | null>(null)
 
 /** Карта раскрыта на весь экран. */
 const expanded = ref(false)
@@ -156,7 +171,10 @@ function renderMarkers(): void {
       riseOnHover: true,
       zIndexOffset: active ? 1000 : 0,
     })
-    marker.on('click', () => (selected.value = item.id))
+    marker.on('click', () => {
+      selected.value = item.id
+      if (preview.value && props.expandOnSelect) expand(item.id)
+    })
     marker.addTo(markerLayer)
     markerById.set(item.id, marker)
   }
@@ -225,8 +243,12 @@ function renderUser(): void {
     return
   }
   // Навигация: человек дошёл до края видимой области — подвинуть карту к нему.
-  if (props.follow && navigating && map && !map.getBounds().pad(-0.25).contains(point)) {
-    map.panTo(point)
+  // С карточкой точки видимая область — над ней. Маршрут показан целиком, и
+  // человек стоит у его края: пока он виден, вид не трогаем, иначе карта сразу
+  // увела бы маршрут за экран.
+  if (props.follow && navigating && map) {
+    if (sheetBox.value) reveal(L.latLng(point), 16)
+    else if (!map.getBounds().pad(-0.25).contains(point)) map.panTo(point)
   }
 }
 
@@ -247,8 +269,39 @@ function frameContent(): boolean {
     return false
   }
   if (points.length === 1) map.setView(points[0], 15)
-  else map.fitBounds(L.latLngBounds(points), { padding: [48, 48], maxZoom: 16 })
+  else map.fitBounds(L.latLngBounds(points), { ...contentPadding(), maxZoom: 16 })
   return true
+}
+
+/** Сколько снизу занимает карточка точки, px. Нет карточки — ноль. */
+function sheetHeight(): number {
+  return sheetBox.value?.offsetHeight ?? 0
+}
+
+/** Поля для `fitBounds`: сверху кнопки, снизу — карточка точки, под ней ничего не видно. */
+function contentPadding(): L.FitBoundsOptions {
+  return { paddingTopLeft: [48, 48], paddingBottomRight: [48, 48 + sheetHeight()] }
+}
+
+/** Показать точки целиком, не пряча их под карточкой. */
+function fitPoints(points: LatLon[]): void {
+  if (!map || points.length === 0) return
+  const bounds = L.latLngBounds(points.map((point): L.LatLngTuple => [point.lat, point.lon]))
+  map.fitBounds(bounds, { ...contentPadding(), maxZoom: 17 })
+}
+
+/**
+ * Точка должна быть видна над карточкой, а не под ней и не у самого края.
+ * Уже видна — вид не трогаем: человек мог сам выбрать, куда смотреть.
+ */
+function reveal(latLng: L.LatLng, margin = 48): void {
+  if (!map) return
+  const size = map.getSize()
+  const bottom = sheetHeight()
+  const at = map.latLngToContainerPoint(latLng)
+  const visible = at.x > margin && at.x < size.x - margin && at.y > margin && at.y < size.y - bottom - margin
+  if (visible) return
+  map.panBy([at.x - size.x / 2, at.y - (size.y - bottom) / 2])
 }
 
 function zoomIn(): void {
@@ -279,7 +332,8 @@ function onKey(event: KeyboardEvent): void {
   if (event.key === 'Escape') collapse()
 }
 
-function expand(): void {
+/** `focusId` — развернули нажатием на метку: смотрим на неё, а не на все метки сразу. */
+function expand(focusId?: string): void {
   if (expanded.value) return
   expanded.value = true
   document.body.style.overflow = 'hidden'
@@ -293,7 +347,13 @@ function expand(): void {
   void nextTick(() => {
     setInteractive(true)
     map?.invalidateSize()
-    frameContent()
+    const marker = focusId ? markerById.get(focusId) : undefined
+    if (map && marker) {
+      map.setView(marker.getLatLng(), Math.max(map.getZoom(), 14))
+      reveal(marker.getLatLng())
+    } else {
+      frameContent()
+    }
   })
 }
 
@@ -392,14 +452,29 @@ watch(
 
 watch(() => props.user, renderUser)
 
+// Режим навигации включили позже, чем открыли карту (начали маршрут) — следовать сразу.
+watch(
+  () => props.follow,
+  (on) => (navigating = on),
+)
+
+let focusedKey: string | number | null = null
+watch(
+  () => props.focus,
+  (focus) => {
+    if (!focus || focus.key === focusedKey) return
+    focusedKey = focus.key
+    void nextTick(() => fitPoints(focus.points))
+  },
+)
+
 watch(selected, (id, previous) => {
   refreshPin(previous)
   refreshPin(id)
   const marker = id ? markerById.get(id) : undefined
-  // Выбрали метку у края или за экраном (например, из списка) — подвинуть к ней.
-  if (map && marker && !map.getBounds().pad(-0.2).contains(marker.getLatLng())) {
-    map.panTo(marker.getLatLng())
-  }
+  // Выбрали метку у края, за экраном (например, из списка) или под карточкой —
+  // подвинуть к ней. Ждём отрисовки: у новой точки карточка другой высоты.
+  if (marker) void nextTick(() => reveal(marker.getLatLng()))
 })
 </script>
 
@@ -483,6 +558,18 @@ watch(selected, (id, previous) => {
         >
           Нажмите, чтобы открыть карту
         </p>
+
+        <!-- Карточка выбранной точки: только на раскрытой карте — в превью ей не хватит места. -->
+        <div
+          v-if="$slots.sheet && !preview"
+          ref="sheetBox"
+          class="pointer-events-none absolute inset-x-0 bottom-0 z-[1000] flex justify-center px-space-sm"
+          :class="{ 'pb-safe': expanded }"
+        >
+          <div class="pointer-events-auto mb-space-sm w-full max-w-app">
+            <slot name="sheet" />
+          </div>
+        </div>
 
         <slot />
       </div>
