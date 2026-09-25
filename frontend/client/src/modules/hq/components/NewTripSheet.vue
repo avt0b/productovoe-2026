@@ -24,7 +24,7 @@ import { cancelTrip, createTrip, deleteTrip, isCancelled, updateTrip, type Squad
  */
 const props = withDefaults(defineProps<{ squads: Squad[]; trip?: Trip | null }>(), { trip: null })
 
-const emit = defineEmits<{ close: []; created: [trip: Trip]; done: [text: string] }>()
+const emit = defineEmits<{ close: []; created: [trip: Trip]; done: [text: string]; 'manage-squad': [squad: Squad] }>()
 
 function day(offset: number): string {
   const date = new Date()
@@ -49,6 +49,12 @@ const cancelReason = ref('')
 const cancelled = computed(() => (props.trip ? isCancelled(props.trip) : false))
 
 const squadOptions = computed(() => props.squads.map((squad) => ({ value: squad.id, title: squad.name })))
+const selectedSquad = computed(() => props.squads.find((squad) => squad.id === squadId.value) ?? null)
+/** Без штаба отряд не попадёт на карту потребностей точно — только по названию района. */
+const squadWithoutPlace = computed(() => {
+  const squad = selectedSquad.value
+  return squad && (squad.lat === null || squad.lon === null) ? squad : null
+})
 const missing = computed(() => {
   if (!squadId.value) return 'Выберите отряд'
   if (!title.value.trim()) return 'Напишите, что будем делать'
@@ -116,6 +122,15 @@ function remove(): Promise<void> {
     <form class="flex flex-col gap-space-md" @submit.prevent="submit">
       <InlineNotice v-if="cancelled" tone="info">Выезд отменён — его можно только удалить.</InlineNotice>
       <FormSelect v-if="!trip && squads.length > 1" v-model="squadId" label="Отряд" :options="squadOptions" />
+
+      <InlineNotice v-if="squadWithoutPlace" tone="info">
+        У отряда «{{ squadWithoutPlace.name }}» не указан штаб — на карте потребностей он встанет примерно, по названию
+        района, а не точно.
+        <button type="button" class="font-bold underline underline-offset-2" @click="emit('manage-squad', squadWithoutPlace)">
+          Указать штаб
+        </button>
+      </InlineNotice>
+
       <FormInput v-model="title" label="Что делаем" :maxlength="255" placeholder="Раскопки у д. Семенково" required />
       <FormInput v-model="location" label="Где сбор" :maxlength="255" placeholder="д. Семенково, у школы" />
       <div class="grid grid-cols-[1fr_6rem] gap-space-sm">

@@ -24,6 +24,8 @@ const squads: Squad[] = [
     description: 'Ищет места гибели десантников 5-го ВДК под Орлом.',
     contact: '',
     leader_id: LEADER,
+    lat: null,
+    lon: null,
     created_at: CREATED,
   },
   {
@@ -33,6 +35,8 @@ const squads: Squad[] = [
     description: 'Работает на рубежах обороны 1941 года по реке Зуше.',
     contact: '',
     leader_id: LEADER,
+    lat: null,
+    lon: null,
     created_at: CREATED,
   },
 ]
