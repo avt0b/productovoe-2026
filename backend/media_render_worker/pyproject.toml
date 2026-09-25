@@ -1,7 +1,7 @@
 [project]
 name = "media-render-worker"
 version = "0.1.0"
-description = "Воркер рендера «Живого фото»: SpeechKit (голос) + Replicate/SadTalker (липсинк) — «Маршруты победы»"
+description = "Воркер рендера «Живого фото»: SpeechKit (голос) + Kling Avatar через Ranvik (говорящий портрет) — «Маршруты победы»"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

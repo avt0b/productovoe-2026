@@ -1,9 +1,5 @@
-"""Цикл воркера: claim -> оживление фото -> заливка в MinIO -> ready/failed.
-
-Оживляет один из двух провайдеров (`RENDER_PROVIDER`, по умолчанию `auto`):
-- **Ranvik** — беззвучно, несколько секунд: моргнёт, вздохнёт, повернёт голову;
-  берётся, если задан `RANVIK_API_KEY`;
-- **SpeechKit + Replicate** — голос от первого лица и липсинк SadTalker.
+"""Цикл воркера: claim -> синтез речи -> говорящий портрет (фото + голос) ->
+заливка в MinIO -> ready/failed.
 
 Один клип — одна попытка за итерацию; при ошибке клип уходит в `failed`
 (автор может повторить через POST /clips/{id}/retry в media_service).
@@ -13,27 +9,17 @@
 отложено, как и очередь с повторами (см. README, «Дальше»)."""
 
 import logging
+import re
 import time
-from typing import Any
 
 import httpx
 
-from clients import lipsync, media_service, ranvik, speechkit
+from clients import media_service, ranvik, speechkit
 from core.config import settings
-from core.errors import RenderFailed
-from services import photo, storage
-from services.photo import PhotoUnreadable
-from services.storage import StorageFailed
+from core.exceptions import RenderFailed
+from services import storage
 
 logger = logging.getLogger(__name__)
-
-# Ошибки, текст которых можно показать автору заявки как есть.
-_EXPLAINED = (RenderFailed, PhotoUnreadable, StorageFailed)
-# SadTalker оживляет лицо в 256 px и вклеивает его обратно в кадр — фото
-# крупнее только раздует загрузку и сам ролик.
-_PHOTO_SIDE = 768
-# Видеомодели Ranvik рисуют весь кадр в 720p — фото нужно почётче.
-_RANVIK_PHOTO_SIDE = 1280
 
 
 def process_one() -> bool:
@@ -44,11 +30,17 @@ def process_one() -> bool:
 
     clip_id = clip["id"]
     try:
-        video = render(clip)
-        video_url = storage.upload_video(clip_id=clip_id, content=video)
+        text = _limit_narration(clip["narration_text"], settings.max_narration_chars)
+        voice = speechkit.synthesize(text, clip["voice_style"])
+        # Фото качаем сами и шлём данными: Ranvik не нужен доступ к нашему MinIO.
+        photo = _download(clip["source_photo_url"])
+
+        video_bytes = ranvik.animate(photo=photo, voice_wav=voice)
+        video_url = storage.upload_video(clip_id=clip_id, content=video_bytes)
+
         media_service.mark_ready(clip_id, video_url=video_url)
         logger.info("Клип %s готов: %s", clip_id, video_url)
-    except _EXPLAINED as exc:
+    except RenderFailed as exc:
         media_service.mark_failed(clip_id, error=str(exc))
         logger.warning("Клип %s: рендер не удался: %s", clip_id, exc)
     except httpx.HTTPError as exc:
@@ -56,29 +48,28 @@ def process_one() -> bool:
             clip_id, error=f"Ошибка внешнего сервиса: {exc.__class__.__name__}"
         )
         logger.warning("Клип %s: сетевая ошибка при рендере: %s", clip_id, exc)
-    except Exception:
-        # Неожиданное — всё равно отпускаем клип в failed: иначе он навсегда
-        # застрянет в processing, и кнопки «Повторить» у автора не будет.
-        media_service.mark_failed(clip_id, error="Внутренняя ошибка рендера — попробуйте ещё раз")
-        logger.exception("Клип %s: необработанная ошибка рендера", clip_id)
     return True
 
 
-def render(clip: dict[str, Any]) -> bytes:
-    provider = settings.effective_render_provider
-    if provider is None:
-        # Без ключа SpeechKit httpx падал на пустом заголовке «Api-Key »
-        # (LocalProtocolError) — теперь автор видит, что дело в настройке.
-        raise RenderFailed(
-            "Оживление фото не настроено: нет ключа Ranvik или ключей SpeechKit и Replicate"
-        )
-    if provider == "ranvik":
-        source = storage.fetch_source(clip["source_photo_url"])
-        return ranvik.animate(photo=photo.normalize(source, max_side=_RANVIK_PHOTO_SIDE))
-    audio = speechkit.synthesize(clip["narration_text"], clip["voice_style"])
-    source = photo.normalize(storage.fetch_source(clip["source_photo_url"]), max_side=_PHOTO_SIDE)
-    remote_video_url = lipsync.animate(photo=source, audio_wav=audio)
-    return lipsync.download(remote_video_url)
+def _limit_narration(text: str, max_chars: int) -> str:
+    """Текст не длиннее max_chars — обрезка по концу предложения, чтобы речь не
+    обрывалась на полуслове. Платим за каждую секунду голоса (см. config)."""
+    text = text.strip()
+    if len(text) <= max_chars:
+        return text
+    head = text[:max_chars]
+    sentence_ends = [m.end() for m in re.finditer(r"[.!?…]+", head)]
+    if sentence_ends:
+        return head[: sentence_ends[-1]].strip()
+    # Одно длинное предложение — режем по последнему целому слову (+1 символ,
+    # чтобы слово, кончающееся ровно на границе, не потерялось).
+    return text[: max_chars + 1].rsplit(" ", 1)[0].rstrip(",;:—- ") + "…"
+
+
+def _download(url: str) -> bytes:
+    response = httpx.get(url, timeout=settings.upstream_timeout_seconds)
+    response.raise_for_status()
+    return response.content
 
 
 def run_forever() -> None:
@@ -87,13 +78,6 @@ def run_forever() -> None:
         settings.media_service_url,
         settings.poll_interval_seconds,
     )
-    provider = settings.effective_render_provider
-    if provider is None:
-        logger.warning(
-            "Ключи Ranvik и SpeechKit/Replicate не заданы — заявки будут уходить в failed"
-        )
-    else:
-        logger.info("Оживление фото: %s", provider)
     while True:
         try:
             had_work = process_one()

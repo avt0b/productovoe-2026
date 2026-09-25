@@ -1,8 +1,8 @@
 """Синтез речи через Yandex SpeechKit (те же модели голоса, что у Алисы).
 
 API v1 отдаёт LPCM без WAV-заголовка на format=lpcm (16 бит, little-endian,
-моно) — заголовок дописываем сами модулем wave, чтобы Replicate получил файл,
-который однозначно опознаётся как аудио."""
+моно) — заголовок дописываем сами модулем wave, чтобы говорящий портрет
+(clients/ranvik.py) однозначно опознал файл как аудио."""
 
 import io
 import wave
@@ -10,7 +10,6 @@ import wave
 import httpx
 
 from core.config import settings
-from core.errors import raise_for_status
 
 _ENDPOINT = "https://tts.api.cloud.yandex.net/speech/v1/tts:synthesize"
 _SAMPLE_RATE = 48000
@@ -39,7 +38,7 @@ def synthesize(text: str, voice_style: str) -> bytes:
         },
         timeout=settings.upstream_timeout_seconds,
     )
-    raise_for_status(response, "SpeechKit")
+    response.raise_for_status()
     return _wrap_wav(response.content)
 
 

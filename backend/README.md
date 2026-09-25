@@ -15,7 +15,7 @@
 | [archive_service](./archive_service/) | «Народный архив» / «Живая память»: записи с верификацией краеведом | 8005 | 6 | MVP |
 | [route_service](./route_service/) | Семейный навигатор: квест-маршруты, точки с заданиями/AR, прогресс семьи | 8006 | 2 | MVP |
 | [media_service](./media_service/) | «Живое фото»: заявки на AI-оживление фото бойца, жизненный цикл рендера, мемориал | 8007 | 7 | MVP |
-| [media_render_worker](./media_render_worker/) | Воркер рендера «Живого фото»: SpeechKit (голос) + Replicate/SadTalker (липсинк), не FastAPI-сервис — не слушает порт | — | 7 | MVP |
+| [media_render_worker](./media_render_worker/) | Воркер рендера «Живого фото»: SpeechKit (голос) + говорящий портрет Kling Avatar через Ranvik, не FastAPI-сервис — не слушает порт | — | 7 | MVP |
 | [admin_service](./admin_service/) | Панель администратора: своя аутентификация с TOTP, сводный дашборд, операции, журнал аудита | 8010 | — | MVP |
 
 Запланированы (пока не реализованы):

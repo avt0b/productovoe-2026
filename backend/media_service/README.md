@@ -26,7 +26,8 @@ Swagger — <http://127.0.0.1:8007/docs>. Тесты: `uv run pytest`.
 связь с точкой на карте. Сервис хранит только состояние заявки и переходы
 (`queued` → `processing` → `ready` / `failed`) — саму генерацию видео делает
 внешний воркер, [media_render_worker](../media_render_worker/) (Yandex
-SpeechKit для голоса + Replicate/SadTalker для липсинка), через `/render/*`.
+SpeechKit для голоса + Kling Avatar через Ranvik: боец произносит текст с
+липсинком), через `/render/*`.
 Без поднятого воркера (или без ключей у него в `.env`) заявки копятся в
 `queued`/улетают в `failed` — сам `media_service` от этого не страдает.
 

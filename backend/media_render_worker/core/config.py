@@ -1,5 +1,3 @@
-from typing import Literal
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,24 +15,26 @@ class Settings(BaseSettings):
     yandex_api_key: str = ""
     yandex_folder_id: str = ""
 
-    # --- Replicate (анимация фото + липсинк, модель SadTalker) ---
-    replicate_api_token: str = ""
-    # Версия модели на Replicate, например "cjwbw/sadtalker:<hash>" — берётся
-    # со страницы модели (кнопка API), не меняется без явного решения.
-    replicate_model_version: str = ""
-
-    # --- Ranvik (агрегатор нейросетей с оплатой в рублях) ---
-    # Беззвучное оживление фото на несколько секунд: моргнёт, вздохнёт,
-    # повернёт голову. Дешевле и проще, чем голос + липсинк.
+    # --- Оживление фото: Kling AI Avatar 2.0 через шлюз Ranvik ---
     ranvik_api_key: str = ""
     ranvik_api_base: str = "https://api.ranvik.ru/v1"
-    ranvik_model: str = "seedance-15-pro"
-    ranvik_duration_seconds: int = 5
-    ranvik_resolution: str = "720p"
-
-    # Кто оживляет фото: ranvik — беззвучно через Ranvik, replicate — голос
-    # SpeechKit + липсинк SadTalker. auto — Ranvik, если задан его ключ.
-    render_provider: Literal["auto", "ranvik", "replicate"] = "auto"
+    # Говорящий портрет: фото + голос -> боец произносит текст. Из опробованных
+    # (P-Video, Seedance 1.5 Pro, LTX) только он моргал и не «наезжал» камерой.
+    ranvik_model: str = "kling-avatar-20"
+    # Необязательная подсказка модели про мимику — губы и так идут за голосом.
+    # По-английски — так модели понимают лучше.
+    avatar_prompt: str = (
+        "The person speaks calmly and warmly, with natural blinking, subtle head movements "
+        "and a gentle, kind expression. Static camera."
+    )
+    # Цена — за секунду голоса (5.81 ₽/сек на момент выбора), а текст с подвигом
+    # из архива бывает до 2000 символов (~2.5 мин, ~850 ₽). Режем до ~30 сек
+    # речи (~175 ₽ максимум) — по концу предложения, см. worker._limit_narration.
+    max_narration_chars: int = 400
+    # Пробный режим: в Ranvik не ходим, вместо ролика — заглушка «DRY RUN»
+    # (assets/dry_run.mp4). Вся остальная цепочка — очередь, SpeechKit, MinIO,
+    # ready/failed — настоящая. Чтобы проверить сервис целиком, не тратя денег.
+    ranvik_dry_run: bool = False
 
     # --- MinIO: куда кладём готовый ролик ---
     minio_endpoint: str = "http://127.0.0.1:9000"
@@ -45,36 +45,9 @@ class Settings(BaseSettings):
 
     poll_interval_seconds: float = 5.0
     upstream_timeout_seconds: float = 60.0
-    # Сколько ждать рендера на Replicate, прежде чем считать заявку неудавшейся.
-    # Холодный старт модели там — несколько минут; по истечении Replicate сам
-    # отменяет прогон (заголовок Cancel-After), чтобы не платить за брошенный.
+    # Сколько ждать ролик (очередь у вендора + генерация), прежде чем считать
+    # заявку неудавшейся.
     render_timeout_seconds: float = 900.0
-
-    @property
-    def render_configured(self) -> bool:
-        """Заданы ли все четыре ключа — без любого из них рендер не начинаем."""
-        return all(
-            value.strip()
-            for value in (
-                self.yandex_api_key,
-                self.yandex_folder_id,
-                self.replicate_api_token,
-                self.replicate_model_version,
-            )
-        )
-
-    @property
-    def ranvik_configured(self) -> bool:
-        return bool(self.ranvik_api_key.strip())
-
-    @property
-    def effective_render_provider(self) -> Literal["ranvik", "replicate"] | None:
-        """Кем рендерить сейчас; `None` — ни у одного провайдера нет ключей."""
-        if self.render_provider == "ranvik" or (
-            self.render_provider == "auto" and self.ranvik_configured
-        ):
-            return "ranvik" if self.ranvik_configured else None
-        return "replicate" if self.render_configured else None
 
 
 settings = Settings()

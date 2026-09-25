@@ -1,15 +1,12 @@
-"""MinIO: исходное фото бойца — оттуда, готовый ролик — туда. Тот же бакет,
-что и у media_service (`media`), тот же паттерн ленивого создания бакета
-(services/storage.py там)."""
+"""Загрузка готового ролика в MinIO — тот же бакет, что и у media_service
+(`media`), тот же паттерн ленивого создания бакета (services/storage.py там)."""
 
 import json
 import mimetypes
 import threading
 import uuid
-from urllib.parse import unquote, urlsplit
 
 import boto3
-import httpx
 from botocore.client import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -18,10 +15,6 @@ from core.config import settings
 _client = None
 _client_lock = threading.Lock()
 _bucket_ready = False
-
-
-class StorageFailed(RuntimeError):
-    """MinIO не отдал фото или не принял ролик."""
 
 
 def _get_client():
@@ -79,32 +72,7 @@ def upload_video(*, clip_id: str, content: bytes) -> str:
             ContentType=mimetypes.guess_type(key)[0] or "video/mp4",
         )
     except (BotoCoreError, ClientError) as exc:
-        raise StorageFailed(
-            f"Не удалось загрузить видео в MinIO: {exc.__class__.__name__}"
-        ) from exc
+        raise RuntimeError(f"Не удалось загрузить видео в MinIO: {exc.__class__.__name__}") from exc
 
     base = (settings.minio_public_base_url or settings.minio_endpoint).rstrip("/")
     return f"{base}/{settings.minio_bucket}/{key}"
-
-
-def fetch_source(url: str) -> bytes:
-    """Исходное фото по ссылке из заявки.
-
-    Своё фото берём из бакета по ключу, а не по ссылке: в ссылке — публичный
-    адрес MinIO на момент загрузки (IP компьютера в сети), он меняется вместе
-    с сетью, и изнутри докера до него не достучаться. Чужую ссылку — просто
-    скачиваем."""
-    prefix = f"/{settings.minio_bucket}/"
-    path = unquote(urlsplit(url).path)
-    if path.startswith(prefix):
-        try:
-            obj = _get_client().get_object(Bucket=settings.minio_bucket, Key=path[len(prefix) :])
-            return obj["Body"].read()
-        except (BotoCoreError, ClientError):
-            pass  # Нет в нашем бакете — может, это чужой MinIO с тем же именем бакета.
-    try:
-        response = httpx.get(url, timeout=settings.upstream_timeout_seconds, follow_redirects=True)
-        response.raise_for_status()
-    except httpx.HTTPError as exc:
-        raise StorageFailed("Не удалось получить исходное фото — загрузите его заново") from exc
-    return response.content
