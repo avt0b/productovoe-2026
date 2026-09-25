@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
 import { errorText, plural } from '@/core/format'
-import { distanceKm, formatDistance, geolocationProblem, useGeolocation, type GeoMarker } from '@/core/geo'
+import { distanceKm, formatDistance, geolocationProblem, useGeolocation, type GeoMarker, type GeoPath } from '@/core/geo'
+import { PointSheet, usePointRoute } from '@/features/point-route'
 import { can, useSessionStore } from '@/core/session'
 import AccountRequired from '@/ui/AccountRequired.vue'
 import DemoDataBadge from '@/ui/DemoDataBadge.vue'
@@ -24,6 +25,7 @@ import {
   STATUS_LABELS,
   STATUS_STYLE,
   fetchLastStand,
+  sourceIcon,
   fetchSubscription,
   setPointStatus,
   type FindRecord,
@@ -152,6 +154,11 @@ const circles = computed<MapCircle[]>(() => {
 
 const { position: userPosition, status: geoStatus, start: startLocating } = useGeolocation()
 
+/** Путь от человека до выбранного места — один на карту. Места обычно за городом: дальше 5 км — на машине. */
+const pointRoute = usePointRoute({ position: userPosition, status: geoStatus, start: startLocating })
+const { path: routePath, focus: routeFocus, state: routeState } = pointRoute
+const paths = computed<GeoPath[]>(() => (routePath.value ? [routePath.value] : []))
+
 /** Какие стадии находок показывать. По умолчанию — все. */
 const visibleStatuses = ref<Set<FindStatus>>(new Set(['found', 'confirmed', 'raised']))
 const selectedId = ref<string | null>(null)
@@ -188,6 +195,36 @@ watch(
 )
 
 const selectedRecord = computed(() => visibleRecords.value.find((record) => record.id === selectedId.value) ?? null)
+
+// Место, куда ведёт маршрут, спрятали фильтром или убрали — вести некуда.
+watch(visibleRecords, (list) => {
+  const routed = pointRoute.target.value
+  if (routed && !list.some((record) => record.id === routed.id)) pointRoute.stop()
+})
+
+/** Строки карточки на карте: когда, кто, откуда известно. */
+function recordFacts(record: FindRecord): { icon: string; text: string }[] {
+  return [
+    { icon: 'event', text: record.period },
+    record.unit ? { icon: 'military_tech', text: record.unit } : null,
+    { icon: sourceIcon(record.source), text: record.source },
+  ].filter((fact) => fact !== null && fact.text !== '') as { icon: string; text: string }[]
+}
+
+/**
+ * Закрыли карточку. Пока маршрут ведёт к другому месту, возвращаемся к нему —
+ * иначе управлять маршрутом было бы неоткуда. Закрыли карточку того места,
+ * куда ведём, — маршрут закончен.
+ */
+function closeSheet(): void {
+  const routed = pointRoute.target.value
+  if (routed && routed.id !== selectedId.value) {
+    selectedId.value = routed.id
+    return
+  }
+  pointRoute.stop()
+  selectedId.value = null
+}
 
 const recordCard = ref<HTMLElement | null>(null)
 
@@ -292,14 +329,42 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
         <GeoMap
           v-model:selected="selectedId"
           :markers="markers"
+          :paths="paths"
           :circles="circles"
           :user="userPosition"
           :locating="geoStatus === 'locating'"
+          :focus="routeFocus"
+          :follow="routeState === 'active'"
           label="Орловская область"
           expandable
+          expand-on-select
           class="h-80 w-full rounded-2xl shadow-document short:h-64"
           @locate="startLocating"
-        />
+        >
+          <template v-if="selectedRecord" #sheet>
+            <PointSheet
+              :key="selectedRecord.id"
+              :point="{ id: selectedRecord.id, lat: selectedRecord.lat, lon: selectedRecord.lon }"
+              :routing="pointRoute"
+              :kicker="selectedRecord.stage"
+              :icon="STATUS_STYLE[selectedRecord.status].icon"
+              :title="selectedRecord.title"
+              :description="selectedRecord.evidence"
+              :facts="recordFacts(selectedRecord)"
+              @close="closeSheet"
+            >
+              <button
+                v-if="canVolunteer"
+                type="button"
+                class="flex h-11 items-center justify-center gap-space-xs rounded-full border border-white/20 bg-white/10 font-label-lg text-label-lg text-white transition-colors hover:bg-white/20 active:scale-[0.98]"
+                @click="router.push({ name: 'hq', query: { tab: 'trips' } })"
+              >
+                <MsIcon name="handshake" :size="18" />
+                Я готов помочь в подъёме
+              </button>
+            </PointSheet>
+          </template>
+        </GeoMap>
       </Transition>
 
       <InlineNotice v-if="geoProblem" tone="info" icon="location_off">{{ geoProblem }}</InlineNotice>
@@ -319,8 +384,9 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
           @edit="sheet = { kind: 'edit', record: selectedRecord }"
           @set-status="(status) => selectedRecord && changeStatus(selectedRecord, status)"
         />
+        <!-- Карточку закрыли на карте — это не «мест нет»: пусто только под фильтрами. -->
         <StateBlock
-          v-else
+          v-else-if="visibleRecords.length === 0"
           :loading="false"
           :error="null"
           empty
