@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
 import { useSessionStore } from '@/core/session'
+import { fetchNotifications } from '@/features/notifications/api'
 import AccountRequired from '@/ui/AccountRequired.vue'
+import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
 import BadgesSection from './components/BadgesSection.vue'
@@ -20,6 +23,7 @@ import SupportSection from './components/SupportSection.vue'
 import { fetchProfile, nextTrip, type HeroCounter, type Profile, type ProfileOverview } from './data'
 
 const session = useSessionStore()
+const router = useRouter()
 
 /** Демо-режим без аккаунта: профиля в `user_service` нет, показываем гостя и семейный режим. */
 const overview = useAsync<ProfileOverview | null>(() => (session.hasAccount ? fetchProfile() : Promise.resolve(null)))
@@ -28,6 +32,17 @@ const { data, loading, error, retry } = overview
 /** Правка фото, имени, города и «о себе» — одно окно на весь экран профиля. */
 const editOpen = ref(false)
 const tokenOpen = ref(false)
+
+/** Счётчик на колокольчике — один запрос при открытии профиля, не живой поллинг. */
+const unreadCount = ref(0)
+onMounted(async () => {
+  if (!session.hasAccount) return
+  try {
+    unreadCount.value = (await fetchNotifications({ unreadOnly: true })).length
+  } catch {
+    // Молча: счётчик — необязательная подсказка, а не то, ради чего открывают экран.
+  }
+})
 
 /** Имя, город и фото приходят из профиля — сессия их узнаёт, чтобы шапка и аватар показывали то же. */
 watch(
@@ -60,6 +75,23 @@ const counters = computed<HeroCounter[]>(() => [
 
 <template>
   <div class="flex w-full flex-col gap-space-md px-margin short:gap-space-sm">
+    <div v-if="session.hasAccount" class="flex justify-end">
+      <button
+        type="button"
+        aria-label="Уведомления"
+        class="relative flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+        @click="router.push({ name: 'notifications' })"
+      >
+        <MsIcon name="notifications" :size="22" />
+        <span
+          v-if="unreadCount"
+          class="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-label-sm text-[10px] leading-none text-on-primary"
+        >
+          {{ unreadCount > 9 ? '9+' : unreadCount }}
+        </span>
+      </button>
+    </div>
+
     <StateBlock v-if="loading || error" :loading="loading" :error="error" @retry="retry" />
 
     <template v-else>
@@ -91,6 +123,20 @@ const counters = computed<HeroCounter[]>(() => [
       <AccountRequired v-else-if="session.isAuthenticated" text="Профиль, роль, герои семьи и значки хранятся в аккаунте" />
 
       <SettingsSection :profile="data?.profile ?? null" :squads="data?.squads ?? []" @saved="applyProfile" />
+
+      <button
+        v-if="router.hasRoute('onboarding')"
+        type="button"
+        class="flex items-center gap-space-sm rounded-2xl bg-surface-container-lowest p-space-md text-left shadow-document active:scale-[0.99]"
+        @click="router.push({ name: 'onboarding' })"
+      >
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
+          <MsIcon name="help" :size="20" />
+        </span>
+        <span class="min-w-0 flex-1 font-label-lg text-label-lg text-on-surface">Как пользоваться приложением</span>
+        <MsIcon name="chevron_right" :size="20" class="shrink-0 text-on-surface-variant" />
+      </button>
+
       <SupportSection />
 
       <p class="py-space-sm text-center font-archival text-archival uppercase text-on-surface-variant">

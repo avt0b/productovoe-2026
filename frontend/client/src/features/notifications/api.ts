@@ -18,8 +18,11 @@ export interface AppNotification {
   created_at: string
 }
 
-export function fetchNotifications(): Promise<AppNotification[]> {
-  return apiRequest('GET', 'users', '/notifications', { auth: true })
+export function fetchNotifications(options: { unreadOnly?: boolean } = {}): Promise<AppNotification[]> {
+  return apiRequest('GET', 'users', '/notifications', {
+    auth: true,
+    query: { unread_only: options.unreadOnly ?? false, limit: 100 },
+  })
 }
 
 export function markNotificationRead(id: string): Promise<AppNotification> {

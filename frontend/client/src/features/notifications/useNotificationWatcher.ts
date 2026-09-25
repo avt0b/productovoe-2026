@@ -68,6 +68,30 @@ const KINDS: Record<string, Kind> = {
     freshMs: 24 * HOUR_MS,
     target: () => ({ name: 'last-stand' }),
   },
+  // Выезд отменили — ведём в «Штаб»: там же список выездов отряда, карточка сама найдётся.
+  trip_cancelled: {
+    actionLabel: 'В штаб',
+    icon: 'event_busy',
+    freshMs: 24 * HOUR_MS,
+    target: () => ({ name: 'hq' }),
+  },
+  // Значок выдал user_service — показываем его в профиле, там уже есть праздник получения.
+  achievement: {
+    actionLabel: 'Мои значки',
+    icon: 'military_tech',
+    freshMs: 24 * HOUR_MS,
+    target: () => ({ name: 'profile' }),
+  },
+}
+
+/**
+ * Куда вести по нажатию на уведомление — общая логика для всплывающего
+ * баннера и ленты в центре уведомлений (`modules/notifications`). Неизвестный
+ * вид или уведомление без нужных данных в `payload` — `null`, лента тогда
+ * просто не переходит никуда, а остаётся на месте.
+ */
+export function resolveNotificationTarget(notification: AppNotification): RouteLocationRaw | null {
+  return KINDS[notification.kind]?.target(notification) ?? null
 }
 
 function toBanner(notification: AppNotification, now: number): NotificationBannerItem | null {
