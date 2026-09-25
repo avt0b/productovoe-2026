@@ -14,6 +14,7 @@ from api.deps import (
     StatsServiceDep,
 )
 from api.schemas.achievement import AwardOut, AwardRequest
+from api.schemas.family_link import FamilyIdsOut
 from api.schemas.notification import (
     BroadcastNearbyOut,
     BroadcastNearbyRequest,
@@ -25,6 +26,7 @@ from api.schemas.role_application import ReviewRequest, RoleApplicationOut
 from api.schemas.stats import StatIncrementOut, StatIncrementRequest
 from core.internal import InternalActor, require_internal_key
 from core.models import ApplicationStatus, Profile, RoleApplication
+from repositories.family_link_repository import FamilyLinkRepository
 
 router = APIRouter(
     prefix="/internal",
@@ -151,6 +153,17 @@ def notify_users(payload: NotifyUsersRequest, service: NotificationServiceDep) -
         payload=payload.payload,
     )
     return NotifyUsersOut(notified=count)
+
+
+@router.get("/family/{user_id}", response_model=FamilyIdsOut, summary="Семья человека")
+def family_of(user_id: str, db: DbSession) -> FamilyIdsOut:
+    """Кто в семье у человека — для search_hq_service: кому слать «Я потерялся».
+
+    Связь заводится парой строк в обе стороны (см. FamilyLinkService.redeem_invite),
+    поэтому хватает связей, где человек — владелец. Семьи нет — пустой список,
+    а не 404: одинокий участник экскурсии — обычное дело."""
+    links = FamilyLinkRepository(db).for_owner(user_id)
+    return FamilyIdsOut(user_id=user_id, member_ids=list(dict.fromkeys(link.member_id for link in links)))
 
 
 @router.post("/achievements/award", response_model=AwardOut)
