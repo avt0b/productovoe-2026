@@ -1,4 +1,9 @@
-"""Цикл воркера: claim -> синтез речи -> липсинк -> заливка в MinIO -> ready/failed.
+"""Цикл воркера: claim -> оживление фото -> заливка в MinIO -> ready/failed.
+
+Оживляет один из двух провайдеров (`RENDER_PROVIDER`, по умолчанию `auto`):
+- **Ranvik** — беззвучно, несколько секунд: моргнёт, вздохнёт, повернёт голову;
+  берётся, если задан `RANVIK_API_KEY`;
+- **SpeechKit + Replicate** — голос от первого лица и липсинк SadTalker.
 
 Один клип — одна попытка за итерацию; при ошибке клип уходит в `failed`
 (автор может повторить через POST /clips/{id}/retry в media_service).
@@ -13,7 +18,7 @@ from typing import Any
 
 import httpx
 
-from clients import lipsync, media_service, speechkit
+from clients import lipsync, media_service, ranvik, speechkit
 from core.config import settings
 from core.errors import RenderFailed
 from services import photo, storage
@@ -27,6 +32,8 @@ _EXPLAINED = (RenderFailed, PhotoUnreadable, StorageFailed)
 # SadTalker оживляет лицо в 256 px и вклеивает его обратно в кадр — фото
 # крупнее только раздует загрузку и сам ролик.
 _PHOTO_SIDE = 768
+# Видеомодели Ranvik рисуют весь кадр в 720p — фото нужно почётче.
+_RANVIK_PHOTO_SIDE = 1280
 
 
 def process_one() -> bool:
@@ -58,10 +65,16 @@ def process_one() -> bool:
 
 
 def render(clip: dict[str, Any]) -> bytes:
-    if not settings.render_configured:
+    provider = settings.effective_render_provider
+    if provider is None:
         # Без ключа SpeechKit httpx падал на пустом заголовке «Api-Key »
         # (LocalProtocolError) — теперь автор видит, что дело в настройке.
-        raise RenderFailed("Оживление фото не настроено: нет ключей SpeechKit и Replicate")
+        raise RenderFailed(
+            "Оживление фото не настроено: нет ключа Ranvik или ключей SpeechKit и Replicate"
+        )
+    if provider == "ranvik":
+        source = storage.fetch_source(clip["source_photo_url"])
+        return ranvik.animate(photo=photo.normalize(source, max_side=_RANVIK_PHOTO_SIDE))
     audio = speechkit.synthesize(clip["narration_text"], clip["voice_style"])
     source = photo.normalize(storage.fetch_source(clip["source_photo_url"]), max_side=_PHOTO_SIDE)
     remote_video_url = lipsync.animate(photo=source, audio_wav=audio)
@@ -74,8 +87,13 @@ def run_forever() -> None:
         settings.media_service_url,
         settings.poll_interval_seconds,
     )
-    if not settings.render_configured:
-        logger.warning("Ключи SpeechKit/Replicate не заданы — заявки будут уходить в failed")
+    provider = settings.effective_render_provider
+    if provider is None:
+        logger.warning(
+            "Ключи Ranvik и SpeechKit/Replicate не заданы — заявки будут уходить в failed"
+        )
+    else:
+        logger.info("Оживление фото: %s", provider)
     while True:
         try:
             had_work = process_one()

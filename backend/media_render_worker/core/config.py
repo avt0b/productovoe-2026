@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +22,19 @@ class Settings(BaseSettings):
     # Версия модели на Replicate, например "cjwbw/sadtalker:<hash>" — берётся
     # со страницы модели (кнопка API), не меняется без явного решения.
     replicate_model_version: str = ""
+
+    # --- Ranvik (агрегатор нейросетей с оплатой в рублях) ---
+    # Беззвучное оживление фото на несколько секунд: моргнёт, вздохнёт,
+    # повернёт голову. Дешевле и проще, чем голос + липсинк.
+    ranvik_api_key: str = ""
+    ranvik_api_base: str = "https://api.ranvik.ru/v1"
+    ranvik_model: str = "seedance-15-pro"
+    ranvik_duration_seconds: int = 5
+    ranvik_resolution: str = "720p"
+
+    # Кто оживляет фото: ranvik — беззвучно через Ranvik, replicate — голос
+    # SpeechKit + липсинк SadTalker. auto — Ranvik, если задан его ключ.
+    render_provider: Literal["auto", "ranvik", "replicate"] = "auto"
 
     # --- MinIO: куда кладём готовый ролик ---
     minio_endpoint: str = "http://127.0.0.1:9000"
@@ -47,6 +62,19 @@ class Settings(BaseSettings):
                 self.replicate_model_version,
             )
         )
+
+    @property
+    def ranvik_configured(self) -> bool:
+        return bool(self.ranvik_api_key.strip())
+
+    @property
+    def effective_render_provider(self) -> Literal["ranvik", "replicate"] | None:
+        """Кем рендерить сейчас; `None` — ни у одного провайдера нет ключей."""
+        if self.render_provider == "ranvik" or (
+            self.render_provider == "auto" and self.ranvik_configured
+        ):
+            return "ranvik" if self.ranvik_configured else None
+        return "replicate" if self.render_configured else None
 
 
 settings = Settings()

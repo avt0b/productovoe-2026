@@ -13,6 +13,12 @@ CLIP = {
 }
 
 
+@pytest.fixture(autouse=True)
+def no_ranvik_by_default(monkeypatch):
+    monkeypatch.setattr(settings, "ranvik_api_key", "")
+    monkeypatch.setattr(settings, "render_provider", "auto")
+
+
 @pytest.fixture
 def keys(monkeypatch):
     monkeypatch.setattr(settings, "yandex_api_key", "key")
@@ -80,7 +86,7 @@ def test_without_keys_explains_instead_of_protocol_error(monkeypatch, outcome):
     assert worker.process_one() is True
     clip_id, error = outcome["failed"]
     assert clip_id == "clip-1"
-    assert "нет ключей" in error
+    assert "не настроено" in error
 
 
 def test_process_one_marks_failed_on_render_error(monkeypatch, keys, outcome):
@@ -124,3 +130,46 @@ def test_voice_style_falls_back_to_neutral_for_unknown_code():
     from clients.speechkit import VOICE_BY_STYLE
 
     assert VOICE_BY_STYLE.get("something-unexpected", "filipp") == "filipp"
+
+
+def test_with_ranvik_key_photo_is_animated_silently(monkeypatch, outcome):
+    monkeypatch.setattr(settings, "ranvik_api_key", "rk_live_test")
+    seen = {}
+
+    def animate(*, photo):
+        seen["photo"] = photo
+        return b"SILENT-MP4"
+
+    def no_voice(*args, **kwargs):
+        raise AssertionError("беззвучному оживлению голос не нужен")
+
+    monkeypatch.setattr(worker.ranvik, "animate", animate)
+    monkeypatch.setattr(worker.speechkit, "synthesize", no_voice)
+
+    assert worker.process_one() is True
+    assert outcome["uploaded"] == b"SILENT-MP4"
+    assert outcome["ready"][0] == "clip-1"
+    assert seen == {"photo": b"JPEG"}
+
+
+def test_forced_replicate_ignores_ranvik_key(monkeypatch, keys, outcome):
+    monkeypatch.setattr(settings, "ranvik_api_key", "rk_live_test")
+    monkeypatch.setattr(settings, "render_provider", "replicate")
+    monkeypatch.setattr(worker.lipsync, "animate", lambda **kw: "https://replicate.delivery/v.mp4")
+
+    def no_ranvik(**kwargs):
+        raise AssertionError("провайдер задан явно — Replicate")
+
+    monkeypatch.setattr(worker.ranvik, "animate", no_ranvik)
+
+    assert worker.process_one() is True
+    assert outcome["uploaded"] == b"MP4-BYTES"
+
+
+def test_provider_choice(monkeypatch, keys):
+    assert settings.effective_render_provider == "replicate"
+    monkeypatch.setattr(settings, "ranvik_api_key", "rk_live_test")
+    assert settings.effective_render_provider == "ranvik"
+    monkeypatch.setattr(settings, "ranvik_api_key", "")
+    monkeypatch.setattr(settings, "render_provider", "ranvik")
+    assert settings.effective_render_provider is None
