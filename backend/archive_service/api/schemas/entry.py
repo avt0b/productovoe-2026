@@ -4,6 +4,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from core.models import EntryKind, EntryStatus
+from core.public_url import PublicUrl
 
 Lat = Annotated[float, Field(ge=-90, le=90)]
 Lon = Annotated[float, Field(ge=-180, le=180)]
@@ -67,8 +68,8 @@ class EntryOut(BaseModel):
     poi_id: str | None
     event_date: date | None
     date_text: str
-    media_url: str | None
-    audio_url: str | None
+    media_url: PublicUrl | None
+    audio_url: PublicUrl | None
     submitted_by: str
     status: EntryStatus
     verified_by: str | None
@@ -107,8 +108,8 @@ class EntryPublicOut(BaseModel):
     poi_id: str | None
     event_date: date | None
     date_text: str
-    media_url: str | None
-    audio_url: str | None
+    media_url: PublicUrl | None
+    audio_url: PublicUrl | None
     submitted_by: str
     status: EntryStatus
     verified_by: str | None

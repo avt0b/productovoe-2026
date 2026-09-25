@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.models import ClipStatus, VoiceStyle
+from core.public_url import PublicUrl
 
 
 class ClipCreate(BaseModel):
@@ -39,14 +40,14 @@ class ClipOut(BaseModel):
 
     id: str
     soldier_name: str
-    source_photo_url: str
+    source_photo_url: PublicUrl
     narration_text: str
     voice_style: VoiceStyle
     submitted_by: str
     consent_memorial_use: bool
     is_public: bool
     status: ClipStatus
-    video_url: str | None
+    video_url: PublicUrl | None
     error: str
     rendered_at: datetime | None
     archive_entry_id: str | None

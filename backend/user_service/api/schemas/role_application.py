@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.models import ApplicationStatus
+from core.public_url import PublicUrl
 
 
 class RoleApplicationCreate(BaseModel):
@@ -23,7 +24,7 @@ class RoleApplicationOut(BaseModel):
     full_name: str
     contact: str
     evidence: str
-    evidence_url: str | None
+    evidence_url: PublicUrl | None
     status: ApplicationStatus
     review_note: str
     reviewed_by: str | None

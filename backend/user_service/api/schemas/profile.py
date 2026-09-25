@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from api.schemas.achievement import AchievementOut
 from api.schemas.family_hero import FamilyHeroOut
+from core.public_url import PublicUrl
 
 
 class ProfileOut(BaseModel):
@@ -13,7 +14,7 @@ class ProfileOut(BaseModel):
     display_name: str
     city: str
     bio: str
-    avatar_url: str | None
+    avatar_url: PublicUrl | None
     role: str
     squad_id: str | None
     is_verified: bool
@@ -47,7 +48,7 @@ class ProfileBriefOut(BaseModel):
 
     id: str
     display_name: str
-    avatar_url: str | None
+    avatar_url: PublicUrl | None
     role: str
     is_verified: bool
 

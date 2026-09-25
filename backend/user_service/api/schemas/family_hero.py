@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.models import HeroStatus
+from core.public_url import PublicUrl
 
 
 class FamilyHeroCreate(BaseModel):
@@ -48,6 +49,6 @@ class FamilyHeroOut(BaseModel):
     death_year: int | None
     unit: str
     note: str
-    photo_url: str | None
+    photo_url: PublicUrl | None
     archive_entry_id: str | None
     created_at: datetime

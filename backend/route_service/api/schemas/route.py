@@ -4,6 +4,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from core.models import RouteMode
+from core.public_url import PublicUrl
 
 Lat = Annotated[float, Field(ge=-90, le=90)]
 Lon = Annotated[float, Field(ge=-180, le=180)]
@@ -87,7 +88,7 @@ class WaypointOut(BaseModel):
     poi_id: str | None
     story: str
     kid_task: str
-    audio_url: str | None
+    audio_url: PublicUrl | None
     ar_hint: str
     # Эталонный ответ не отдаём наружу (спойлер загадки) — только признак,
     # что задание проверяемое, чтобы клиент показал поле ввода ответа.
@@ -108,7 +109,7 @@ class RouteOut(BaseModel):
     mode: RouteMode
     city: str
     distance_km: float
-    cover_url: str | None
+    cover_url: PublicUrl | None
     created_by: str
     is_published: bool
     created_at: datetime
