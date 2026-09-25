@@ -25,15 +25,15 @@ class RoleApplicationRepository:
             .order_by(RoleApplication.created_at.desc())
         ).all()
 
-    def has_pending(self, user_id: str, requested_role: str) -> bool:
-        existing = self.db.scalars(
-            select(RoleApplication).where(
-                RoleApplication.user_id == user_id,
-                RoleApplication.requested_role == requested_role,
-                RoleApplication.status == ApplicationStatus.pending,
-            )
-        ).first()
-        return existing is not None
+    def pending(self, user_id: str, requested_role: str | None = None) -> RoleApplication | None:
+        """Нерассмотренная заявка человека: на указанную роль или на любую."""
+        stmt = select(RoleApplication).where(
+            RoleApplication.user_id == user_id,
+            RoleApplication.status == ApplicationStatus.pending,
+        )
+        if requested_role is not None:
+            stmt = stmt.where(RoleApplication.requested_role == requested_role)
+        return self.db.scalars(stmt.order_by(RoleApplication.created_at.asc())).first()
 
     def search(
         self, *, status: ApplicationStatus | None = None, limit: int = 50, offset: int = 0

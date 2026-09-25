@@ -146,3 +146,48 @@ def test_approve_propagates_auth_client_failure(client, monkeypatch):
         f"/internal/role-applications/{app_id}/approve", headers=INTERNAL_HEADERS, json={}
     )
     assert r.status_code == 503
+
+
+def test_submit_second_role_while_pending_conflicts(client):
+    """Две заявки в очереди — это два одобрения подряд, из которых второе молча
+    стирает первое: роль-то одна."""
+    header = auth_header(user_id="u1")
+    assert submit(client, header, requested_role="searcher").status_code == 201
+
+    r = submit(client, header, requested_role="local_historian")
+    assert r.status_code == 409
+    assert "поисковик" in r.json()["detail"]
+
+    # Очередь админа видит ровно одну заявку этого человека.
+    queue = client.get("/internal/role-applications", headers=INTERNAL_HEADERS).json()["items"]
+    assert [a["requested_role"] for a in queue if a["user_id"] == "u1"] == ["searcher"]
+
+
+def test_submit_другая_роль_после_решения_разрешена(client):
+    header = auth_header(user_id="u1")
+    app_id = submit(client, header, requested_role="searcher").json()["id"]
+    client.post(f"/internal/role-applications/{app_id}/reject", headers=INTERNAL_HEADERS, json={})
+
+    # Отказали — можно просить другое: очередь свободна.
+    assert submit(client, header, requested_role="local_historian").status_code == 201
+
+
+def test_approve_records_previous_role(client):
+    """Одобрение заменяет роль — какую именно, видно и админу, и человеку."""
+    header = auth_header(user_id="u1")
+    client.get("/profiles/me", headers=header)  # создать профиль лениво
+    first = submit(client, header, requested_role="searcher").json()["id"]
+    client.post(f"/internal/role-applications/{first}/approve", headers=INTERNAL_HEADERS, json={})
+
+    # Человек уже поисковик — просит краеведа; заявку подаёт уже с новой ролью.
+    searcher_header = auth_header(user_id="u1", role="searcher")
+    second = submit(client, searcher_header, requested_role="local_historian").json()["id"]
+    body = client.post(
+        f"/internal/role-applications/{second}/approve", headers=INTERNAL_HEADERS, json={}
+    ).json()
+
+    assert body["status"] == "approved"
+    assert body["previous_role"] == "searcher"
+    # У первой заявки прежняя роль — «семья», с которой человек и начинал.
+    mine = {a["id"]: a for a in client.get("/role-applications/mine", headers=searcher_header).json()}
+    assert mine[first]["previous_role"] == "family"

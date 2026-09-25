@@ -9,6 +9,10 @@ from repositories.profile_repository import ProfileRepository
 from repositories.role_application_repository import RoleApplicationRepository
 from services import auth_client
 
+# Названия ролей для сообщений человеку: «дождитесь решения по заявке на роль
+# «краевед»» понятнее, чем local_historian.
+ROLE_TITLES = {"searcher": "поисковик", "local_historian": "краевед", "family": "семья"}
+
 
 class RoleApplicationService:
     def __init__(self, db: Session) -> None:
@@ -20,8 +24,17 @@ class RoleApplicationService:
         requested_role = data["requested_role"]
         if principal.role == requested_role or principal.is_root:
             raise Conflict("У вас уже есть эта роль")
-        if self.repo.has_pending(principal.user_id, requested_role):
-            raise Conflict("Заявка на эту роль уже на рассмотрении")
+        # Роль у человека одна, и одобрение её заменяет. Две заявки в очереди
+        # разом — это два одобрения подряд, из которых второе молча стирает
+        # первое: человек просил и то и другое, а получил только последнее.
+        # Поэтому в работе всегда не больше одной заявки.
+        pending = self.repo.pending(principal.user_id)
+        if pending is not None:
+            if pending.requested_role == requested_role:
+                raise Conflict("Заявка на эту роль уже на рассмотрении")
+            raise Conflict(
+                f"Сначала дождитесь решения по заявке на роль «{ROLE_TITLES.get(pending.requested_role, pending.requested_role)}»"
+            )
         application = self.repo.add(RoleApplication(user_id=principal.user_id, **data))
         self.db.commit()
         self.db.refresh(application)
@@ -60,6 +73,8 @@ class RoleApplicationService:
                     Profile(id=application.user_id, role=application.requested_role)
                 )
             else:
+                # Что роль заменила — видно и админу, и человеку в своей заявке.
+                application.previous_role = profile.role
                 profile.role = application.requested_role
             profile.is_verified = True
 

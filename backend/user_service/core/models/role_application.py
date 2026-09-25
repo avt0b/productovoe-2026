@@ -48,4 +48,8 @@ class RoleApplication(TimestampMixin, Base):
         nullable=False,
     )
     review_note: Mapped[str] = mapped_column(String(1000), default="", nullable=False)
+    # Роль, которая была у человека в момент одобрения. Роль одна, и одобрение
+    # её заменяет — без этой записи подмена происходила бы бесследно: и админ,
+    # и человек видели бы только новую.
+    previous_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
     reviewed_by: Mapped[str | None] = mapped_column(String(36), nullable=True)

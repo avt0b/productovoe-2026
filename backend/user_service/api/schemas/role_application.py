@@ -28,6 +28,8 @@ class RoleApplicationOut(BaseModel):
     status: ApplicationStatus
     review_note: str
     reviewed_by: str | None
+    # Роль, которую одобрение заменило. None — роли не было или заявка ещё не решена.
+    previous_role: str | None = None
     created_at: datetime
 
 
