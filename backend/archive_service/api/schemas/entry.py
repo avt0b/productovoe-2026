@@ -115,3 +115,14 @@ class EntryPublicOut(BaseModel):
     verified_by: str | None
     reviewed_at: datetime | None
     created_at: datetime
+
+
+class EntrySummaryOut(BaseModel):
+    """Шапка раздела архива (Книга памяти): считает сервер, а не браузер —
+    карточек бойцов десятки тысяч, целиком их на страницу не выгрузить."""
+
+    total: int
+    with_date: int
+    on_map: int
+    # Буквы, с которых начинаются заголовки, — по порядку русского алфавита.
+    letters: list[str]

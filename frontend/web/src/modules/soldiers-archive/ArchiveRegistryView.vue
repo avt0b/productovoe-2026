@@ -6,51 +6,88 @@ import * as api from './api.js'
 
 // «Книга памяти» — та же лента народного архива, что и «Живая память»,
 // отфильтрованная по kind=soldier_card. Публичная ручка отдаёт только
-// подтверждённые записи — поэтому счётчики и список ниже честно считают
-// именно то, что реально пришло с бэка, без выдумки.
+// подтверждённые записи. Карточек десятки тысяч, поэтому список листается
+// страницами по алфавиту, поиск и буква считаются на сервере, а счётчики и
+// алфавит в шапке — сводкой по всему разделу, а не по загруженной странице.
 const entries = ref([])
 const status = ref('idle') // idle | loading | loaded | error
 const query = ref('')
 const activeLetter = ref(null)
 const expandedId = ref(null)
+const summary = ref(null)
+const hasMore = ref(false)
+const loadingMore = ref(false)
+
+// Ответ на устаревший запрос (буква или поиск уже сменились) не показываем.
+let requestId = 0
+
+function filters() {
+  return { q: query.value.trim() || undefined, letter: activeLetter.value || undefined }
+}
 
 let searchTimer = null
 async function load() {
+  const current = ++requestId
   status.value = 'loading'
   try {
-    entries.value = await api.listSoldierCards({ q: query.value.trim() || undefined })
+    const page = await api.listSoldierCards(filters())
+    if (current !== requestId) return
+    entries.value = page
+    hasMore.value = page.length === api.PAGE_SIZE
     status.value = 'loaded'
   } catch {
-    status.value = 'error'
+    if (current === requestId) status.value = 'error'
   }
 }
 
-onMounted(load)
+async function loadMore() {
+  if (loadingMore.value) return
+  const current = requestId
+  loadingMore.value = true
+  try {
+    const page = await api.listSoldierCards({ ...filters(), offset: entries.value.length })
+    if (current !== requestId) return
+    entries.value = [...entries.value, ...page]
+    hasMore.value = page.length === api.PAGE_SIZE
+  } catch {
+    // Кнопка «Показать ещё» остаётся — можно нажать снова.
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+async function loadSummary() {
+  try {
+    summary.value = await api.soldierCardsSummary()
+  } catch {
+    summary.value = null
+  }
+}
+
+onMounted(() => {
+  load()
+  loadSummary()
+})
 watch(query, () => {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(load, 350)
 })
 
+function count(value) {
+  return value == null ? '—' : value.toLocaleString('ru-RU')
+}
+
 const stats = computed(() => ({
-  total: entries.value.length,
-  withDate: entries.value.filter((e) => e.event_date || e.date_text).length,
-  onMap: entries.value.filter((e) => e.lat != null && e.lon != null).length,
+  total: count(summary.value?.total),
+  withDate: count(summary.value?.with_date),
+  onMap: count(summary.value?.on_map),
 }))
 
-const letters = computed(() => {
-  const set = new Set(entries.value.map((e) => (e.title || '').trim()[0]?.toUpperCase()).filter(Boolean))
-  return [...set].sort((a, b) => a.localeCompare(b, 'ru'))
-})
-
-const filtered = computed(() => {
-  if (!activeLetter.value) return entries.value
-  return entries.value.filter((e) => (e.title || '').trim()[0]?.toUpperCase() === activeLetter.value)
-})
-
-const sorted = computed(() => [...filtered.value].sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ru')))
+const letters = computed(() => summary.value?.letters ?? [])
 
 function toggleLetter(letter) {
   activeLetter.value = activeLetter.value === letter ? null : letter
+  load()
 }
 
 function toggleExpand(id) {
@@ -148,13 +185,13 @@ function excerpt(entry) {
         <p v-else-if="status === 'error'" class="font-body-sm text-body-sm text-error text-center py-8">
           Не удалось загрузить архив — попробуйте позже
         </p>
-        <p v-else-if="!sorted.length" class="font-body-sm text-body-sm text-on-surface-variant text-center py-8">
+        <p v-else-if="!entries.length" class="font-body-sm text-body-sm text-on-surface-variant text-center py-8">
           {{ query ? 'По запросу ничего не нашлось.' : 'Карточек бойцов пока нет — предложите первую в «Живой памяти».' }}
         </p>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div
-            v-for="entry in sorted"
+            v-for="entry in entries"
             :key="entry.id"
             class="bg-surface-container-lowest rounded-2xl shadow-document overflow-hidden flex flex-col"
           >
@@ -212,6 +249,19 @@ function excerpt(entry) {
             </div>
           </div>
         </div>
+
+        <button
+          v-if="status === 'loaded' && hasMore"
+          type="button"
+          class="self-center mt-2 flex items-center gap-2 px-5 h-11 rounded-full bg-surface-container-low font-label-md text-label-md font-bold text-on-surface hover:bg-surface-container transition-colors disabled:opacity-60"
+          :disabled="loadingMore"
+          @click="loadMore"
+        >
+          <span class="material-symbols-outlined text-[18px]" :class="{ 'animate-spin': loadingMore }">
+            {{ loadingMore ? 'sync' : 'expand_more' }}
+          </span>
+          Показать ещё
+        </button>
       </div>
     </div>
   </div>

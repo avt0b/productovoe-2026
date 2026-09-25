@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, status
 
@@ -8,6 +8,7 @@ from api.schemas.entry import (
     EntryNearbyOut,
     EntryOut,
     EntryPublicOut,
+    EntrySummaryOut,
     EntryUpdate,
     ReviewRequest,
 )
@@ -24,15 +25,35 @@ def list_entries(
     q: Annotated[str | None, Query(max_length=200)] = None,
     point_id: Annotated[str | None, Query(max_length=36)] = None,
     poi_id: Annotated[str | None, Query(max_length=36)] = None,
+    prefix: Annotated[str | None, Query(max_length=32)] = None,
+    sort: Annotated[Literal["new", "title"], Query()] = "new",
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[EntryPublicOut]:
     """Публичная лента — только подтверждённые записи, без служебной заметки модератора.
-    С `point_id`/`poi_id` — записи, привязанные к конкретной точке карты (карточка точки)."""
+    С `point_id`/`poi_id` — записи, привязанные к конкретной точке карты (карточка точки).
+    `prefix` — заголовок начинается с этих букв (алфавит Книги памяти), `sort=title` — по алфавиту."""
     rows = service.search_public(
-        kind=kind, q=q, point_id=point_id, poi_id=poi_id, limit=limit, offset=offset
+        kind=kind,
+        q=q,
+        point_id=point_id,
+        poi_id=poi_id,
+        prefix=prefix,
+        sort=sort,
+        limit=limit,
+        offset=offset,
     )
     return [EntryPublicOut.model_validate(e) for e in rows]
+
+
+@router.get("/summary", response_model=EntrySummaryOut)
+def entries_summary(
+    service: EntryServiceDep,
+    kind: Annotated[EntryKind | None, Query()] = None,
+) -> EntrySummaryOut:
+    """Сводка по подтверждённым записям раздела: сколько имён, у скольких известна
+    дата и точка на карте, с каких букв начинаются заголовки."""
+    return EntrySummaryOut(**service.summary_public(kind=kind))
 
 
 @router.get("/nearby-pending", response_model=list[EntryNearbyOut])

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from core.exceptions import Conflict, NotFound, PermissionDenied
-from core.models import ArchiveEntry, EntryStatus
+from core.models import ArchiveEntry, EntryKind, EntryStatus
 from core.security import Principal
 from repositories.entry_repository import EntryRepository
 from services import achievement_client
@@ -47,6 +47,9 @@ class EntryService:
     def search_public(self, **filters) -> Sequence[ArchiveEntry]:
         filters.setdefault("status", EntryStatus.verified)
         return self.repo.search(**filters)
+
+    def summary_public(self, *, kind: EntryKind | None = None) -> dict:
+        return self.repo.summary(status=EntryStatus.verified, kind=kind)
 
     def search_moderation(
         self, principal: Principal, *, status: EntryStatus | None = None, **filters
@@ -135,7 +138,9 @@ class EntryService:
         self, principal: Principal, entry_id: str, status: EntryStatus, note: str
     ) -> ArchiveEntry:
         if not _can_verify(principal):
-            raise PermissionDenied("Проверять записи могут поисковики, краеведы, наставники и модераторы")
+            raise PermissionDenied(
+                "Проверять записи могут поисковики, краеведы, наставники и модераторы"
+            )
         entry = self.repo.get(entry_id)
         if entry is None:
             raise NotFound
