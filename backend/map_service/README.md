@@ -84,18 +84,26 @@ uv run python -m scripts.seed_orel
 | POST | `/last-stand` | `searcher` / `local_historian` / `mentor` / `moderator` / root | |
 | GET | `/last-stand/{id}` | публично | |
 | PATCH | `/last-stand/{id}` | автор или `moderator`/root | |
-| PATCH | `/last-stand/{id}/status` | `moderator` / root | |
+| PATCH | `/last-stand/{id}/status` | `moderator` / root | тело: `status` + необязательное `note` — на основании чего |
+| GET | `/last-stand/{id}/history` | публично | кто и почему менял стадию, от первой записи к последней |
 | DELETE | `/last-stand/{id}` | автор или `moderator`/root | |
 
 `status`: `discovered` → `archive_confirmed` → `remains_raised`.
 
+Каждая смена стадии пишется в `last_stand_status_changes`: кто (`actor_id`), с
+какой на какую, когда и на основании чего (`note` — том Книги Памяти, номер
+дела). Записи только добавляются: строку истории нельзя ни поправить, ни
+удалить, иначе она ничего не стоит. Повторная установка той же стадии строки
+не добавляет.
+
 ## Как ходит admin_service
 
 `/internal/*` (список, статистика, смена статуса, удаление точек) принимает
-`X-Actor-Id`, но ни `PointOfInterest`, ни `LastStandPoint` не хранят, кто
-именно поменял статус или удалил запись через админку — атрибуции для этих
-действий нет (в отличие от `created_by`, который остаётся полем автора,
-создавшего запись через обычный JWT). Известное ограничение, не баг.
+`X-Actor-Id`. Смена стадии «Последнего боя» этот id сохраняет — в истории
+(`last_stand_status_changes.actor_id`) вместе с основанием, которое админ
+написал в admin_service. У остальных действий (правка и удаление точек, слой
+«ВОВ») атрибуции по-прежнему нет — только `created_by` автора записи.
+Известное ограничение, не баг.
 
 ## Уведомления волонтёров
 

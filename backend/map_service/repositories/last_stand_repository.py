@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from core.models import LastStandPoint, LastStandStatus
+from core.models import LastStandPoint, LastStandStatus, LastStandStatusChange
 
 
 class LastStandRepository:
@@ -20,6 +20,19 @@ class LastStandRepository:
 
     def delete(self, point: LastStandPoint) -> None:
         self.db.delete(point)
+
+    def add_status_change(self, change: LastStandStatusChange) -> LastStandStatusChange:
+        self.db.add(change)
+        self.db.flush()
+        return change
+
+    def history(self, point_id: str) -> Sequence[LastStandStatusChange]:
+        """От старого к новому: историю читают сверху вниз, как хронику."""
+        return self.db.scalars(
+            select(LastStandStatusChange)
+            .where(LastStandStatusChange.point_id == point_id)
+            .order_by(LastStandStatusChange.created_at.asc(), LastStandStatusChange.id.asc())
+        ).all()
 
     def search(
         self,

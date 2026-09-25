@@ -377,7 +377,9 @@ def test_set_last_stand_status_success_calls_upstream_and_writes_audit(
         "path": f"/internal/last-stand/{point_id}/status",
         "actor_id": actor.id,
         "params": None,
-        "json": {"status": "archive_confirmed"},
+        # Основание уходит в map_service: оттуда оно попадает в историю стадий,
+        # которую видят в приложении, а не только в наш журнал.
+        "json": {"status": "archive_confirmed", "note": "архив подтвердил находку"},
     }
 
     audit = client.get(

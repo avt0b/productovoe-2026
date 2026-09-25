@@ -98,7 +98,9 @@ def set_last_stand_status(
     actor: InternalActor,
     service: LastStandServiceDep,
 ) -> LastStandOut:
-    return LastStandOut.model_validate(service.set_status(actor, point_id, payload.status))
+    return LastStandOut.model_validate(
+        service.set_status(actor, point_id, payload.status, payload.note)
+    )
 
 
 @router.delete("/last-stand/{point_id}", status_code=status.HTTP_204_NO_CONTENT)

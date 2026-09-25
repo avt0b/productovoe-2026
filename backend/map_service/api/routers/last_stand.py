@@ -7,6 +7,7 @@ from api.schemas.last_stand import (
     LastStandCreate,
     LastStandNearbyOut,
     LastStandOut,
+    LastStandStatusChangeOut,
     LastStandStatusUpdate,
     LastStandUpdate,
 )
@@ -94,7 +95,19 @@ def set_point_status(
     principal: CurrentPrincipal,
     service: LastStandServiceDep,
 ) -> LastStandOut:
-    return LastStandOut.model_validate(service.set_status(principal, point_id, payload.status))
+    return LastStandOut.model_validate(
+        service.set_status(principal, point_id, payload.status, payload.note)
+    )
+
+
+@router.get("/{point_id}/history", response_model=list[LastStandStatusChangeOut])
+def point_history(point_id: str, service: LastStandServiceDep) -> list[LastStandStatusChangeOut]:
+    """Кто и почему менял стадию места — от первой записи к последней.
+
+    Без авторизации, как и сама точка: «подтверждено архивом» — утверждение о
+    факте, и доверять ему можно ровно настолько, насколько видно, кто за ним
+    стоит."""
+    return [LastStandStatusChangeOut.model_validate(c) for c in service.history(point_id)]
 
 
 @router.delete("/{point_id}", status_code=status.HTTP_204_NO_CONTENT)

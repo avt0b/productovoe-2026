@@ -89,3 +89,46 @@ def test_mine_lists_only_own_points(client):
     assert [p["soldier_name"] for p in r.json()] == ["Моя находка"]
 
     assert client.get("/last-stand/mine").status_code == 401
+
+
+def set_status(client, point_id, status, note="", user_id="root-1"):
+    return client.patch(
+        f"/last-stand/{point_id}/status",
+        headers=auth_header(is_root=True, user_id=user_id),
+        json={"status": status, "note": note},
+    )
+
+
+def test_status_history_records_who_and_why(client):
+    """«Подтверждено архивом» — утверждение о факте: видно, кто за ним стоит."""
+    point = make_point(client, auth_header(role="searcher")).json()
+    assert set_status(client, point["id"], "archive_confirmed", "Книга Памяти, Т. 5, с. 211").status_code == 200
+    assert set_status(client, point["id"], "remains_raised", "Захоронение 22.06.2026", user_id="root-2").status_code == 200
+
+    history = client.get(f"/last-stand/{point['id']}/history").json()
+    assert [(h["from_status"], h["to_status"]) for h in history] == [
+        ("discovered", "archive_confirmed"),
+        ("archive_confirmed", "remains_raised"),
+    ]
+    assert history[0]["actor_id"] == "root-1"
+    assert history[0]["note"] == "Книга Памяти, Т. 5, с. 211"
+    assert history[1]["actor_id"] == "root-2"
+
+
+def test_status_history_is_public_and_empty_until_first_change(client):
+    point = make_point(client, auth_header(role="searcher")).json()
+    r = client.get(f"/last-stand/{point['id']}/history")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_status_history_skips_repeated_same_status(client):
+    point = make_point(client, auth_header(role="searcher")).json()
+    set_status(client, point["id"], "archive_confirmed")
+    set_status(client, point["id"], "archive_confirmed")
+
+    assert len(client.get(f"/last-stand/{point['id']}/history").json()) == 1
+
+
+def test_status_history_of_unknown_point_is_404(client):
+    assert client.get("/last-stand/нет-такой/history").status_code == 404

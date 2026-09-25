@@ -33,6 +33,23 @@ class LastStandUpdate(BaseModel):
 
 class LastStandStatusUpdate(BaseModel):
     status: LastStandStatus
+    # На основании чего перевели: том Книги Памяти, номер дела, донесение о
+    # потерях. Не обязателен, но именно он и делает историю полезной.
+    note: str = Field(default="", max_length=1000)
+
+
+class LastStandStatusChangeOut(BaseModel):
+    """Строка истории стадий: кто, когда, с какой на какую и почему."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    point_id: str
+    from_status: LastStandStatus | None
+    to_status: LastStandStatus
+    actor_id: str
+    note: str
+    created_at: datetime
 
 
 class LastStandOut(BaseModel):

@@ -273,3 +273,21 @@ def test_poi_delete_bypasses_ownership(client):
 def test_poi_delete_missing_404(client):
     r = client.delete(f"/internal/poi/{uuid.uuid4()}", headers=INTERNAL_HEADERS)
     assert r.status_code == 404
+
+
+def test_internal_status_change_writes_history_with_admin_id(client):
+    """Стадию меняет админ через admin_service — в истории должен осесть он,
+    а не безликий «internal», и с основанием, которое он написал."""
+    point = make_point(client, auth_header(role="searcher")).json()
+
+    r = client.patch(
+        f"/internal/last-stand/{point['id']}/status",
+        headers={**INTERNAL_HEADERS, "X-Actor-Id": "admin-7"},
+        json={"status": "archive_confirmed", "note": "Донесение о потерях, ф. 58"},
+    )
+    assert r.status_code == 200
+
+    history = client.get(f"/last-stand/{point['id']}/history").json()
+    assert len(history) == 1
+    assert history[0]["actor_id"] == "admin-7"
+    assert history[0]["note"] == "Донесение о потерях, ф. 58"

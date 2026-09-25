@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from core.db import postgis_available
 from core.exceptions import NotFound, PermissionDenied
 from core.geo import bbox_around, haversine_km
-from core.models import LastStandPoint, LastStandStatus
+from core.models import LastStandPoint, LastStandStatus, LastStandStatusChange
 from core.security import Principal
 from repositories.last_stand_repository import LastStandRepository
 from services import achievement_client
@@ -87,13 +87,31 @@ class LastStandService:
         self.db.refresh(point)
         return point
 
+    def history(self, point_id: str) -> Sequence[LastStandStatusChange]:
+        """История стадий места. Точки нет — 404, а не пустой список: иначе
+        опечатка в id выглядела бы как «у места пока ничего не менялось»."""
+        self.get(point_id)
+        return self.repo.history(point_id)
+
     def set_status(
-        self, principal: Principal, point_id: str, status: LastStandStatus
+        self, principal: Principal, point_id: str, status: LastStandStatus, note: str = ""
     ) -> LastStandPoint:
         if not principal.is_root:
             raise PermissionDenied("Менять статус может только администратор")
         point = self.get(point_id)
+        previous = point.status
         point.status = status
+        # Стадию вернули ту же — менять нечего, и в истории такой строке не место.
+        if previous is not status:
+            self.repo.add_status_change(
+                LastStandStatusChange(
+                    point_id=point.id,
+                    from_status=previous,
+                    to_status=status,
+                    actor_id=principal.user_id,
+                    note=note,
+                )
+            )
         self.db.commit()
         self.db.refresh(point)
         # Значок — тому, кто место нашёл, а не администратору, что сменил стадию.

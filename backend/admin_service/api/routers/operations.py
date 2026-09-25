@@ -399,7 +399,9 @@ async def set_last_stand_status(
         "PATCH",
         f"/internal/last-stand/{point_id}/status",
         actor_id=admin.id,
-        json={"status": new_status},
+        # Основание идёт и в историю точки (map_service), а не только в наш
+        # журнал: людям в приложении видно, почему стадия сменилась.
+        json={"status": new_status, "note": reason},
     )
     audit.record(
         admin,
