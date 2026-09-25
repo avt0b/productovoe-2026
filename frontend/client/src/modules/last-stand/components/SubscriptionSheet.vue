@@ -132,17 +132,19 @@ async function save(): Promise<void> {
           </div>
 
           <span class="mt-space-xs font-archival text-archival uppercase text-on-surface-variant">Откуда считать</span>
-          <GeoMap
-            :selected="home ? 'home' : null"
-            :markers="markers"
-            :circles="circles"
-            :user="position"
-            :locating="geoStatus === 'locating'"
-            label="Нажмите на карту, чтобы выбрать центр района"
-            class="h-56 w-full rounded-2xl shadow-document short:h-44"
-            @pick="setHome"
-            @locate="useMyPosition"
-          />
+          <Transition appear name="map-in">
+            <GeoMap
+              :selected="home ? 'home' : null"
+              :markers="markers"
+              :circles="circles"
+              :user="position"
+              :locating="geoStatus === 'locating'"
+              label="Нажмите на карту, чтобы выбрать центр района"
+              class="h-56 w-full rounded-2xl shadow-document short:h-44"
+              @pick="setHome"
+              @locate="useMyPosition"
+            />
+          </Transition>
           <button
             type="button"
             class="flex items-center justify-center gap-space-xs rounded-full bg-surface-container-high px-space-md py-2 font-label-md text-label-md text-on-surface active:scale-95"
@@ -175,3 +177,25 @@ async function save(): Promise<void> {
     </form>
   </SheetDialog>
 </template>
+
+<style scoped>
+/* Карта — не мгновенно, а проявляется: заметнее на первом открытии экрана, чем резкий скачок плиток. */
+.map-in-enter-active {
+  transition:
+    opacity 320ms ease-out,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.map-in-enter-from {
+  opacity: 0;
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-in-enter-active {
+    transition: opacity 150ms linear;
+  }
+  .map-in-enter-from {
+    transform: none;
+  }
+}
+</style>
