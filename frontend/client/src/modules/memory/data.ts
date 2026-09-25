@@ -121,25 +121,15 @@ export interface NearbyPending {
   lon: number | null
 }
 
-/** Градусов широты в километре — для прямоугольника поиска вокруг точки. */
-const DEG_PER_KM = 1 / 111
-
 /**
  * Записи «на проверке» вокруг точки: «рядом есть неподтверждённая заметка —
- * помогите проверить». Сервис ищет прямоугольником; долготу растягиваем по
- * широте, чтобы на Орловщине он был близок к квадрату, а не к полоске.
+ * помогите проверить». Сервис считает настоящий радиус и отдаёт записи от
+ * ближней к дальней — квадрат вокруг точки клиент больше не строит (у него в
+ * углу на «10 км» набегало 14).
  */
 export function fetchNearbyPending(center: LatLon, radiusKm: number): Promise<NearbyPending[]> {
-  const dLat = radiusKm * DEG_PER_KM
-  const dLon = dLat / Math.max(0.2, Math.cos((center.lat * Math.PI) / 180))
   return apiRequest('GET', 'archive', '/entries/nearby-pending', {
-    query: {
-      min_lat: center.lat - dLat,
-      min_lon: center.lon - dLon,
-      max_lat: center.lat + dLat,
-      max_lon: center.lon + dLon,
-      limit: 50,
-    },
+    query: { lat: center.lat, lon: center.lon, radius_km: radiusKm, limit: 50 },
   })
 }
 

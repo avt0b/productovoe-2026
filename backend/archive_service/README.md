@@ -40,6 +40,7 @@ Swagger — <http://127.0.0.1:8005/docs>. Тесты: `uv run pytest`.
 | `GET /entries/{id}` | `verified` — все; `pending`/`rejected` — автор или верификатор |
 | `GET /entries/mine` | автор (все свои, любой статус) |
 | `GET /entries/moderation?status=` | `searcher` / `local_historian` / `mentor` / `moderator` / root |
+| `GET /entries/nearby-pending` | публично — неподтверждённые рядом: `lat`+`lon`+`radius_km` (ответ от ближней к дальней) либо прямоугольник `min_lat`…`max_lon` |
 | `POST /entries` | любой авторизованный → `pending` |
 | `PATCH /entries/{id}` | автор (пока `pending`) или верификатор |
 | `POST /entries/{id}/verify` · `/reject` | `searcher` / `local_historian` / `mentor` / `moderator` / root |

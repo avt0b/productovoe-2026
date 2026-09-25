@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from core.exceptions import Conflict, NotFound, PermissionDenied
+from core.geo import bbox_around, haversine_km
 from core.models import ArchiveEntry, EntryKind, EntryStatus
 from core.security import Principal
 from repositories.entry_repository import EntryRepository
@@ -62,9 +63,40 @@ class EntryService:
         return self.repo.search(submitted_by=principal.user_id, **filters)
 
     def search_nearby_pending(
-        self, *, bbox: tuple[float, float, float, float], limit: int = 100
+        self,
+        *,
+        bbox: tuple[float, float, float, float] | None = None,
+        center: tuple[float, float] | None = None,
+        radius_km: float | None = None,
+        limit: int = 100,
     ) -> Sequence[ArchiveEntry]:
-        """Публичная витрина без прав верификатора — намеренно куцая (см. EntryNearbyOut)."""
+        """Публичная витрина без прав верификатора — намеренно куцая (см. EntryNearbyOut).
+
+        Круг (`center` + `radius_km`) — основной путь: «рядом есть
+        неподтверждённая заметка» — это про расстояние, а не про угол
+        прямоугольника, где на тех же 10 км по диагонали набегает 14. Рамка
+        остаётся ради совместимости с теми, кто уже ходит с bbox.
+
+        Рамка вокруг круга — предфильтр в SQL, точное расстояние досчитываем
+        haversine и по нему же сортируем: ближняя запись человеку полезнее.
+        """
+        if center is not None and radius_km is not None:
+            lat, lon = center
+            rows = self.repo.search(
+                status=EntryStatus.pending,
+                bbox=bbox_around(lat, lon, radius_km),
+                # Из рамки в круг попадает не всё: берём запас, режем после досчёта.
+                limit=min(limit * 4, 800),
+            )
+            within = [
+                (haversine_km(lat, lon, entry.lat, entry.lon), entry)
+                for entry in rows
+                if entry.lat is not None and entry.lon is not None
+            ]
+            within = [pair for pair in within if pair[0] <= radius_km]
+            within.sort(key=lambda pair: pair[0])
+            return [entry for _, entry in within[:limit]]
+
         return self.repo.search(status=EntryStatus.pending, bbox=bbox, limit=limit)
 
     # --- запись ---

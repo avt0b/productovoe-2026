@@ -1,6 +1,7 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, status
+from fastapi.exceptions import RequestValidationError
 
 from api.deps import CurrentPrincipal, EntryServiceDep, OptionalPrincipal
 from api.schemas.entry import (
@@ -59,17 +60,43 @@ def entries_summary(
 @router.get("/nearby-pending", response_model=list[EntryNearbyOut])
 def nearby_pending_entries(
     service: EntryServiceDep,
-    min_lat: Annotated[float, Query(ge=-90, le=90)],
-    min_lon: Annotated[float, Query(ge=-180, le=180)],
-    max_lat: Annotated[float, Query(ge=-90, le=90)],
-    max_lon: Annotated[float, Query(ge=-180, le=180)],
+    lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    radius_km: Annotated[float | None, Query(gt=0, le=200)] = None,
+    min_lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    min_lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    max_lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    max_lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
 ) -> list[EntryNearbyOut]:
-    """Неподтверждённые записи в прямоугольнике — витрина для подсказки «рядом есть
+    """Неподтверждённые записи рядом с точкой — витрина для подсказки «рядом есть
     неподтверждённая заметка, помоги проверить» в семейном навигаторе (route_service).
-    Без авторизации и без прав верификатора: только id/kind/title/координаты."""
-    rows = service.search_nearby_pending(bbox=(min_lat, min_lon, max_lat, max_lon), limit=limit)
-    return [EntryNearbyOut.model_validate(e) for e in rows]
+    Без авторизации и без прав верификатора: только id/kind/title/координаты.
+
+    Основной вызов — круг: `lat`, `lon`, `radius_km`; ответ отсортирован от
+    ближней записи к дальней. Прямоугольник (`min_lat`…`max_lon`) остаётся для
+    тех, кто уже ходит с ним, но угол рамки на «10 км» даёт 14 по диагонали —
+    новым клиентам он не нужен."""
+    circle = (lat, lon, radius_km)
+    if all(value is not None for value in circle):
+        rows = service.search_nearby_pending(center=(lat, lon), radius_km=radius_km, limit=limit)
+        return [EntryNearbyOut.model_validate(e) for e in rows]
+
+    box = (min_lat, min_lon, max_lat, max_lon)
+    if all(value is not None for value in box):
+        rows = service.search_nearby_pending(bbox=box, limit=limit)
+        return [EntryNearbyOut.model_validate(e) for e in rows]
+
+    raise RequestValidationError(
+        [
+            {
+                "type": "missing",
+                "loc": ("query", "radius_km"),
+                "msg": "Нужны lat, lon и radius_km (или прямоугольник min_lat…max_lon)",
+                "input": None,
+            }
+        ]
+    )
 
 
 @router.get("/moderation", response_model=list[EntryOut])
