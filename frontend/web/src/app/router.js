@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { routes as victoryRoutes } from '@modules/routes'
 import { routes as lastBattleRoutes } from '@modules/last-battle'
 import { routes as expeditionHqRoutes } from '@modules/expedition-hq'
+import { routes as squadRegistrationRoutes } from '@modules/squad-registration'
 import { routes as excursionsRoutes } from '@modules/excursions'
 import { routes as fundraisingRoutes } from '@modules/fundraising'
 import { routes as livingMemoryRoutes } from '@modules/living-memory'
@@ -17,6 +18,7 @@ const router = createRouter({
     ...victoryRoutes,
     ...lastBattleRoutes,
     ...expeditionHqRoutes,
+    ...squadRegistrationRoutes,
     ...excursionsRoutes,
     ...fundraisingRoutes,
     ...livingMemoryRoutes,
