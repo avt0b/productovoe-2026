@@ -50,7 +50,7 @@ async function open(item: AppNotification): Promise<void> {
 
 <template>
   <div class="flex w-full flex-col gap-space-md px-margin pb-safe pt-space-md">
-    <div class="flex items-center justify-between gap-space-sm">
+    <div v-if="session.hasAccount && !loading && !error" class="flex items-center justify-between gap-space-sm">
       <p class="font-body-sm text-body-sm text-on-surface-variant">
         {{ unread.length ? `Непрочитанных: ${unread.length}` : 'Всё прочитано' }}
       </p>
@@ -61,7 +61,7 @@ async function open(item: AppNotification): Promise<void> {
         :disabled="markingAll"
         @click="readAll"
       >
-        <MsIcon :name="markingAll ? 'progress_activity' : 'done_all'" :size="18" :class="{ 'animate-spin': markingAll }" />
+        <MsIcon :name="markingAll ? 'progress_activity' : 'done'" :size="18" :class="{ 'animate-spin': markingAll }" />
         Прочитать всё
       </button>
     </div>
@@ -73,7 +73,7 @@ async function open(item: AppNotification): Promise<void> {
         :loading="loading"
         :error="error"
         :empty="!loading && !error && !items.length"
-        empty-icon="notifications_off"
+        empty-icon="notifications"
         empty-text="Уведомлений пока нет"
         @retry="retry"
       >

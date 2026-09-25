@@ -295,6 +295,7 @@ const geoProblem = computed(() => geolocationProblem(geoStatus.value))
         :user="userPosition"
         :locating="geoStatus === 'locating'"
         label="Орловская область"
+        expandable
         class="h-80 w-full rounded-2xl shadow-document short:h-64"
         @locate="startLocating"
       />

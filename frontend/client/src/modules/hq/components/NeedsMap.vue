@@ -125,6 +125,7 @@ function progress(need: Need): number | null {
         :user="position"
         :locating="geoStatus === 'locating'"
         label="Отряды · по городу штаба"
+        expandable
         class="h-72 rounded-2xl shadow-document short:h-56"
         @locate="locate"
       />
