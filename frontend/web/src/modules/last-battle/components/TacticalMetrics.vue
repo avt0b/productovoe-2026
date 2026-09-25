@@ -5,7 +5,7 @@ const props = defineProps({
   points: { type: Array, default: () => [] },
 })
 
-// "Радиус поиска" и "Отрядов на месте" — в map_service нет таких полей,
+// "Радиус поиска" и "Отрядов на месте" — таких данных на бэкенде нет,
 // оставлены как декоративная витрина. "Останков поднято" — честный счётчик
 // по реальным точкам (status === remains_raised).
 const raisedCount = computed(() => props.points.filter((p) => p.status === 'remains_raised').length)

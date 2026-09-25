@@ -10,7 +10,7 @@ import CommunityArchive from './components/CommunityArchive.vue'
       <p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">
         Народный архив: малоизвестные подвиги, локальные события и карточки бойцов, не попавшие в
         федеральные базы. Любой может предложить запись — поисковик, краевед, наставник или модератор
-        подтверждает её (archive_service).
+        подтверждает её.
       </p>
     </div>
 

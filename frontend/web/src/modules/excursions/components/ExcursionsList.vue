@@ -12,11 +12,11 @@ const loadStatus = ref('loading') // loading | loaded | error
 
 async function load() {
   try {
-    // С токеном каждая экскурсия вернётся с viewer.registered/viewer.is_guide
-    // (search_hq_service/api/schemas/excursion.py) — без этого нельзя честно
-    // отличить «уже записан» от «ещё нет» и кнопка звала бы register() снова
-    // и снова (бэкенд это не размножает, просто тихо перезаписывает вашу
-    // заявку — не то, что должен ожидать человек от повторного клика).
+    // С токеном каждая экскурсия вернётся с viewer.registered/viewer.is_guide —
+    // без этого нельзя честно отличить «уже записан» от «ещё нет» и кнопка
+    // звала бы register() снова и снова (бэкенд это не размножает, просто
+    // тихо перезаписывает вашу заявку — не то, что должен ожидать человек от
+    // повторного клика).
     excursions.value = await excursionsApi.listUpcomingExcursions(session.accessToken)
     loadStatus.value = 'loaded'
   } catch {
@@ -31,8 +31,8 @@ onMounted(load)
 // нового пользователя.
 watch(() => session.accessToken, load)
 
-// search_hq_service не отдаёт отдельный справочник гидов — собираем его из
-// guide_id на загруженных экскурсиях (см. GuideRatingList.vue).
+// Бэкенд не отдаёт отдельный справочник гидов — собираем его из guide_id
+// на загруженных экскурсиях (см. GuideRatingList.vue).
 const guides = computed(() => {
   const seen = new Map()
   for (const ex of excursions.value) {
@@ -103,10 +103,10 @@ function onRegistered() {
         Загружаем список...
       </p>
       <p v-else-if="loadStatus === 'error'" class="font-body-md text-body-md text-error">
-        Не удалось загрузить список экскурсий — search_hq_service недоступен
+        Не удалось загрузить список экскурсий — попробуйте позже
       </p>
       <p v-else-if="!excursions.length" class="font-body-md text-body-md text-on-surface-variant">
-        В search_hq_service пока нет запланированных экскурсий — обратитесь в штаб отряда, чтобы её завели
+        Пока нет запланированных экскурсий — обратитесь в штаб отряда, чтобы её завели
       </p>
 
       <div v-else class="flex flex-col gap-3">

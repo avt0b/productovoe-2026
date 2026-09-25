@@ -63,7 +63,7 @@ const addedText = computed(() =>
       </div>
     </div>
 
-    <span class="font-label-sm text-label-sm text-on-surface-variant px-1">Добавлено в map_service: {{ addedText }}</span>
+    <span class="font-label-sm text-label-sm text-on-surface-variant px-1">Добавлено: {{ addedText }}</span>
   </div>
   <p v-else class="font-body-md text-body-md text-on-surface-variant">Выберите точку на карте, чтобы увидеть досье.</p>
 </template>

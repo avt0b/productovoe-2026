@@ -1,4 +1,4 @@
-// Соответствует enum Role в auth_service (core/models/user.py).
+// Соответствует ролям, которые бэкенд назначает пользователю.
 export const ROLE_LABELS = {
   family: 'Родитель / семейный режим',
   searcher: 'Поисковик-исследователь',

@@ -3,8 +3,8 @@ import { ref, watch } from 'vue'
 import * as excursionsApi from '../api.js'
 
 // guides: [{ id: guideId, label }] — собирается вызывающим компонентом из
-// списка загруженных экскурсий (search_hq_service не отдаёт отдельный
-// список «гидов», только guide_id на каждой экскурсии).
+// списка загруженных экскурсий (бэкенд не отдаёт отдельный список «гидов»,
+// только guide_id на каждой экскурсии).
 const props = defineProps({
   guides: { type: Array, default: () => [] },
 })
@@ -31,7 +31,7 @@ watch(
 <template>
   <div class="flex flex-col gap-2.5">
     <p v-if="!guides.length" class="font-body-sm text-body-sm text-on-surface-variant">
-      Пока нет запланированных экскурсий с гидом — рейтинг из guides.py появится, когда штаб заведёт первую
+      Пока нет запланированных экскурсий с гидом — рейтинг появится, когда штаб заведёт первую
     </p>
     <div
       v-for="guide in guides"
@@ -40,7 +40,7 @@ watch(
     >
       <div class="flex flex-col min-w-0">
         <span class="font-label-md text-label-md text-on-surface font-bold truncate">{{ guide.label }}</span>
-        <span class="font-body-sm text-body-sm text-on-surface-variant">Гид search_hq_service</span>
+        <span class="font-body-sm text-body-sm text-on-surface-variant">Гид экскурсии</span>
       </div>
       <div class="flex flex-col items-end gap-0.5 shrink-0">
         <template v-if="summaries[guide.id]?.count">

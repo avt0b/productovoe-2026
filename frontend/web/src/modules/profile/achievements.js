@@ -1,8 +1,7 @@
 import { useAchievementCelebration } from '@shared/composables/useAchievementCelebration.js'
 import { getMyAchievements } from './api.js'
 
-// Дублирует ACHIEVEMENT_TITLES в user_service/core/models/achievement.py —
-// бэкенд отдаёт только code и earned_at.
+// Дублирует список названий на бэкенде — оттуда приходит только code и earned_at.
 export const ACHIEVEMENT_TITLES = {
   first_route_completed: 'Первый маршрут пройден',
   archive_helper: 'Помощник архива',

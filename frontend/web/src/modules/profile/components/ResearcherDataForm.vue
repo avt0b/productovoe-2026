@@ -34,9 +34,9 @@ async function onSubmit() {
   status.value = 'pending'
   error.value = ''
   try {
-    // squad_id ждёт связки с search_hq_service (список реальных отрядов), а
-    // "Телефон" вообще не хранится в user_service — поля остаются в форме
-    // для UX, но на бэкенд не уходят, пока там нет соответствующих полей.
+    // Отряд ждёт связки со списком реальных отрядов, а «Телефон» вообще не
+    // хранится на бэкенде — поля остаются в форме для UX, но на бэкенд не
+    // уходят, пока там нет соответствующих полей.
     await saveMyProfile({
       display_name: form.fullName || undefined,
       city: form.city || undefined,

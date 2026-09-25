@@ -9,8 +9,8 @@ import * as routesApi from '../api.js'
 
 const FALLBACK_CENTER = [52.9651, 36.0785] // Орёл
 
-// EntryService.VERIFIER_ROLES (archive_service) — кто может подтвердить/отклонить
-// запись народного архива.
+// Кто может подтвердить/отклонить запись народного архива — так же
+// решает и бэкенд.
 const VERIFIER_ROLES = new Set(['searcher', 'local_historian', 'mentor', 'moderator'])
 
 const ENTRY_KIND_LABELS = {
@@ -74,7 +74,7 @@ async function loadNearbyPending(pts) {
       maxLat: Math.max(...lats) + pad,
       maxLon: Math.max(...lons) + pad,
     })
-    // Если archive_service недоступен, шлюз иногда всё равно отвечает 200
+    // Если бэкенд недоступен, шлюз иногда всё равно отвечает 200
     // (например отдаёт SPA вместо JSON) — тело в этом случае не массив.
     pendingEntries.value = Array.isArray(res) ? res : []
   } catch {
@@ -179,7 +179,7 @@ function formatAdded(iso) {
         <div class="flex flex-col">
           <h2 class="font-headline-sm text-headline-sm text-on-surface">Куда можно сходить</h2>
           <p class="font-body-sm text-body-sm text-on-surface-variant">
-            Слой «ВОВ»: захоронения и памятники рядом — данные из map_service
+            Слой «ВОВ»: захоронения и памятники рядом
           </p>
         </div>
         <span v-if="status === 'ready'" class="font-label-sm text-label-sm text-on-surface-variant">
@@ -227,7 +227,7 @@ function formatAdded(iso) {
       </div>
       <div v-else-if="status === 'error'" class="absolute inset-0 flex items-center justify-center bg-surface-container p-4 text-center">
         <span class="font-label-md text-label-md text-on-surface-variant">
-          Не удалось загрузить слой «ВОВ» — map_service недоступен
+          Не удалось загрузить слой «ВОВ» — попробуйте позже
         </span>
       </div>
       <template v-else>
@@ -268,7 +268,7 @@ function formatAdded(iso) {
           <span v-if="selected.description" class="font-body-sm text-body-sm text-on-surface-variant">{{ selected.description }}</span>
           <span v-if="selected.date_text" class="font-label-sm text-label-sm text-secondary font-bold">{{ selected.date_text }}</span>
           <span v-if="selected.source" class="font-label-sm text-label-sm text-on-surface-variant">Источник: {{ selected.source }}</span>
-          <span class="font-label-sm text-label-sm text-on-surface-variant">Добавлено в map_service: {{ formatAdded(selected.created_at) }}</span>
+          <span class="font-label-sm text-label-sm text-on-surface-variant">Добавлено: {{ formatAdded(selected.created_at) }}</span>
         </div>
       </div>
 

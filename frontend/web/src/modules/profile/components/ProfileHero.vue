@@ -2,12 +2,9 @@
 import { computed } from 'vue'
 import SmartImage from '@shared/components/SmartImage.vue'
 
-// Карточка-шапка профиля перерисована под визуал ResearcherHeroCard.vue из
-// frontend/client (модуль profile) — тот же паттерн: карточка на пергаменте,
-// а не цветной баннер; аватар с бейджем «подтверждён»; строка роли; три
-// счётчика снизу. Все поля — настоящие (ProfileOut: is_verified,
-// created_at, routes_completed/excursions_completed/finds_count из
-// user_service + stats_service), ничего не выдумано.
+// Карточка-шапка профиля: карточка на пергаменте, а не цветной баннер;
+// аватар с бейджем «подтверждён»; строка роли; три счётчика снизу. Все
+// поля — настоящие данные профиля, ничего не выдумано.
 const props = defineProps({
   name: { type: String, default: '' },
   role: { type: String, default: '' },

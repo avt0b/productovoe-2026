@@ -10,9 +10,9 @@ const trip = ref(null)
 const squadName = ref('')
 const loadStatus = ref('idle') // idle | loading | loaded | empty | error
 
-// checklist хранится на бэкенде одной строкой (TripOut.checklist), делим на
-// пункты сами; отметки "выполнено" — только локальный UX, у search_hq_service
-// нет ручки для персонального прогресса по чек-листу.
+// checklist хранится на бэкенде одной строкой, делим на пункты сами;
+// отметки "выполнено" — только локальный UX, у бэкенда нет ручки для
+// персонального прогресса по чек-листу.
 const checklist = ref([])
 
 const checkedCount = computed(() => checklist.value.filter((item) => item.checked).length)
@@ -85,7 +85,7 @@ onMounted(load)
         <span class="material-symbols-outlined text-[16px]">school</span>
         <span>Полевая школа</span>
       </div>
-      <span class="text-secondary-fixed-dim font-label-sm text-label-sm uppercase tracking-wider">search_hq_service</span>
+      <span class="text-secondary-fixed-dim font-label-sm text-label-sm uppercase tracking-wider">Штаб экспедиции</span>
     </div>
 
     <p v-if="loadStatus === 'empty'" class="font-body-md text-body-md text-secondary-fixed-dim z-10">

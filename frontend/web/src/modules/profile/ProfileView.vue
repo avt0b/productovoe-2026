@@ -22,12 +22,10 @@ watch(
   },
 )
 
-// user_service ещё не хранит семейное древо — оно остаётся демо-данными
-// компонента (помечено как демо внутри самого компонента). Всё остальное в
-// шапке — реальные поля ProfileOut: is_verified/created_at (user_service),
-// routes_completed/excursions_completed/finds_count (заполняются через
-// stats_service). Пока profile.data не загружен, heroProps пуст —
-// ProfileHero сам показывает нейтральные заглушки, а не чьё-то чужое имя.
+// Семейное древо пока остаётся демо-данными компонента (помечено как демо
+// внутри самого компонента). Всё остальное в шапке — реальные поля профиля.
+// Пока profile.data не загружен, heroProps пуст — ProfileHero сам показывает
+// нейтральные заглушки, а не чьё-то чужое имя.
 const heroProps = computed(() => {
   if (!profile.data) return {}
   return {
@@ -51,7 +49,7 @@ const heroProps = computed(() => {
       class="mb-4 px-4 py-3 rounded-DEFAULT bg-surface-container-low text-on-surface-variant font-body-sm text-body-sm"
     >
       Показан демо-профиль. <RouterLink to="/auth" class="text-primary font-bold hover:underline">Войдите</RouterLink>,
-      чтобы видеть и редактировать свои настоящие данные (user_service).
+      чтобы видеть и редактировать свои настоящие данные.
     </p>
 
     <ProfileHero v-bind="heroProps" />

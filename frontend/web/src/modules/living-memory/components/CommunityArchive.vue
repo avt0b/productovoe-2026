@@ -5,7 +5,7 @@ import * as archiveApi from '../api.js'
 
 const { session } = useAuthSession()
 
-// EntryService.VERIFIER_ROLES (archive_service) — кто может модерировать.
+// Кто может модерировать — так же решает и бэкенд.
 const VERIFIER_ROLES = new Set(['searcher', 'local_historian', 'mentor', 'moderator'])
 const canVerify = computed(
   () => session.status === 'authenticated' && (session.user?.is_root || VERIFIER_ROLES.has(session.user?.role)),
@@ -310,7 +310,7 @@ async function submit() {
         Записей пока нет — станьте первым, кто предложит событие.
       </p>
       <p v-if="loadStatus === 'error'" class="font-body-sm text-body-sm text-error text-center py-8">
-        Не удалось загрузить ленту — archive_service недоступен
+        Не удалось загрузить ленту — попробуйте позже
       </p>
 
       <div v-for="entry in feed" :key="entry.id" class="bg-surface-container-lowest rounded-2xl shadow-document p-4 flex flex-col gap-3">

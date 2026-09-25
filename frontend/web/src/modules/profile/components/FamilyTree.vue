@@ -6,11 +6,10 @@ import { useProfileStore } from '../profileStore.js'
 import FamilyHeroModal from './FamilyHeroModal.vue'
 import HeroDossierModal from './HeroDossierModal.vue'
 
-// user_service: FamilyHero — приватная история семьи (не путать с
-// «Живой памятью»/народным архивом: там публичные записи с верификацией
-// краеведом, тут видно только владельцу и его гостям на профиле, а
-// редактирует только владелец). Список приходит вместе с профилем
-// (ProfileOut.heroes).
+// Семейное древо — приватная история семьи (не путать с «Живой памятью»/
+// народным архивом: там публичные записи с верификацией краеведом, тут
+// видно только владельцу и его гостям на профиле, а редактирует только
+// владелец). Список приходит вместе с профилем.
 const { session } = useAuthSession()
 const { profile, loadMyProfile } = useProfileStore()
 
@@ -65,7 +64,7 @@ function onChanged() {
         </div>
         <div class="flex flex-col">
           <h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Семейное древо и герои рода</h2>
-          <span class="font-body-sm text-body-sm text-on-surface-variant">user_service, family_heroes — видно только вам</span>
+          <span class="font-body-sm text-body-sm text-on-surface-variant">Видно только вам и вашим гостям</span>
         </div>
       </div>
       <button
