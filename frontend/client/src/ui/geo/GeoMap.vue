@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import 'leaflet/dist/leaflet.css'
 
+import { App } from '@capacitor/app'
+import type { PluginListenerHandle } from '@capacitor/core'
 import L from 'leaflet'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { OREL_CENTER, TILES, type GeoMarker, type GeoPath, type GeoTone, type LatLon, type UserPosition } from '@/core/geo'
 import MsIcon from '@/ui/MsIcon.vue'
@@ -39,8 +41,26 @@ const props = withDefaults(
      * выключается до «Где я»: отбирать у человека карту нельзя.
      */
     follow?: boolean
+    /**
+     * Карта в списке — превью: она не перехватывает прокрутку страницы, а по
+     * нажатию разворачивается на весь экран. Маленькая карта, которая ловит
+     * палец вместо страницы, — главная беда карт в ленте.
+     *
+     * Экранам, где по карте ставят точку (`pick`), это не нужно: там нажатие
+     * уже занято.
+     */
+    expandable?: boolean
   }>(),
-  { paths: () => [], circles: () => [], user: null, locating: false, label: undefined, center: () => OREL_CENTER, follow: false },
+  {
+    paths: () => [],
+    circles: () => [],
+    user: null,
+    locating: false,
+    label: undefined,
+    center: () => OREL_CENTER,
+    follow: false,
+    expandable: false,
+  },
 )
 
 const selected = defineModel<string | null>('selected', { default: null })
@@ -104,6 +124,11 @@ const USER_ICON = L.divIcon({
 })
 
 const container = ref<HTMLDivElement | null>(null)
+
+/** Карта раскрыта на весь экран. */
+const expanded = ref(false)
+/** Превью: жесты выключены, нажатие разворачивает. */
+const preview = computed(() => props.expandable && !expanded.value)
 
 let map: L.Map | null = null
 let resizeObserver: ResizeObserver | null = null
@@ -234,6 +259,59 @@ function zoomOut(): void {
   map?.zoomOut()
 }
 
+/**
+ * Жесты карты. В превью они выключены: палец должен прокручивать страницу, а
+ * не таскать карту, которая всё равно размером с ладонь.
+ */
+function setInteractive(on: boolean): void {
+  if (!map) return
+  for (const handler of [map.dragging, map.touchZoom, map.doubleClickZoom, map.scrollWheelZoom, map.boxZoom, map.keyboard]) {
+    if (on) handler.enable()
+    else handler.disable()
+  }
+}
+
+let backHandle: PluginListenerHandle | null = null
+/** Подписка на «назад» ещё нужна: карту могли свернуть раньше, чем подписка завелась. */
+let backWanted = false
+
+function onKey(event: KeyboardEvent): void {
+  if (event.key === 'Escape') collapse()
+}
+
+function expand(): void {
+  if (expanded.value) return
+  expanded.value = true
+  document.body.style.overflow = 'hidden'
+  window.addEventListener('keydown', onKey)
+  backWanted = true
+  // В приложении карту закрывают аппаратной кнопкой «назад», а не крестиком.
+  void App.addListener('backButton', () => collapse()).then((handle) => {
+    if (backWanted) backHandle = handle
+    else void handle.remove()
+  })
+  void nextTick(() => {
+    setInteractive(true)
+    map?.invalidateSize()
+    frameContent()
+  })
+}
+
+function collapse(): void {
+  if (!expanded.value) return
+  expanded.value = false
+  document.body.style.overflow = ''
+  window.removeEventListener('keydown', onKey)
+  backWanted = false
+  void backHandle?.remove()
+  backHandle = null
+  void nextTick(() => {
+    setInteractive(false)
+    map?.invalidateSize()
+    frameContent()
+  })
+}
+
 function locate(): void {
   followUser = true
   navigating = props.follow
@@ -260,9 +338,14 @@ onMounted(() => {
   userLayer.addTo(map)
   markerLayer.addTo(map)
   // Клик по метке до карты не доходит — сюда попадает только пустое место.
-  map.on('click', (event: L.LeafletMouseEvent) => emit('pick', { lat: event.latlng.lat, lon: event.latlng.lng }))
+  map.on('click', (event: L.LeafletMouseEvent) => {
+    if (preview.value) return expand()
+    emit('pick', { lat: event.latlng.lat, lon: event.latlng.lng })
+  })
   // Сдвинул карту сам — значит, смотрит куда-то ещё: не тянуть вид обратно.
   map.on('dragstart', () => (navigating = false))
+
+  if (preview.value) setInteractive(false)
 
   renderCircles()
   renderPaths()
@@ -276,6 +359,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  // Экран ушёл с раскрытой картой — вернуть странице прокрутку и снять подписки.
+  if (expanded.value) collapse()
   resizeObserver?.disconnect()
   map?.remove()
   map = null
@@ -320,56 +405,88 @@ watch(selected, (id, previous) => {
 
 <template>
   <div class="relative isolate overflow-hidden bg-map-paper">
-    <div ref="container" class="geo-map absolute inset-0" role="region" aria-label="Карта" />
+    <!-- Раскрытая карта уезжает в body: внутри карточки с тенью и своим
+         overflow `fixed` отсчитывался бы от карточки, а не от окна. Место в
+         потоке остаётся за корнем — страница под ней не прыгает. -->
+    <Teleport to="body" :disabled="!expanded">
+      <div :class="expanded ? 'fixed inset-0 z-50 bg-map-paper' : 'absolute inset-0'">
+        <div ref="container" class="geo-map absolute inset-0" role="region" aria-label="Карта" />
 
-    <div
-      v-if="label"
-      class="pointer-events-none absolute left-margin top-space-md z-[1000] flex max-w-[60%] items-center gap-1.5 rounded-full bg-surface-container-lowest/90 px-3 py-1.5 shadow-sm backdrop-blur-md"
-    >
-      <MsIcon name="nature" :size="16" class="shrink-0 text-secondary" />
-      <span class="truncate font-label-sm text-label-sm font-medium text-on-surface-variant">{{ label }}</span>
-    </div>
+        <div
+          v-if="label"
+          class="pointer-events-none absolute left-margin top-space-md z-[1000] max-w-[60%]"
+          :class="{ 'pt-safe': expanded }"
+        >
+          <div class="flex items-center gap-1.5 rounded-full bg-surface-container-lowest/90 px-3 py-1.5 shadow-sm backdrop-blur-md">
+            <MsIcon name="nature" :size="16" class="shrink-0 text-secondary" />
+            <span class="truncate font-label-sm text-label-sm font-medium text-on-surface-variant">{{ label }}</span>
+          </div>
+        </div>
 
-    <div class="absolute right-margin top-space-md z-[1000] flex flex-col gap-space-xs">
-      <div class="flex flex-col items-center overflow-hidden rounded-full bg-surface-container-lowest/95 shadow-float backdrop-blur-md">
-        <button
-          type="button"
-          aria-label="Приблизить"
-          class="flex h-10 w-10 items-center justify-center text-on-surface transition-colors hover:bg-surface-container"
-          @click="zoomIn"
+        <div class="absolute right-margin top-space-md z-[1000] flex flex-col gap-space-xs" :class="{ 'pt-safe': expanded }">
+          <button
+            v-if="expandable"
+            type="button"
+            :aria-label="expanded ? 'Свернуть карту' : 'Развернуть карту'"
+            class="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-lowest/95 text-on-surface shadow-float backdrop-blur-md transition-transform hover:scale-105"
+            @click="expanded ? collapse() : expand()"
+          >
+            <MsIcon :name="expanded ? 'close' : 'open_in_new'" :size="20" />
+          </button>
+
+          <!-- В превью жестов нет, значит и кнопкам масштаба нечего делать:
+               нажатие по карте разворачивает её, дальше всё работает как всегда. -->
+          <template v-if="!preview">
+            <div class="flex flex-col items-center overflow-hidden rounded-full bg-surface-container-lowest/95 shadow-float backdrop-blur-md">
+              <button
+                type="button"
+                aria-label="Приблизить"
+                class="flex h-10 w-10 items-center justify-center text-on-surface transition-colors hover:bg-surface-container"
+                @click="zoomIn"
+              >
+                <MsIcon name="add" :size="20" />
+              </button>
+              <div class="h-px w-5 bg-surface-container" />
+              <button
+                type="button"
+                aria-label="Отдалить"
+                class="flex h-10 w-10 items-center justify-center text-on-surface transition-colors hover:bg-surface-container"
+                @click="zoomOut"
+              >
+                <MsIcon name="remove" :size="20" />
+              </button>
+            </div>
+            <button
+              type="button"
+              aria-label="Показать все метки"
+              class="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-lowest/95 text-on-surface shadow-float backdrop-blur-md transition-transform hover:scale-105"
+              @click="frameContent"
+            >
+              <MsIcon name="fit_screen" :size="20" />
+            </button>
+            <button
+              type="button"
+              aria-label="Где я"
+              class="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-lowest/95 text-secondary shadow-float backdrop-blur-md transition-transform hover:scale-105"
+              @click="locate"
+            >
+              <MsIcon :name="locating ? 'progress_activity' : 'my_location'" :size="20" :class="{ 'animate-spin': locating }" />
+            </button>
+          </template>
+          <slot name="controls" />
+        </div>
+
+        <!-- Подсказка вместо пустого прямоугольника: иначе непонятно, что карта живая. -->
+        <p
+          v-if="preview"
+          class="pointer-events-none absolute bottom-space-lg left-1/2 z-[1000] -translate-x-1/2 whitespace-nowrap rounded-full bg-surface-container-lowest/90 px-3 py-1 font-label-sm text-label-sm text-on-surface-variant shadow-sm backdrop-blur-md"
         >
-          <MsIcon name="add" :size="20" />
-        </button>
-        <div class="h-px w-5 bg-surface-container" />
-        <button
-          type="button"
-          aria-label="Отдалить"
-          class="flex h-10 w-10 items-center justify-center text-on-surface transition-colors hover:bg-surface-container"
-          @click="zoomOut"
-        >
-          <MsIcon name="remove" :size="20" />
-        </button>
+          Нажмите, чтобы открыть карту
+        </p>
+
+        <slot />
       </div>
-      <button
-        type="button"
-        aria-label="Показать все метки"
-        class="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-lowest/95 text-on-surface shadow-float backdrop-blur-md transition-transform hover:scale-105"
-        @click="frameContent"
-      >
-        <MsIcon name="fit_screen" :size="20" />
-      </button>
-      <button
-        type="button"
-        aria-label="Где я"
-        class="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-lowest/95 text-secondary shadow-float backdrop-blur-md transition-transform hover:scale-105"
-        @click="locate"
-      >
-        <MsIcon :name="locating ? 'progress_activity' : 'my_location'" :size="20" :class="{ 'animate-spin': locating }" />
-      </button>
-      <slot name="controls" />
-    </div>
-
-    <slot />
+    </Teleport>
   </div>
 </template>
 

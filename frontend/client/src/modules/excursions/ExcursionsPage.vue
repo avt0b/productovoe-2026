@@ -120,6 +120,7 @@ const TABS: { value: Tab; title: string }[] = [
         :markers="markers"
         :user="userPosition"
         :locating="geoStatus === 'locating'"
+        expandable
         class="h-60 w-full rounded-2xl shadow-document short:h-44"
         @locate="startLocating"
       />

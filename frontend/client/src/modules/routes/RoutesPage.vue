@@ -198,6 +198,7 @@ function openStop(stop: RouteStop): void {
         :user="userPosition"
         :locating="geoStatus === 'locating'"
         :label="data.route?.title"
+        expandable
         class="h-[420px] w-full short:h-64"
         @locate="startLocating"
       />
