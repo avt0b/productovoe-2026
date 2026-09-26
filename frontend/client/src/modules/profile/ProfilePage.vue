@@ -15,6 +15,7 @@ import BadgesSection from './components/BadgesSection.vue'
 import ExpeditionStatusCard from './components/ExpeditionStatusCard.vue'
 import FamilySection from './components/FamilySection.vue'
 import GameProgressCard from './components/GameProgressCard.vue'
+import GuideRankCard from './components/GuideRankCard.vue'
 import HeroesSection from './components/HeroesSection.vue'
 import ProfileEditSheet from './components/ProfileEditSheet.vue'
 import ResearcherHeroCard from './components/ResearcherHeroCard.vue'
@@ -112,6 +113,7 @@ const counters = computed<HeroCounter[]>(() => [
       <template v-if="data">
         <ExpeditionStatusCard :trip="nextTrip(data.trips)" />
         <RolesSection v-if="session.user" :user="session.user" @open-token="tokenOpen = true" />
+        <GuideRankCard v-if="session.user?.role === 'local_historian'" />
         <RoleRequestSection v-if="session.user" :user="session.user" :profile="data.profile" :organizations="data.squads" />
         <GameProgressCard
           v-if="preferences.familyMode"

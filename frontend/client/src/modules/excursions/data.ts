@@ -209,6 +209,20 @@ export interface GuideRatingSummary {
   average: number
   count: number
   recent: GuideRating[]
+  // Необязательные поля рейтинга (CONTRACT 2.4): у старого сервиса их нет —
+  // тогда плашка просто не покажет место и имя краеведа.
+  score?: number | null
+  place?: number | null
+  total_ranked?: number
+  excursions_led?: number
+  distribution?: Record<'1' | '2' | '3' | '4' | '5', number>
+  profile?: {
+    display_name: string
+    avatar_url: string | null
+    city: string
+    role: string
+    is_verified: boolean
+  } | null
 }
 
 /** Оценка гида после экскурсии: 1–5 и, если есть что сказать, отзыв. */

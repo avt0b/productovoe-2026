@@ -11,6 +11,7 @@ import MsIcon from '@/ui/MsIcon.vue'
 import StateBlock from '@/ui/StateBlock.vue'
 
 import ExcursionCard from './components/ExcursionCard.vue'
+import TopGuidesStrip from './components/TopGuidesStrip.vue'
 import { fetchExcursions, fetchMyExcursions, isGuideRole, type Excursion } from './data'
 
 type Tab = 'upcoming' | 'mine'
@@ -89,6 +90,9 @@ const TABS: { value: Tab; title: string }[] = [
         Новая экскурсия
       </RouterLink>
     </section>
+
+    <!-- Лучшие краеведы — только на «Ближайших», чтобы не мешать списку своих. -->
+    <TopGuidesStrip v-if="tab === 'upcoming'" />
 
     <div class="relative grid grid-cols-2 rounded-full bg-surface-container-low p-1 text-center" role="tablist">
       <span
