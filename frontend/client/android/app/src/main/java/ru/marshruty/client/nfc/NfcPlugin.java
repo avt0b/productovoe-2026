@@ -10,6 +10,7 @@ import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.NdefFormatable;
+import android.os.Parcelable;
 import android.provider.Settings;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -257,13 +258,13 @@ public class NfcPlugin extends Plugin implements NfcAdapter.ReaderCallback {
             JSObject answer = new JSObject();
             answer.put("tag", describe(tag));
             call.resolve(answer);
-        } catch (IOException | FormatException error) {
+        } catch (IOException | FormatException | SecurityException error) {
             call.reject("Не удалось записать: " + error.getMessage(), "write-failed");
         } finally {
             if (ndef != null) {
                 try {
                     ndef.close();
-                } catch (IOException ignored) {
+                } catch (IOException | SecurityException ignored) {
                     // Метку уже унесли — для записи это ничего не меняет.
                 }
             }
@@ -290,17 +291,71 @@ public class NfcPlugin extends Plugin implements NfcAdapter.ReaderCallback {
         notifyListeners("nfcLink", link, true);
     }
 
-    /** Метка из системного открытия приложения (NDEF_DISCOVERED). */
+    /**
+     * Метка из системного открытия приложения (NDEF_DISCOVERED).
+     *
+     * Записи берём из интента: система уже прочла их, пока выбирала
+     * приложение. Читать метку заново нельзя — к этому моменту её обычно
+     * убрали, и Android отвечает SecurityException «Tag is out of date»:
+     * при запуске меткой из-за этого не загружался плагин, при открытом
+     * приложении — падало всё приложение.
+     */
     private JSObject fromIntent(Intent intent) {
         if (intent == null || !NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
             return null;
         }
         Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-        return tag == null ? null : describe(tag);
+        if (tag == null) {
+            return null;
+        }
+        Parcelable[] messages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
+        if (messages == null) {
+            return describe(tag);
+        }
+        JSObject out = header(tag);
+        JSArray records = new JSArray();
+        for (Parcelable message : messages) {
+            if (message instanceof NdefMessage) {
+                for (NdefRecord record : ((NdefMessage) message).getRecords()) {
+                    records.put(describe(record));
+                }
+            }
+        }
+        out.put("records", records);
+        return out;
     }
 
     /** Что на метке: идентификатор, технологии, записи NDEF, можно ли писать. */
     private JSObject describe(Tag tag) {
+        JSObject out = header(tag);
+        JSArray records = new JSArray();
+        Ndef ndef = Ndef.get(tag);
+        if (ndef != null) {
+            try {
+                ndef.connect();
+                NdefMessage message = ndef.getNdefMessage();
+                if (message != null) {
+                    for (NdefRecord record : message.getRecords()) {
+                        records.put(describe(record));
+                    }
+                }
+            } catch (IOException | FormatException | SecurityException error) {
+                // SecurityException — метку уже убрали и система её «забыла».
+                out.put("error", "Метку убрали слишком быстро — приложите ещё раз");
+            } finally {
+                try {
+                    ndef.close();
+                } catch (IOException | SecurityException ignored) {
+                    // Читать уже нечего.
+                }
+            }
+        }
+        out.put("records", records);
+        return out;
+    }
+
+    /** Идентификатор, технологии и можно ли писать — без обращения к самой метке. */
+    private JSObject header(Tag tag) {
         JSObject out = new JSObject();
         out.put("id", hex(tag.getId()));
 
@@ -310,7 +365,6 @@ public class NfcPlugin extends Plugin implements NfcAdapter.ReaderCallback {
         }
         out.put("techs", techs);
 
-        JSArray records = new JSArray();
         Ndef ndef = Ndef.get(tag);
         if (ndef == null) {
             out.put("writable", NdefFormatable.get(tag) != null);
@@ -318,25 +372,7 @@ public class NfcPlugin extends Plugin implements NfcAdapter.ReaderCallback {
         } else {
             out.put("writable", ndef.isWritable());
             out.put("maxSize", ndef.getMaxSize());
-            try {
-                ndef.connect();
-                NdefMessage message = ndef.getNdefMessage();
-                if (message != null) {
-                    for (NdefRecord record : message.getRecords()) {
-                        records.put(describe(record));
-                    }
-                }
-            } catch (IOException | FormatException error) {
-                out.put("error", "Метку убрали слишком быстро — приложите ещё раз");
-            } finally {
-                try {
-                    ndef.close();
-                } catch (IOException ignored) {
-                    // Читать уже нечего.
-                }
-            }
         }
-        out.put("records", records);
         return out;
     }
 

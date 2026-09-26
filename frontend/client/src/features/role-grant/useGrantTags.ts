@@ -1,5 +1,5 @@
 import { App } from '@capacitor/app'
-import type { PluginListenerHandle } from '@capacitor/core'
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core'
 import { onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -43,13 +43,15 @@ export function useGrantTags(): void {
   }
 
   onMounted(async () => {
-    if (!isNfcAvailable()) return
+    if (!Capacitor.isNativePlatform()) return
+    // Ссылку запуска отдаёт плагин App, а не NFC: она дойдёт, даже если NFC-плагин не поднялся.
     const launch = await App.getLaunchUrl().catch(() => undefined)
     const launched = grantPath(launch?.url)
     if (launched) {
-      await consumeLaunchTag()
+      await consumeLaunchTag().catch(() => null)
       open(launched)
     }
+    if (!isNfcAvailable()) return
     const handle = await onNfcTag((tag) => open(grantPath(tagPayload(tag)?.uri)))
     if (disposed) void handle.remove()
     else listener = handle
