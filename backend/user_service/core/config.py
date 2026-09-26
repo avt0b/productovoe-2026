@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     # auth_client.set_role — применяет решение по RoleApplication.
     auth_service_url: str = "http://127.0.0.1:8001"
 
+    # NFC-метки, выдающие роль (POST /role-grants/redeem): `роль:sha256 ключа`
+    # через запятую. Здесь только хэши — ключи лежат на метках. Пусто — ни одна
+    # метка не работает. Сгенерировать: `python -m scripts.make_role_keys`.
+    role_grant_keys: str = ""
+
     # Клиентское приложение ходит в сервис напрямую: dev-сервер Vite и APK
     # (Capacitor на Android отдаёт приложение с https://localhost, а на стенде
     # с сервисами по http — с http://localhost).

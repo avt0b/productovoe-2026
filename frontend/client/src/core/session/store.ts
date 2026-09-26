@@ -109,6 +109,27 @@ export const useSessionStore = defineStore('session', () => {
     return refreshing
   }
 
+  /**
+   * Перечитать пользователя с сервера: роль сменилась без перевхода (NFC-метка).
+   *
+   * Роль зашита в access-токен, поэтому сначала новый токен — без него
+   * сервисы до его истечения отвечали бы по старой роли. Имя, город и фото
+   * приходят из профиля (`updateUser`), их не трогаем.
+   */
+  async function reloadUser(): Promise<boolean> {
+    if (!(await refresh()) || !tokens.value) return false
+    try {
+      const fresh = await provider.currentUser(tokens.value)
+      if (!user.value) return false
+      user.value = { ...user.value, role: fresh.role, isRoot: fresh.isRoot, headline: fresh.headline }
+      persist()
+      return true
+    } catch {
+      // Нет сети — роль догонит при следующем обновлении токена.
+      return false
+    }
+  }
+
   function expire(): void {
     user.value = null
     tokens.value = null
@@ -145,5 +166,18 @@ export const useSessionStore = defineStore('session', () => {
     refresh,
   })
 
-  return { user, tokens, pending, expired, isAuthenticated, hasAccount, signIn, adopt, signOut, refresh, updateUser }
+  return {
+    user,
+    tokens,
+    pending,
+    expired,
+    isAuthenticated,
+    hasAccount,
+    signIn,
+    adopt,
+    signOut,
+    refresh,
+    reloadUser,
+    updateUser,
+  }
 })

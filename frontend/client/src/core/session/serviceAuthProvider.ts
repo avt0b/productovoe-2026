@@ -147,6 +147,10 @@ export const serviceAuthProvider: AuthProvider = {
     return toTokens(pair)
   },
 
+  async currentUser(tokens) {
+    return toUser(await apiRequest<UserDto>('GET', 'auth', '/auth/me', { token: tokens.accessToken }))
+  },
+
   async signOut(tokens) {
     if (!tokens) return
     try {

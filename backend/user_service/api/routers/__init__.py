@@ -8,6 +8,7 @@ from api.routers import (
     notifications,
     profiles,
     role_applications,
+    role_grants,
     uploads,
 )
 
@@ -18,5 +19,6 @@ api_router.include_router(achievements.router)
 api_router.include_router(family_heroes.router)
 api_router.include_router(family_links.router)
 api_router.include_router(role_applications.router)
+api_router.include_router(role_grants.router)
 api_router.include_router(uploads.router)
 api_router.include_router(internal.router)

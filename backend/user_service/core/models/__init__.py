@@ -6,6 +6,7 @@ from core.models.notification import DevicePlatform, Notification, NotificationD
 from core.models.profile import Profile
 from core.models.profile_stat import ProfileStat
 from core.models.role_application import ApplicationStatus, RoleApplication
+from core.models.role_grant import RoleGrant
 
 __all__ = [
     "ACHIEVEMENT_TITLES",
@@ -21,5 +22,6 @@ __all__ = [
     "Profile",
     "ProfileStat",
     "RoleApplication",
+    "RoleGrant",
     "UserAchievement",
 ]

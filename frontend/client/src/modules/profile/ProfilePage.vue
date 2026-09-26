@@ -33,6 +33,8 @@ const preferences = usePreferencesStore()
 /** Демо-режим без аккаунта: профиля в `user_service` нет, показываем гостя и семейный режим. */
 const overview = useAsync<ProfileOverview | null>(() => (session.hasAccount ? fetchProfile() : Promise.resolve(null)))
 const { data, loading, error, retry } = overview
+// Роль сменилась без перевхода (NFC-метка) — перечитать профиль: отметка «подтверждён» живёт там.
+watch(() => session.user?.role, () => void retry())
 
 /** Правка фото, имени, города и «о себе» — одно окно на весь экран профиля. */
 const editOpen = ref(false)

@@ -61,5 +61,7 @@ export interface AuthProvider {
   signIn(request: SignInRequest): Promise<SignInResult>
   /** Выпустить новую пару токенов по refresh-токену. */
   refresh(tokens: SessionTokens): Promise<SessionTokens>
+  /** Пользователь по действующему токену — когда роль сменилась на сервере без перевхода. */
+  currentUser(tokens: SessionTokens): Promise<SessionUser>
   signOut(tokens: SessionTokens | null): Promise<void>
 }
