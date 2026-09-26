@@ -13,6 +13,7 @@ from services.family_link_service import FamilyLinkService
 from services.notification_service import NotificationService
 from services.profile_service import ProfileService
 from services.role_application_service import RoleApplicationService
+from services.role_grant_service import RoleGrantService
 from services.stats_service import StatsService
 
 _bearer = HTTPBearer(auto_error=True)
@@ -73,6 +74,10 @@ def get_family_link_service(db: DbSession) -> FamilyLinkService:
     return FamilyLinkService(db)
 
 
+def get_role_grant_service(db: DbSession) -> RoleGrantService:
+    return RoleGrantService(db)
+
+
 ProfileServiceDep = Annotated[ProfileService, Depends(get_profile_service)]
 NotificationServiceDep = Annotated[NotificationService, Depends(get_notification_service)]
 AchievementServiceDep = Annotated[AchievementService, Depends(get_achievement_service)]
@@ -82,3 +87,4 @@ RoleApplicationServiceDep = Annotated[
     RoleApplicationService, Depends(get_role_application_service)
 ]
 FamilyLinkServiceDep = Annotated[FamilyLinkService, Depends(get_family_link_service)]
+RoleGrantServiceDep = Annotated[RoleGrantService, Depends(get_role_grant_service)]
