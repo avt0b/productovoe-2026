@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { plural } from '@/core/format'
+import { formatRating, placeLabel } from '@/features/guide-rating'
 import MsIcon from '@/ui/MsIcon.vue'
 
 import type { GuideRatingSummary } from '../data'
@@ -42,11 +43,12 @@ const stars = computed(() => {
         <span
           v-if="summary?.place"
           class="rounded-full bg-tertiary-fixed px-1.5 py-0.5 font-label-sm text-label-sm normal-case tracking-normal text-tertiary"
-        >{{ summary.place }}-е место</span>
+        >{{ placeLabel(summary.place) }}</span>
       </p>
       <p v-if="summary && summary.count > 0" class="flex items-center gap-1 font-label-lg text-label-lg text-on-surface">
         <MsIcon v-for="(icon, index) in stars" :key="index" :name="icon" :size="16" filled class="text-tertiary" />
-        <span class="ml-1">{{ summary.average.toFixed(1) }}</span>
+        <!-- Запятая, как в рейтинге и карточке краеведа: «4,5», а не «4.5». -->
+        <span class="ml-1">{{ formatRating(summary.average) }}</span>
         <span class="font-label-sm text-label-sm text-on-surface-variant">
           · {{ summary.count }} {{ plural(summary.count, ['оценка', 'оценки', 'оценок']) }}
         </span>
