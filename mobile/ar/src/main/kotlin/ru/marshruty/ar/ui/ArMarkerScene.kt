@@ -179,7 +179,11 @@ private fun ArMarkerSceneContent(
         }
         Log.d(TAG, "модель проводника загружена: $path")
         value = loaded.instance
-        awaitDispose { modelLoader.destroyModel(loaded) }
+        // Модель не уничтожаем сами: она принадлежит загрузчику, и при выходе с
+        // экрана ModelLoader.destroy() освобождает её в clear(). Раньше здесь был
+        // awaitDispose { destroyModel }, но отмена корутины доходит кадром позже,
+        // когда загрузчик и движок уже освобождены, — повторное освобождение
+        // роняло всё приложение (SIGSEGV в libgltfio-jni.so) после выхода из AR.
     }
     val currentSalute = rememberUpdatedState(salute)
     val currentOnUnavailable = rememberUpdatedState(onUnavailable)
