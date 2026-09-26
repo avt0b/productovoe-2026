@@ -11,6 +11,7 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -116,7 +117,15 @@ public class ArPlugin extends Plugin {
         if (asset == null) {
             return null;
         }
-        return new CompanionSpec(companion.getString("name", "Проводник"), companion.getString("subtitle", ""), asset);
+        // Памятная точка: сам проводник не выходит, но свой QR вызывает его всегда.
+        boolean onlyOnQr = Boolean.TRUE.equals(companion.getBoolean("onlyOnQr", false));
+        return new CompanionSpec(
+            companion.getString("name", "Проводник"),
+            companion.getString("subtitle", ""),
+            asset,
+            spriteFolderFor(asset),
+            onlyOnQr
+        );
     }
 
     private String resolveCompanionAsset(String requested) {
@@ -124,10 +133,13 @@ public class ArPlugin extends Plugin {
         if (requested != null && assetExists(assets, requested)) {
             return requested;
         }
-        // Модель кладут в assets AAR под своим именем — берём первую, какая есть.
+        // Модель кладут в assets AAR под своим именем. Порядок assets.list не
+        // обещан, а рядом лежат и старые модели — берём первую по алфавиту,
+        // чтобы проводник не менялся от сборки к сборке.
         try {
             String[] files = assets.list(COMPANION_DIR);
             if (files != null) {
+                Arrays.sort(files);
                 for (String file : files) {
                     if (file.endsWith(".glb")) {
                         return COMPANION_DIR + "/" + file;
@@ -138,6 +150,25 @@ public class ArPlugin extends Plugin {
             // Папки нет — проводника не будет, экран работает и без него.
         }
         return null;
+    }
+
+    /**
+     * Кадры плоского проводника для 3D-модели: `companion/chick.glb` →
+     * `companion/chick/`. Нужны, чтобы проводник появился сразу, как только
+     * прочитан QR, ещё до того, как ARCore поставит модель в мир, и там, где
+     * ARCore нет вовсе. Папки нет — плоского вида у модели нет.
+     */
+    private String spriteFolderFor(String asset) {
+        if (!asset.endsWith(".glb")) {
+            return null;
+        }
+        String folder = asset.substring(0, asset.length() - ".glb".length());
+        try {
+            String[] frames = getContext().getAssets().list(folder);
+            return frames != null && frames.length > 0 ? folder : null;
+        } catch (IOException error) {
+            return null;
+        }
     }
 
     private boolean assetExists(AssetManager assets, String path) {

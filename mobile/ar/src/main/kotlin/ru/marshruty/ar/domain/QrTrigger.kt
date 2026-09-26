@@ -32,3 +32,37 @@ fun qrTriggersCompanion(expected: String?, scanned: String?): Boolean {
     if (wanted.isEmpty()) return true
     return code.equals(wanted, ignoreCase = true)
 }
+
+/**
+ * Ставить ли проводника перед человеком, когда таблички нет.
+ *
+ * Код — всегда: его показали нарочно, и проводник обязан выйти. Истёкшее
+ * ожидание таблички — только если проводник на точке выходит сам. На памятной
+ * точке ([onlyOnQr]) сам он не выходит: мультяшный маскот у братской могилы
+ * читается как неуважение, — но свой код вызывает его и там.
+ */
+fun shouldPlaceInFront(qrAccepted: Boolean, waitedLongEnough: Boolean, onlyOnQr: Boolean): Boolean =
+    qrAccepted || (waitedLongEnough && !onlyOnQr)
+
+/**
+ * Рисовать ли плоского проводника поверх камеры.
+ *
+ * - 3D-проводник ([companionIn3d]) стоит в сцене ARCore, и плоский был бы вторым
+ *   персонажем. Но между «код прочитан» и «модель встала в мир» бывает пауза:
+ *   ARCore ещё не зацепился за окружение (телефон неподвижен, мало деталей,
+ *   код на экране ноутбука), модель ещё грузится. На эту паузу плоский
+ *   проводник выходит сразу — код не должен оставаться без ответа.
+ * - Без 3D (компас или покадровый проводник) — как раньше, кроме памятной
+ *   точки: там плоский проводник появляется только после кода.
+ */
+fun showFlatCompanion(
+    hasCompanion: Boolean,
+    companionIn3d: Boolean,
+    onlyOnQr: Boolean,
+    qrSummoned: Boolean,
+    shownIn3d: Boolean,
+): Boolean = when {
+    !hasCompanion -> false
+    companionIn3d -> qrSummoned && !shownIn3d
+    else -> !onlyOnQr || qrSummoned
+}

@@ -9,10 +9,13 @@ export interface ArPoint {
   /** Куда вести: место на земле. `null` — цели нет, только рассказ. */
   target: { lat: number; lon: number; label: string } | null
   /**
-   * Проводник рядом с человеком. `null` — маскота быть не должно: у братской
-   * могилы и мемориала он читается как неуважение.
+   * Проводник рядом с человеком. `null` — маскота быть не должно совсем.
+   *
+   * `onlyOnQr` — памятная точка (братская могила, мемориал): сам маскот не
+   * выходит, это читалось бы как неуважение, но свой QR-код вызывает его
+   * всегда — его показывают нарочно.
    */
-  companion: { name: string; subtitle: string; asset: string } | null
+  companion: { name: string; subtitle: string; asset: string; onlyOnQr?: boolean } | null
   narration: {
     /** Записанная озвучка точки. `null` — рассказ идёт одними субтитрами. */
     audioUrl: string | null

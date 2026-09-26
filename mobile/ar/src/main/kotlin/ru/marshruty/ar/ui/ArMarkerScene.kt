@@ -50,6 +50,7 @@ import ru.marshruty.ar.domain.fieldOfViewFromIntrinsics
 import ru.marshruty.ar.domain.placeCompanion
 import ru.marshruty.ar.domain.poseInFrontOfCamera
 import ru.marshruty.ar.domain.qrTriggersCompanion
+import ru.marshruty.ar.domain.shouldPlaceInFront
 import io.github.sceneview.node.Node as NodeImpl
 
 /**
@@ -73,6 +74,12 @@ internal fun ArMarkerScene(
     onFieldOfView: (full: CameraFieldOfView, frameAspectRatio: Double) -> Unit,
     onUnavailable: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Проводник выходит только по коду: без него таймер ожидания таблички его не ставит. */
+    onlyOnQr: Boolean = false,
+    /** Свой код прочитан — один раз. Хост сразу показывает плоского проводника. */
+    onQrAccepted: () -> Unit = {},
+    /** 3D-проводник встал в мир (true) — плоский больше не нужен. */
+    onCompanionShown: (Boolean) -> Unit = {},
 ) {
     // Экран не должен ждать ARCore. Движок, материалы, сессия и камера поднимаются
     // на главном потоке около двух секунд (замер на Xiaomi 13 Lite: SceneView
@@ -87,7 +94,18 @@ internal fun ArMarkerScene(
         sceneAllowed = true
     }
     if (sceneAllowed) {
-        ArMarkerSceneContent(marker, companionAsset, salute, onStatusChange, onFieldOfView, onUnavailable, modifier)
+        ArMarkerSceneContent(
+            marker = marker,
+            companionAsset = companionAsset,
+            salute = salute,
+            onStatusChange = onStatusChange,
+            onFieldOfView = onFieldOfView,
+            onUnavailable = onUnavailable,
+            onlyOnQr = onlyOnQr,
+            onQrAccepted = onQrAccepted,
+            onCompanionShown = onCompanionShown,
+            modifier = modifier,
+        )
     } else {
         ArStartingPlaceholder(modifier)
     }
@@ -129,6 +147,9 @@ private fun ArMarkerSceneContent(
     onFieldOfView: (full: CameraFieldOfView, frameAspectRatio: Double) -> Unit,
     /** ARCore на устройстве нет или сессия не поднялась — хост вернётся к компасу. */
     onUnavailable: () -> Unit,
+    onlyOnQr: Boolean,
+    onQrAccepted: () -> Unit,
+    onCompanionShown: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -158,11 +179,16 @@ private fun ArMarkerSceneContent(
         }
         Log.d(TAG, "модель проводника загружена: $path")
         value = loaded.instance
-        awaitDispose { modelLoader.destroyModel(loaded) }
+        // Модель не уничтожаем сами: она принадлежит загрузчику, и при выходе с
+        // экрана ModelLoader.destroy() освобождает её в clear(). Раньше здесь был
+        // awaitDispose { destroyModel }, но отмена корутины доходит кадром позже,
+        // когда загрузчик и движок уже освобождены, — повторное освобождение
+        // роняло всё приложение (SIGSEGV в libgltfio-jni.so) после выхода из AR.
     }
     val currentSalute = rememberUpdatedState(salute)
     val currentOnUnavailable = rememberUpdatedState(onUnavailable)
     val currentOnFieldOfView = rememberUpdatedState(onFieldOfView)
+    val currentOnQrAccepted = rememberUpdatedState(onQrAccepted)
 
     var markerBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var session by remember { mutableStateOf<Session?>(null) }
@@ -185,6 +211,10 @@ private fun ArMarkerSceneContent(
         Log.d(TAG, "маркер: $status")
         onStatusChange(status)
     }
+
+    // Встал 3D-проводник или нет — хосту, чтобы убрать плоского. Модель может
+    // догрузиться уже после того, как поза найдена, поэтому смотрим на оба.
+    LaunchedEffect(placed, model) { onCompanionShown(placed && model != null) }
 
     LaunchedEffect(marker.assetPath) {
         val decoded = withContext(Dispatchers.IO) { decodeMarker(context.assets, marker.assetPath) }
@@ -290,7 +320,14 @@ private fun ArMarkerSceneContent(
                 // QR-код читается быстрее и надёжнее картинки: с экрана, с мятой
                 // бумаги, под углом. Увидели свой код — проводник выходит сразу,
                 // не дожидаясь ни таблички, ни таймера.
-                if (marker.companionOnQr && memory.markerPose == null && cameraTracking &&
+                //
+                // Отслеживание камеры для чтения кода не нужно: кадр есть и без
+                // него. Раньше код читался только после того, как ARCore
+                // «зацепится» за мир, — а у неподвижного телефона, в пустой
+                // комнате или с кодом на экране ноутбука этого можно ждать долго,
+                // и проводник не выходил. Теперь код принимается сразу; пока 3D
+                // ставить некуда, хост показывает плоского проводника.
+                if (marker.companionOnQr && !memory.qrAccepted && memory.markerPose == null &&
                     (frame.timestamp - memory.lastQrScanNanos) / 1_000_000L >= QR_SCAN_INTERVAL_MILLIS
                 ) {
                     memory.lastQrScanNanos = frame.timestamp
@@ -300,16 +337,19 @@ private fun ArMarkerSceneContent(
                     if (qrTriggersCompanion(marker.qrPayload, code)) {
                         Log.d(TAG, "QR принят, выводим проводника: $code")
                         memory.qrAccepted = true
+                        currentOnQrAccepted.value()
                     }
                 }
 
                 // Таблички нет — ставим проводника перед человеком: по коду сразу,
-                // иначе по истечении отведённого времени. Один раз, а не каждый
-                // кадр: иначе он ездил бы вслед за камерой.
+                // иначе по истечении отведённого времени (не на памятной точке).
+                // Один раз, а не каждый кадр: иначе он ездил бы вслед за камерой.
                 val fallbackAfter = marker.fallbackInFrontAfterMillis
-                val waitedLongEnough = fallbackAfter != null &&
+                val waitedLongEnough = fallbackAfter != null && memory.trackingSinceNanos != 0L &&
                     (frame.timestamp - memory.trackingSinceNanos) / 1_000_000L >= fallbackAfter
-                if (memory.markerPose == null && cameraTracking && (memory.qrAccepted || waitedLongEnough)) {
+                if (memory.markerPose == null && cameraTracking &&
+                    shouldPlaceInFront(memory.qrAccepted, waitedLongEnough, onlyOnQr)
+                ) {
                     // Рост нужен до позы: в ней он задаёт, насколько центр фигуры
                     // ниже уровня глаз. Посчитанный по прежнему умолчанию, он
                     // подвешивал проводника на уровень груди — поза ставится один
@@ -542,8 +582,8 @@ private const val MARKER_MAX_SIDE_PX = 800
 /**
  * На каком расстоянии ставить проводника перед человеком, метры.
  *
- * Ростом с ребёнка и в двух шагах — фигура целиком помещается в кадр и её
- * видно. Ближе она упирается в край экрана и читается как обрезок текстуры.
+ * В двух шагах фигура целиком помещается в кадр и её видно. Ближе она
+ * упирается в край экрана и читается как обрезок текстуры.
  */
 private const val IN_FRONT_DISTANCE_METERS = 1.8
 
