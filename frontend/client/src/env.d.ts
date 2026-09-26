@@ -24,4 +24,8 @@ interface ImportMetaEnv {
   readonly VITE_MAP_TILES_URL?: string
   /** Подпись правообладателей подложки. Меняете тайлы — меняйте и её. */
   readonly VITE_MAP_TILES_ATTRIBUTION?: string
+  /** `true` — ручки «Я потерялся» и рейтинга отвечают заглушками (пока бэкенд не готов). */
+  readonly VITE_MOCK_NEW_API?: string
+  /** Роль в заглушке тревоги: `lost` — я потерялся, `watcher` — я ищу. По умолчанию `watcher`. */
+  readonly VITE_MOCK_LOST_ROLE?: string
 }

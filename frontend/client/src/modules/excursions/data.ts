@@ -242,6 +242,8 @@ export interface GroupMember {
   lon: number
   accuracy_m: number | null
   updated_at: string
+  /** id открытой тревоги, где этот человек потерялся, иначе null (CONTRACT 1.5). */
+  lost_alert_id?: string | null
 }
 
 export interface Walk {

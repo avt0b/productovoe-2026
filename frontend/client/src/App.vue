@@ -6,6 +6,7 @@ import BareLayout from '@/app/layouts/BareLayout.vue'
 import DetailLayout from '@/app/layouts/DetailLayout.vue'
 import TabsLayout from '@/app/layouts/TabsLayout.vue'
 import { useSessionStore } from '@/core/session'
+import { LostAlertBanner } from '@/features/lost-alert'
 import { NotificationBanner } from '@/features/notifications'
 import { WelcomeSheet } from '@/features/onboarding'
 
@@ -36,6 +37,8 @@ watch(
   </component>
   <!-- Поверх любого экрана: сбор начинается, пока человек смотрит карту, а не экскурсию. -->
   <NotificationBanner />
+  <!-- Тревога «Я потерялся» важнее любого экрана: плашка в корне вернёт к поиску, где бы человек ни был. -->
+  <LostAlertBanner />
   <!-- Первый вход: предложить показать, что где. Один раз и только вошедшим. -->
   <WelcomeSheet />
 </template>

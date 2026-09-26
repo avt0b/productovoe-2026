@@ -63,6 +63,8 @@ export function usePointRoute(geo: GeoSource) {
   const trip = ref(0)
 
   let routedFrom: LatLon | null = null
+  /** Куда в последний раз строили: цель тоже может идти (ищем человека). */
+  let routedTo: LatLon | null = null
   let routedAt = 0
 
   const metersLeft = computed<number | null>(() => {
@@ -90,8 +92,10 @@ export function usePointRoute(geo: GeoSource) {
     if (!me || !to || building.value || arrived.value) return
 
     const walkedAway = !routedFrom || distanceKm(routedFrom, me) * 1000 > REROUTE_AFTER_METERS[mode.value]
+    // Цель тоже может идти — человек, а не памятник.
+    const targetMoved = !routedTo || distanceKm(routedTo, to) * 1000 > REROUTE_AFTER_METERS[mode.value]
     const tooSoon = Date.now() - routedAt < REROUTE_MIN_INTERVAL_MS
-    if (!force && route.value && (!walkedAway || tooSoon)) return
+    if (!force && route.value && ((!walkedAway && !targetMoved) || tooSoon)) return
 
     // Режим выбираем один раз на поездку: подъехал ближе пяти километров —
     // это всё ещё поездка, а не прогулка.
@@ -103,6 +107,7 @@ export function usePointRoute(geo: GeoSource) {
       if (target.value !== to) return
       route.value = built
       routedFrom = { lat: me.lat, lon: me.lon }
+      routedTo = { lat: to.lat, lon: to.lon }
       routedAt = Date.now()
     } finally {
       building.value = false
@@ -115,6 +120,7 @@ export function usePointRoute(geo: GeoSource) {
     target.value = { id: point.id, lat: point.lat, lon: point.lon }
     route.value = null
     routedFrom = null
+    routedTo = null
     trip.value += 1
     geo.start()
     void reroute(true)
@@ -124,6 +130,18 @@ export function usePointRoute(geo: GeoSource) {
     target.value = null
     route.value = null
     routedFrom = null
+    routedTo = null
+  }
+
+  /**
+   * Цель сдвинулась (ищем человека, он тоже идёт). Поездка та же: `trip` не
+   * растёт, и карта не подгоняет вид заново на каждый его шаг. Маршрут
+   * перестроится сам, когда цель уйдёт дальше порога.
+   */
+  function moveTarget(point: RouteTarget): void {
+    if (!target.value || target.value.id !== point.id) return start(point)
+    target.value = { id: point.id, lat: point.lat, lon: point.lon }
+    void reroute()
   }
 
   // Пришла новая точка GPS — возможно, пора перестроить (или впервые построить) маршрут.
@@ -152,6 +170,7 @@ export function usePointRoute(geo: GeoSource) {
     position: geo.position,
     start,
     stop,
+    moveTarget,
   }
 }
 
