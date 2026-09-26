@@ -385,7 +385,9 @@ fun ArHost(
                         frames = frames,
                         action = actionState.value,
                         frameIndex = frameIndexState.value,
-                        modifier = Modifier.size(width = 190.dp, height = 190.dp),
+                        // Меньше прежних 190 dp: вместе с 3D-проводником птица уменьшена,
+                        // и плоская не должна выходить больше объёмной.
+                        modifier = Modifier.size(width = 130.dp, height = 130.dp),
                         flip = flipState.value,
                     )
                 }
