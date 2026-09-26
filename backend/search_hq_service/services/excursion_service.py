@@ -24,6 +24,8 @@ from services.permissions import can_guide, is_staff
 
 # Вид уведомления «краевед открыл сбор» — по нему приложение решает, куда вести.
 KIND_GATHERING_STARTED = "excursion_gathering_started"
+# «Оцените экскурсию» — после её завершения; приложение сразу открывает оценку.
+KIND_RATE_EXCURSION = "rate_excursion"
 
 # Часы телефона краеведа могут отставать: экскурсию «на сейчас» не отвергаем.
 PAST_GRACE = timedelta(minutes=5)
@@ -351,8 +353,21 @@ class ExcursionService:
         achievement_client.award_achievement(
             user_id=excursion.guide_id, code=achievement_client.HISTORIAN_FIRST_EXCURSION
         )
-        for participant in self.repo.checked_in_for(excursion.id):
-            stats_client.increment_stat(user_id=participant.user_id, metric="excursions_completed")
+        attendees = [participant.user_id for participant in self.repo.checked_in_for(excursion.id)]
+        for user_id in attendees:
+            stats_client.increment_stat(user_id=user_id, metric="excursions_completed")
+        # Без напоминания оценку ставят единицы: на экран экскурсии после неё
+        # сами почти не возвращаются, и рейтинг краеведов остаётся пустым.
+        # Оценить может только тот, кто пришёл, — ему и пишем.
+        if not attendees:
+            return
+        notify_client.notify_users(
+            user_ids=attendees,
+            kind=KIND_RATE_EXCURSION,
+            title="Как прошла экскурсия?",
+            body=f"Оцените «{excursion.title}» — по оценкам другие выбирают, к кому идти.",
+            payload={"excursion_id": excursion.id},
+        )
 
     @staticmethod
     def _close_if_expired(excursion: Excursion) -> bool:

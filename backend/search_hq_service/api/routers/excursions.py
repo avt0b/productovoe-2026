@@ -41,10 +41,14 @@ def list_excursions(
     service: ExcursionServiceDep,
     principal: OptionalPrincipal,
     upcoming_only: Annotated[bool, Query()] = True,
+    # Экскурсии одного краеведа — для его карточки в рейтинге.
+    guide_id: Annotated[str | None, Query(max_length=36)] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[ExcursionOut]:
-    views = service.search(principal, upcoming_only=upcoming_only, limit=limit, offset=offset)
+    views = service.search(
+        principal, upcoming_only=upcoming_only, guide_id=guide_id, limit=limit, offset=offset
+    )
     return [ExcursionOut.from_view(view) for view in views]
 
 
