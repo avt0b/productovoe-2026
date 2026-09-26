@@ -1,5 +1,5 @@
 export { default as LostAlertBanner } from './LostAlertBanner.vue'
-export { useActiveLostAlerts } from './useActiveLostAlerts'
+export { useActiveLostAlerts, useLostSearchActive } from './useActiveLostAlerts'
 export {
   raiseLost,
   fetchActiveAlerts,

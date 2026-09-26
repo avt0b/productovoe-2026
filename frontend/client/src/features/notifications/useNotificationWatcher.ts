@@ -1,7 +1,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { RouteLocationRaw } from 'vue-router'
+import { useRoute, type RouteLocationRaw } from 'vue-router'
 
 import { useSessionStore } from '@/core/session'
+import { useLostSearchActive } from '@/features/lost-alert'
 
 import { fetchNotifications, markNotificationRead, type AppNotification } from './api'
 
@@ -164,12 +165,22 @@ function toBanner(notification: AppNotification, now: number): NotificationBanne
  */
 export function useNotificationWatcher() {
   const session = useSessionStore()
+  const route = useRoute()
+  const searching = useLostSearchActive()
   const current = ref<NotificationBannerItem | null>(null)
   const shown = new Set<string>()
   let timer: ReturnType<typeof setInterval> | undefined
 
+  /**
+   * Пока кого-то ищут, плашки молчат: тревога главнее, а плашка уведомления
+   * лежит выше красной плашки поиска и закрывала бы её. На самом экране
+   * поиска всё и так видно — там им тем более не место. Спрятанное не
+   * считается прочитанным и всплывёт, когда поиск закончится.
+   */
+  const quiet = computed(() => searching.value || route.name === 'lost-alert')
+
   async function poll(): Promise<void> {
-    if (!session.hasAccount || document.visibilityState !== 'visible') return
+    if (!session.hasAccount || document.visibilityState !== 'visible' || quiet.value) return
     let items: AppNotification[]
     try {
       items = await fetchNotifications()
@@ -224,5 +235,5 @@ export function useNotificationWatcher() {
     },
   )
 
-  return { current: computed(() => current.value), settle }
+  return { current: computed(() => (quiet.value ? null : current.value)), settle }
 }

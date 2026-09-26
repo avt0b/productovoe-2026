@@ -79,7 +79,8 @@ watchEffect(() => {
       @click="lost.startRoute()"
     >
       <MsIcon name="directions" :size="18" />
-      Показать дорогу к {{ nearest.display_name }}
+      <!-- Имя в кавычках, как в уведомлениях: имена не склоняем, «к Мама» резало бы глаз. -->
+      Показать дорогу к «{{ nearest.display_name }}»
     </button>
 
     <ConfirmAction

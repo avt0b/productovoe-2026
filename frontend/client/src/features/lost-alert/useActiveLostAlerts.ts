@@ -29,6 +29,22 @@ function writeOpened(ids: string[]): void {
 }
 
 /**
+ * Мои открытые тревоги — одни на всё приложение. Опрашивает их плашка, а
+ * читают и другие механики: пока кого-то ищут, обычные уведомления ждут
+ * (см. [useLostSearchActive]).
+ */
+const alerts = ref<LostAlert[]>([])
+
+/**
+ * Идёт поиск, где я ищущий или меня ищут. Пока идёт, остальные плашки
+ * уведомлений не всплывают: «Сбор начался» поверх тревоги только отвлекает, а
+ * главное — закрывает саму красную плашку поиска.
+ */
+export function useLostSearchActive() {
+  return computed(() => alerts.value.some((alert) => alert.status === 'active'))
+}
+
+/**
  * Следит за моими открытыми тревогами и сам открывает экран поиска, когда
  * появляется новая, где я ищущий или меня ищут (тревогу за меня подняли).
  * Заводится один раз — в плашке [LostAlertBanner]. Ошибки сети глотаются:
@@ -37,7 +53,6 @@ function writeOpened(ids: string[]): void {
 export function useActiveLostAlerts() {
   const session = useSessionStore()
   const router = useRouter()
-  const alerts = ref<LostAlert[]>([])
   let opened = readOpened()
   let timer: ReturnType<typeof setInterval> | undefined
 
