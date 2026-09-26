@@ -17,6 +17,7 @@ from core.models import (
 from core.security import Principal
 from core.timeutil import as_utc, utcnow
 from repositories.excursion_repository import ExcursionRepository
+from repositories.lost_alert_repository import OPEN_ALERT_BLOCKS_CLOSING, LostAlertRepository
 from services import achievement_client, notify_client, stats_client
 from services.bump_matcher import bump_matcher
 from services.permissions import can_guide, is_staff
@@ -123,6 +124,8 @@ class ExcursionService:
         self._ensure_guide(principal, excursion)
         if excursion.status in (ExcursionStatus.finished, ExcursionStatus.cancelled):
             raise Conflict("Экскурсия уже завершена или отменена")
+        if LostAlertRepository(self.db).has_active(excursion.id):
+            raise Conflict(OPEN_ALERT_BLOCKS_CLOSING)
         excursion.status = ExcursionStatus.cancelled
         self.db.commit()
         bump_matcher.forget(excursion_id)

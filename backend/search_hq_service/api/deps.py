@@ -10,6 +10,7 @@ from core.security import Principal, decode_access_token, principal_from_payload
 from services.bump_service import BumpService
 from services.chat_service import ChatService
 from services.excursion_service import ExcursionService
+from services.lost_alert_service import LostAlertService
 from services.need_service import NeedService
 from services.rating_service import RatingService
 from services.squad_service import SquadService
@@ -83,6 +84,10 @@ def get_chat_service(db: DbSession) -> ChatService:
     return ChatService(db)
 
 
+def get_lost_alert_service(db: DbSession) -> LostAlertService:
+    return LostAlertService(db)
+
+
 SquadServiceDep = Annotated[SquadService, Depends(get_squad_service)]
 NeedServiceDep = Annotated[NeedService, Depends(get_need_service)]
 TripServiceDep = Annotated[TripService, Depends(get_trip_service)]
@@ -91,3 +96,4 @@ BumpServiceDep = Annotated[BumpService, Depends(get_bump_service)]
 WalkServiceDep = Annotated[WalkService, Depends(get_walk_service)]
 RatingServiceDep = Annotated[RatingService, Depends(get_rating_service)]
 ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]
+LostAlertServiceDep = Annotated[LostAlertService, Depends(get_lost_alert_service)]

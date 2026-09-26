@@ -24,3 +24,10 @@ class FamilyMemberOut(BaseModel):
     home_lat: float | None
     home_lon: float | None
     linked_at: datetime
+
+
+class FamilyIdsOut(BaseModel):
+    """Семья человека для других сервисов: только id, без имён и координат."""
+
+    user_id: str
+    member_ids: list[str]

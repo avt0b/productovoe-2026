@@ -65,9 +65,10 @@ def test_batch_returns_public_cards_without_token(client):
     assert set(cards) == {anna, petr}  # нет профиля — нет в ответе, повторы схлопнуты
     assert cards[anna]["display_name"] == "Анна"
     assert cards[petr]["role"] == "local_historian"
+    assert cards[anna]["city"] == "Орёл"
     # Батч публичный — приватного в нём быть не должно.
     for card in cards.values():
-        assert set(card) == {"id", "display_name", "avatar_url", "role", "is_verified"}
+        assert set(card) == {"id", "display_name", "avatar_url", "city", "role", "is_verified"}
 
 
 def test_batch_empty_ids(client):

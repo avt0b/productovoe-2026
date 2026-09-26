@@ -226,3 +226,37 @@ def test_verify_missing_profile_404(client):
         params={"is_verified": True},
     )
     assert r.status_code == 404
+
+
+# --- семья для search_hq («Я потерялся») ---
+
+
+def _link_family(client, inviter: str, invitee: str) -> None:
+    code = client.post("/family-links/invite", headers=auth_header(user_id=inviter)).json()["code"]
+    r = client.post("/family-links/redeem", headers=auth_header(user_id=invitee), json={"code": code})
+    assert r.status_code == 204
+
+
+def test_family_without_key_403(client):
+    assert client.get("/internal/family/someone").status_code == 403
+    assert client.get("/internal/family/someone", headers=WRONG_HEADERS).status_code == 403
+
+
+def test_family_is_visible_from_both_sides(client):
+    mom, kid, dad = (str(uuid.uuid4()) for _ in range(3))
+    _link_family(client, mom, kid)
+    _link_family(client, mom, dad)
+
+    r = client.get(f"/internal/family/{mom}", headers=INTERNAL_HEADERS)
+    assert r.status_code == 200
+    assert r.json() == {"user_id": mom, "member_ids": [kid, dad]}
+
+    kid_family = client.get(f"/internal/family/{kid}", headers=INTERNAL_HEADERS).json()
+    assert kid_family["member_ids"] == [mom]
+
+
+def test_family_of_lonely_user_is_empty(client):
+    lonely = str(uuid.uuid4())
+    r = client.get(f"/internal/family/{lonely}", headers=INTERNAL_HEADERS)
+    assert r.status_code == 200
+    assert r.json() == {"user_id": lonely, "member_ids": []}

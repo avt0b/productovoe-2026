@@ -24,6 +24,7 @@ from core.models import (
 from core.security import Principal
 from core.timeutil import as_utc, utcnow
 from repositories.excursion_repository import ExcursionRepository
+from repositories.lost_alert_repository import OPEN_ALERT_BLOCKS_CLOSING, LostAlertRepository
 from services import achievement_client, notify_client
 from services.excursion_service import ExcursionService
 from services.permissions import is_staff
@@ -41,6 +42,8 @@ class GroupMember:
     lon: float
     accuracy_m: float | None
     updated_at: datetime
+    # Открытая тревога «Я потерялся», где этот человек — тот, кого ищут.
+    lost_alert_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +60,7 @@ class WalkService:
         self.db = db
         self.repo = ExcursionRepository(db)
         self.excursions = ExcursionService(db)
+        self.lost_alerts = LostAlertRepository(db)
 
     # --- краевед ---
 
@@ -114,6 +118,8 @@ class WalkService:
         excursion = self.excursions.get(excursion_id)
         self._ensure_guide(principal, excursion)
         if excursion.status is ExcursionStatus.walking:
+            if self.lost_alerts.has_active(excursion_id):
+                raise Conflict(OPEN_ALERT_BLOCKS_CLOSING)
             excursion.status = ExcursionStatus.finished
             self._forget_positions(excursion_id)
             self.db.commit()
@@ -136,6 +142,11 @@ class WalkService:
             rows = self.db.scalars(
                 select(ExcursionPosition).where(ExcursionPosition.excursion_id == excursion_id)
             ).all()
+            # Кого сейчас ищут — карта группы рисует его красным.
+            lost = {
+                alert.lost_user_id: alert.id
+                for alert in self.lost_alerts.active_on_excursion(excursion_id)
+            }
             members = [
                 GroupMember(
                     user_id=row.user_id,
@@ -145,6 +156,7 @@ class WalkService:
                     lon=row.lon,
                     accuracy_m=row.accuracy_m,
                     updated_at=as_utc(row.updated_at),
+                    lost_alert_id=lost.get(row.user_id),
                 )
                 for row in rows
                 if as_utc(row.updated_at) >= fresh_after
@@ -167,10 +179,25 @@ class WalkService:
         self._settle_expiry(excursion)
         if excursion.status is not ExcursionStatus.walking:
             raise Conflict("Группа сейчас не идёт — точку некому показывать")
+        self.record_position(excursion_id, principal.user_id, is_guide=is_guide,
+                             lat=lat, lon=lon, accuracy_m=accuracy_m)
+        self.db.commit()
 
-        row = self.db.get(ExcursionPosition, (excursion_id, principal.user_id))
+    def record_position(
+        self,
+        excursion_id: str,
+        user_id: str,
+        *,
+        is_guide: bool,
+        lat: float,
+        lon: float,
+        accuracy_m: float | None,
+    ) -> None:
+        """Запомнить, где телефон. Без проверок и без commit: их делает вызывающий —
+        прогулка на каждой точке, «Я потерялся» в момент тревоги."""
+        row = self.db.get(ExcursionPosition, (excursion_id, user_id))
         if row is None:
-            row = ExcursionPosition(excursion_id=excursion_id, user_id=principal.user_id,
+            row = ExcursionPosition(excursion_id=excursion_id, user_id=user_id,
                                     lat=lat, lon=lon, updated_at=utcnow())
             self.db.add(row)
         row.is_guide = is_guide
@@ -178,7 +205,6 @@ class WalkService:
         row.lon = lon
         row.accuracy_m = accuracy_m
         row.updated_at = utcnow()
-        self.db.commit()
 
     # --- helpers ---
 
@@ -217,6 +243,8 @@ class WalkService:
             return False
         excursion.status = ExcursionStatus.finished
         self._forget_positions(excursion.id)
+        # Точек больше нет — искать по карте уже нечем, тревоги закрываются с прогулкой.
+        self.lost_alerts.expire_on_excursion(excursion.id, at=utcnow())
         return True
 
     def _forget_positions(self, excursion_id: str) -> None:
