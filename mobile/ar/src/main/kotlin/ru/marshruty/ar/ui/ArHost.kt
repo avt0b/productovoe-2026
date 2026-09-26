@@ -50,6 +50,7 @@ import ru.marshruty.ar.domain.fittedTo
 import ru.marshruty.ar.domain.flipTransform
 import ru.marshruty.ar.domain.narrationPositionMillis
 import ru.marshruty.ar.domain.resolveCompanionAction
+import ru.marshruty.ar.domain.showFlatCompanion
 import ru.marshruty.ar.durationMillis
 import ru.marshruty.ar.stablePositionAt
 
@@ -206,6 +207,19 @@ fun ArHost(
     val trickClip = frames.trickClip()
     val isSpeaking = isPlaying && !isMuted
 
+    // Свой QR прочитан — проводник обязан выйти. Пока 3D не встал в мир
+    // (ARCore не зацепился, модель грузится), его заменяет плоский.
+    var qrSummoned by remember { mutableStateOf(false) }
+    var shownIn3d by remember { mutableStateOf(false) }
+    val onlyOnQr = spec.companion?.onlyOnQr == true
+    val flatCompanion = showFlatCompanion(
+        hasCompanion = spec.companion != null,
+        companionIn3d = activeMarker != null && isModel,
+        onlyOnQr = onlyOnQr,
+        qrSummoned = qrSummoned,
+        shownIn3d = shownIn3d,
+    )
+
     // Позиция рассказа. Плеер опрашивается не каждый кадр: сто двадцать
     // обращений в секунду ради строки, которая держится шесть секунд, — пустая
     // работа. Со звуком позицию задаёт он, без звука — часы экрана.
@@ -348,6 +362,9 @@ fun ArHost(
                             markerUnavailable = true
                             markerStatus = null
                         },
+                        onlyOnQr = onlyOnQr,
+                        onQrAccepted = { qrSummoned = true },
+                        onCompanionShown = { shownIn3d = it },
                     )
                     !cameraFailed -> CameraPreview(
                         modifier = Modifier.fillMaxSize(),
@@ -356,8 +373,9 @@ fun ArHost(
                     else -> CameraUnavailablePlaceholder()
                 }
             },
-            // С маркером 3D-проводник стоит в сцене — плоская фигура внизу была бы вторым персонажем.
-            companionArtwork = if (activeMarker != null && isModel) {
+            // С маркером 3D-проводник стоит в сцене — плоская фигура внизу была бы
+            // вторым персонажем. Кроме паузы между кодом и 3D (см. showFlatCompanion).
+            companionArtwork = if (!flatCompanion) {
                 null
             } else {
                 {

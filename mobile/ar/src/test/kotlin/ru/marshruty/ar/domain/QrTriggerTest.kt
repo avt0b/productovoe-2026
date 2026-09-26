@@ -33,6 +33,37 @@ class QrTriggerTest {
     }
 
     @Test
+    fun `код ставит проводника перед человеком всегда, даже на памятной точке`() {
+        assertTrue(shouldPlaceInFront(qrAccepted = true, waitedLongEnough = false, onlyOnQr = false))
+        assertTrue(shouldPlaceInFront(qrAccepted = true, waitedLongEnough = false, onlyOnQr = true))
+    }
+
+    @Test
+    fun `по таймеру проводник выходит сам, но не на памятной точке`() {
+        assertTrue(shouldPlaceInFront(qrAccepted = false, waitedLongEnough = true, onlyOnQr = false))
+        assertFalse(shouldPlaceInFront(qrAccepted = false, waitedLongEnough = true, onlyOnQr = true))
+        assertFalse(shouldPlaceInFront(qrAccepted = false, waitedLongEnough = false, onlyOnQr = false))
+    }
+
+    @Test
+    fun `у 3D-проводника плоский закрывает паузу между кодом и моделью в мире`() {
+        // Код ещё не показали — плоского нет, 3D ждёт своего часа.
+        assertFalse(showFlatCompanion(hasCompanion = true, companionIn3d = true, onlyOnQr = false, qrSummoned = false, shownIn3d = false))
+        // Код прочитан, а ARCore ещё не зацепился — плоский выходит сразу.
+        assertTrue(showFlatCompanion(hasCompanion = true, companionIn3d = true, onlyOnQr = true, qrSummoned = true, shownIn3d = false))
+        // Модель встала в мир — плоский уходит, второго персонажа не нужно.
+        assertFalse(showFlatCompanion(hasCompanion = true, companionIn3d = true, onlyOnQr = false, qrSummoned = true, shownIn3d = true))
+    }
+
+    @Test
+    fun `без 3D плоский проводник как раньше, а на памятной точке — только после кода`() {
+        assertTrue(showFlatCompanion(hasCompanion = true, companionIn3d = false, onlyOnQr = false, qrSummoned = false, shownIn3d = false))
+        assertFalse(showFlatCompanion(hasCompanion = true, companionIn3d = false, onlyOnQr = true, qrSummoned = false, shownIn3d = false))
+        assertTrue(showFlatCompanion(hasCompanion = true, companionIn3d = false, onlyOnQr = true, qrSummoned = true, shownIn3d = false))
+        assertFalse(showFlatCompanion(hasCompanion = false, companionIn3d = false, onlyOnQr = false, qrSummoned = true, shownIn3d = false))
+    }
+
+    @Test
     fun `перед человеком проводник ростом с ребёнка, а не по колено`() {
         // Таблички не было: мерить нечего, и прежние 35 см терялись в кадре.
         val inFront = companionHeightFor(

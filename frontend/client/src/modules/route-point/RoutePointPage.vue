@@ -134,10 +134,14 @@ async function launchAr(): Promise<void> {
       stepIndex: current.step,
       stepTotal: current.totalSteps,
       target: { ...current.location, label: current.arHint ?? current.title },
-      // У братской могилы и мемориала проводника-маскота не показываем.
-      companion: current.solemn
-        ? null
-        : { name: 'Проводник маршрута', subtitle: current.routeTitle, asset: 'companion/verny.glb' },
+      // У братской могилы и мемориала маскот сам не выходит, но наш QR-код
+      // вызывает его всегда. Модель — орлёнок из mobile/ar (companion/chick.glb).
+      companion: {
+        name: 'Проводник маршрута',
+        subtitle: current.routeTitle,
+        asset: 'companion/chick.glb',
+        onlyOnQr: current.solemn,
+      },
       narration: {
         audioUrl: current.audioUrl,
         subtitles: buildSubtitles(current.story ?? current.title),
