@@ -106,12 +106,20 @@ def test_rating_flow_and_guide_summary(client, guide_header, visitor_header):
     assert listed[0]["rating"] == 4
 
     summary = client.get(f"/guides/{GUIDE}/rating").json()
-    assert summary == {
+    # Прежние поля — как были: на них завязан веб. Новые только добавлены.
+    assert {key: summary[key] for key in ("guide_id", "average", "count")} == {
         "guide_id": GUIDE,
         "average": 4.0,
         "count": 1,
-        "recent": listed,
     }
+    [review] = summary["recent"]
+    assert {key: review[key] for key in listed[0]} == listed[0]
+    assert review["rater_name"] == "Участник экскурсии"
+    assert review["excursion_title"] == "Тропа памяти: площадь Мира"
+    assert summary["place"] == 1 and summary["total_ranked"] == 1
+    assert summary["distribution"] == {"1": 0, "2": 0, "3": 0, "4": 1, "5": 0}
+    assert summary["excursions_led"] == 1
+    assert summary["profile"] is None
 
 
 def test_rating_twice_updates_instead_of_duplicating(client, guide_header, visitor_header):

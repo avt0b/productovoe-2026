@@ -383,9 +383,10 @@ class LostAlertWatcher(Base):
 
 ```python
 # --- рейтинг краеведов ---
-# Байесовское среднее: сколько «виртуальных» оценок, равных общему среднему,
-# добавляем каждому. Без этого одна пятёрка обгоняла бы сорок оценок по 4,8.
+# Байесовское среднее: сколько «виртуальных» оценок добавляем каждому и какого
+# они балла (середина шкалы — почему не общее среднее, см. CONTRACT 2.2).
 guide_rating_prior_weight: int = 5
+guide_rating_prior_mean: float = 3.0
 ```
 
 ### 4.2. Репозиторий (`repositories/rating_repository.py`)
@@ -403,9 +404,10 @@ guide_rating_prior_weight: int = 5
 
 - `leaderboard(principal | None, *, period, limit, offset)`:
   1. `since = utcnow() - timedelta(days=30)` для `month`, `None` для `all`.
-  2. `m = global_average(since)`; нет оценок — пустой ответ
-     (`global_average: 0`, `total: 0`, `items: []`).
-  3. Для каждого краеведа `score = (C*m + sum) / (C + count)`.
+  2. Нет оценок — пустой ответ (`global_average: 0`, `total: 0`, `items: []`);
+     `global_average` — среднее всех оценок периода, только для сведения.
+  3. Для каждого краеведа `score = (C*M + sum) / (C + count)`, `M` — настройка
+     `guide_rating_prior_mean`.
   4. Сортировка из CONTRACT 2.2, места — порядковый номер после сортировки,
      **до** `offset/limit` (на второй странице первое место — 51-е).
   5. Для строк страницы — `excursions_led` и профили одним вызовом
