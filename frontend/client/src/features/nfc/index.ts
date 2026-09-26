@@ -21,7 +21,6 @@ export {
   isNfcAvailable,
   listenNfcLinks,
   nfcStatus,
-  onNfcTag,
   openNfcSettings,
   tagPayload,
   writeNfcTag,

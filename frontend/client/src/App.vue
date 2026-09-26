@@ -9,14 +9,10 @@ import { useSessionStore } from '@/core/session'
 import { LostAlertBanner } from '@/features/lost-alert'
 import { NotificationBanner } from '@/features/notifications'
 import { WelcomeSheet } from '@/features/onboarding'
-import { useGrantTags } from '@/features/role-grant'
 
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
-
-// Метка звания открывает экран выдачи с любого экрана — и когда приложение закрыто.
-useGrantTags()
 
 /** Каркас экрана выбирает сам экран через `meta.layout`; по умолчанию — с вкладками. */
 const layouts = { tabs: TabsLayout, detail: DetailLayout, bare: BareLayout }
