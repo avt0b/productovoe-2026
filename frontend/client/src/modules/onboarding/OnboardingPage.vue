@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { usePreferencesStore } from '@/core/preferences'
@@ -95,26 +95,35 @@ function open(name: string): void {
   if (exists(name)) void router.push({ name })
 }
 
+/**
+ * Новый шаг читают с начала.
+ *
+ * Отдельной прокруткой, и обязательно после перерисовки: нажатая кнопка
+ * остаётся в фокусе, и WebView, разложив шаг подлиннее, сам подтягивает её
+ * обратно в кадр — заголовок шага при этом уезжает за верхний край.
+ */
+function toStep(index: number): void {
+  step.value = index
+  void nextTick(() => window.scrollTo({ top: 0 }))
+}
+
 function next(): void {
   if (last.value) {
     const action = current.value.step.action
     if (action) return open(action.route)
     return finish()
   }
-  step.value += 1
-  window.scrollTo({ top: 0 })
+  toStep(step.value + 1)
 }
 
 function back(): void {
   if (step.value === 0) return
-  step.value -= 1
-  window.scrollTo({ top: 0 })
+  toStep(step.value - 1)
 }
 
 function skipChapter(): void {
   if (nextChapter.value === -1) return
-  step.value = nextChapter.value
-  window.scrollTo({ top: 0 })
+  toStep(nextChapter.value)
 }
 
 /** Обучение закрыто — дальше шпаргалка: человек уже здесь, незачем его выгонять. */
