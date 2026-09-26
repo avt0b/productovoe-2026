@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Browser } from '@capacitor/browser'
 import { Capacitor } from '@capacitor/core'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
@@ -15,6 +15,8 @@ import {
   type GeoMarker,
   type GeoPath,
 } from '@/core/geo'
+import { raiseLost } from '@/features/lost-alert'
+import ConfirmAction from '@/ui/ConfirmAction.vue'
 import GeoMap from '@/ui/geo/GeoMap.vue'
 import MsIcon from '@/ui/MsIcon.vue'
 
@@ -47,11 +49,15 @@ const others = computed(() => (walk.value?.members ?? []).filter((member) => !me
 const guide = computed(() => others.value.find((member) => member.is_guide) ?? null)
 
 const markers = computed<GeoMarker[]>(() => {
-  const list: GeoMarker[] = others.value.map((member) =>
-    member.is_guide
+  const list: GeoMarker[] = others.value.map((member) => {
+    // Потерявшийся участник — красным: по нему открывается экран поиска.
+    if (member.lost_alert_id) {
+      return { id: `lost:${member.lost_alert_id}`, lat: member.lat, lon: member.lon, label: 'Потерялся', icon: 'sos', tone: 'primary' }
+    }
+    return member.is_guide
       ? { id: member.user_id, lat: member.lat, lon: member.lon, label: 'Краевед', icon: 'hiking', tone: 'tertiary' }
-      : { id: member.user_id, lat: member.lat, lon: member.lon, label: 'Участник', icon: 'person', tone: 'secondary' },
-  )
+      : { id: member.user_id, lat: member.lat, lon: member.lon, label: 'Участник', icon: 'person', tone: 'secondary' }
+  })
   // Остальные точки маршрута — номерами: видно, что впереди и сколько осталось.
   routeStops.value.forEach((stop, index) => {
     if (destination.value && sameSpot(stop, destination.value)) return
@@ -108,6 +114,36 @@ const picking = ref(false)
 const busy = ref(false)
 const actionError = ref<string | null>(null)
 const confirmFinish = ref(false)
+
+// --- «Я потерялся» ---
+const canRaiseLost = computed(() => walk.value?.status === 'walking' && !isGuide.value)
+const raisingLost = ref(false)
+
+async function reportLost(): Promise<void> {
+  if (raisingLost.value) return
+  raisingLost.value = true
+  actionError.value = null
+  try {
+    const me = position.value
+    // Точка есть — уходит вместе с тревогой, чтобы она сразу открылась со свежим местом.
+    const body = me ? { lat: me.lat, lon: me.lon, accuracy_m: me.accuracyMeters } : {}
+    const alert = await raiseLost(props.excursionId, body)
+    void router.push({ name: 'lost-alert', params: { alertId: alert.id } })
+  } catch (reason) {
+    actionError.value = errorText(reason)
+  } finally {
+    raisingLost.value = false
+  }
+}
+
+// Нажали на красную метку потерявшегося — открываем его поиск.
+const selectedMarker = ref<string | null>(null)
+watch(selectedMarker, (id) => {
+  if (id?.startsWith('lost:')) {
+    void router.push({ name: 'lost-alert', params: { alertId: id.slice('lost:'.length) } })
+    selectedMarker.value = null
+  }
+})
 
 async function changeDestination(target: WalkTarget): Promise<void> {
   if (busy.value) return
@@ -167,6 +203,7 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
     -->
     <div class="absolute inset-0">
       <GeoMap
+        v-model:selected="selectedMarker"
         class="h-full w-full"
         :markers="markers"
         :paths="paths"
@@ -306,6 +343,19 @@ const pickFrom = computed(() => position.value ?? destination.value ?? { lat: 52
           >
             {{ confirmFinish ? 'Точно завершить? Нажмите ещё раз' : 'Завершить экскурсию' }}
           </button>
+
+          <!-- Участник отстал от группы — зовёт на помощь. Семья и краевед сразу увидят, где он. -->
+          <div v-if="canRaiseLost" class="flex justify-center border-t border-white/10 pt-space-sm">
+            <ConfirmAction
+              label="Я потерялся"
+              icon="sos"
+              warning="Семья и краевед сразу увидят, где вы, и пойдут к вам"
+              confirm-label="Да, позвать на помощь"
+              tone="danger"
+              :busy="raisingLost"
+              @confirm="reportLost"
+            />
+          </div>
         </template>
       </div>
     </div>

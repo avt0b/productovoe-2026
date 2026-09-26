@@ -34,15 +34,28 @@ interface Kind {
   freshMs: number
   /** Куда вести. null — в уведомлении не хватает данных, чтобы вести. */
   target: (notification: AppNotification) => RouteLocationRaw | null
+  /**
+   * Всплывать ли плашкой. По умолчанию `true`. `false` — уведомление остаётся
+   * в ленте и по нажатию ведёт куда надо, но поверх экрана не всплывает:
+   * экран тревоги открывает сама фича, дублировать плашкой незачем.
+   */
+  banner?: boolean
 }
 
 const HOUR_MS = 60 * 60_000
+const DAY_MS = 24 * HOUR_MS
 
 function toExcursion(route: string) {
   return (notification: AppNotification): RouteLocationRaw | null => {
     const excursionId = notification.payload?.excursion_id
     return typeof excursionId === 'string' ? { name: route, params: { excursionId } } : null
   }
+}
+
+/** Экран тревоги по alert_id из payload. */
+function toLostAlert(notification: AppNotification): RouteLocationRaw | null {
+  const alertId = notification.payload?.alert_id
+  return typeof alertId === 'string' ? { name: 'lost-alert', params: { alertId } } : null
 }
 
 /** Виды уведомлений, которые всплывают, — подпись кнопки, значок и экран. */
@@ -82,6 +95,47 @@ const KINDS: Record<string, Kind> = {
     freshMs: 24 * HOUR_MS,
     target: () => ({ name: 'profile' }),
   },
+  // Тревоги: экран поиска открывает и удерживает сама фича lost-alert
+  // (плашка + автооткрытие), поэтому дублировать всплытием незачем — banner:false.
+  lost_alert: {
+    actionLabel: 'Открыть поиск',
+    icon: 'sos',
+    freshMs: 2 * HOUR_MS,
+    target: toLostAlert,
+    banner: false,
+  },
+  lost_alert_searching: {
+    actionLabel: 'Открыть карту',
+    icon: 'sos',
+    freshMs: 2 * HOUR_MS,
+    target: toLostAlert,
+    banner: false,
+  },
+  lost_alert_responding: {
+    actionLabel: 'Открыть карту',
+    icon: 'directions_run',
+    freshMs: 2 * HOUR_MS,
+    target: toLostAlert,
+    banner: false,
+  },
+  // Поиск закрыт — это уже можно показать плашкой: «нашлись» или «отбой».
+  lost_alert_closed: {
+    actionLabel: 'Подробнее',
+    icon: 'celebration',
+    freshMs: HOUR_MS,
+    target: toLostAlert,
+  },
+  rate_excursion: {
+    actionLabel: 'Оценить',
+    icon: 'star',
+    freshMs: 7 * DAY_MS,
+    target: (notification) => {
+      const excursionId = notification.payload?.excursion_id
+      return typeof excursionId === 'string'
+        ? { name: 'excursion', params: { excursionId }, query: { rate: '1' } }
+        : null
+    },
+  },
 }
 
 /**
@@ -96,7 +150,8 @@ export function resolveNotificationTarget(notification: AppNotification): RouteL
 
 function toBanner(notification: AppNotification, now: number): NotificationBannerItem | null {
   const kind = KINDS[notification.kind]
-  if (!kind || now - new Date(notification.created_at).getTime() >= kind.freshMs) return null
+  if (!kind || kind.banner === false) return null
+  if (now - new Date(notification.created_at).getTime() >= kind.freshMs) return null
   const target = kind.target(notification)
   return target ? { notification, actionLabel: kind.actionLabel, icon: kind.icon, target } : null
 }
