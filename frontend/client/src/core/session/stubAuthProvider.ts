@@ -32,6 +32,10 @@ export const stubAuthProvider: AuthProvider = {
     throw new Error('У демо-сессии нет токена')
   },
 
+  async currentUser() {
+    throw new Error('У демо-сессии нет токена')
+  },
+
   async signOut() {
     await withLatency(undefined)
   },
