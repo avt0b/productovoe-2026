@@ -7,6 +7,10 @@
  * метке, и умеет записывать свои метки. Прикрутить к другим окнам — позвать
  * `useNfcScanner` там, где нужно, или открыть экран `{ name: 'nfc' }`.
  *
+ * Метка с нашей ссылкой (`marshruty://…`) открывает свой экран сама, где бы
+ * человек ни был и даже при закрытом приложении, — это `listenNfcLinks`,
+ * он подключён в `main.ts`.
+ *
  * Сам разбор меток — нативный плагин `MarshrutyNfc` в APK. В браузере NFC нет.
  */
 export { default as NfcTagSheet } from './NfcTagSheet.vue'
@@ -15,6 +19,7 @@ export {
   cancelNfcWrite,
   consumeLaunchTag,
   isNfcAvailable,
+  listenNfcLinks,
   nfcStatus,
   openNfcSettings,
   tagPayload,

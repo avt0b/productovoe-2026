@@ -4,6 +4,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './app/router'
 import { listenDeepLinks } from './core/deeplinks'
+import { listenNfcLinks } from './features/nfc'
 import './style.css'
 
 const app = createApp(App)
@@ -11,6 +12,7 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 listenDeepLinks(router)
+listenNfcLinks(router)
 
 // Монтируем после первой навигации — иначе на долю секунды мелькнёт
 // каркас с вкладками даже у экрана входа.
