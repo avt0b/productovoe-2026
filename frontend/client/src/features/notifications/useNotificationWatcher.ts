@@ -176,8 +176,11 @@ export function useNotificationWatcher() {
    * лежит выше красной плашки поиска и закрывала бы её. На самом экране
    * поиска всё и так видно — там им тем более не место. Спрятанное не
    * считается прочитанным и всплывёт, когда поиск закончится.
+   *
+   * Молчат и на благодарственном письме орлика: плашка поверх него портит
+   * момент вручения, а прочитать уведомление можно и через минуту.
    */
-  const quiet = computed(() => searching.value || route.name === 'lost-alert')
+  const quiet = computed(() => searching.value || route.name === 'lost-alert' || route.name === 'orlik')
 
   async function poll(): Promise<void> {
     if (!session.hasAccount || document.visibilityState !== 'visible' || quiet.value) return
