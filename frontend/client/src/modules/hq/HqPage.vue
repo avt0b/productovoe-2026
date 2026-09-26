@@ -418,6 +418,7 @@ function isRegistered(tripId: string): boolean | null {
             :error="null"
             empty
             empty-icon="savings"
+            empty-mascot="think"
             empty-text="Открытых сборов сейчас нет"
           />
         </div>
@@ -472,6 +473,7 @@ function isRegistered(tripId: string): boolean | null {
           :error="null"
           empty
           empty-icon="event_busy"
+          empty-mascot="watch"
           empty-text="Ближайших выездов пока нет — загляните позже"
         />
       </section>

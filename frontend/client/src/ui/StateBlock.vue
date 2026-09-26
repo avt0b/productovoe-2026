@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import Mascot from './Mascot.vue'
+import type { MascotPose } from './mascot'
 import MsIcon from './MsIcon.vue'
 
 /**
@@ -14,6 +16,13 @@ defineProps<{
   empty?: boolean
   emptyText?: string
   emptyIcon?: string
+  /**
+   * Пусто — и это не беда: вместо значка встаёт совёнок-следопыт. Берём его
+   * там, где пустой список — обычное дело (ещё не записались, ещё не завели
+   * маршрут), и не берём на траурных экранах: у «Последнего боя» и в архиве
+   * пустой список — не повод улыбаться.
+   */
+  emptyMascot?: MascotPose
 }>()
 
 defineEmits<{ retry: [] }>()
@@ -45,7 +54,8 @@ const BOX =
   </div>
 
   <div v-else-if="empty" :class="BOX">
-    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+    <Mascot v-if="emptyMascot" :pose="emptyMascot" :size="140" />
+    <div v-else class="flex h-12 w-12 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
       <MsIcon :name="emptyIcon ?? 'inbox'" :size="26" />
     </div>
     <p class="font-body-sm text-body-sm text-on-surface-variant">{{ emptyText ?? 'Здесь пока пусто' }}</p>

@@ -12,7 +12,7 @@ const STORAGE_KEY = 'marshruty.client.onboarding'
  * Версия обучения. Выросла — приветствие покажем ещё раз: значит, в приложении
  * появился раздел, о котором человек не знает. Не трогать ради правки опечатки.
  */
-export const TOUR_VERSION = 1
+export const TOUR_VERSION = 2
 
 function read(): number {
   try {

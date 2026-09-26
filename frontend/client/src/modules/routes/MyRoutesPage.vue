@@ -142,6 +142,7 @@ function onCreated(route: RouteSummary | RouteDetail): void {
           :error="null"
           empty
           empty-icon="route"
+          empty-mascot="laptop"
           empty-text="Маршрутов пока нет — создайте первый или соберите черновик по точкам рядом"
         />
       </template>
