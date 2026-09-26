@@ -249,6 +249,8 @@ class GroupMemberOut(BaseModel):
     lon: float
     accuracy_m: float | None
     updated_at: UtcDatetime
+    # Открытая тревога «Я потерялся», где этот человек — тот, кого ищут.
+    lost_alert_id: str | None = None
 
 
 class WalkOut(BaseModel):

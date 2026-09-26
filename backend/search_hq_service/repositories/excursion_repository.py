@@ -129,3 +129,24 @@ class ExcursionRepository:
             )
         ).all()
         return {row.excursion_id: row for row in rows}
+
+    # --- для рейтинга краеведов ---
+
+    def finished_count_by_guide(self, guide_ids: Iterable[str]) -> dict[str, int]:
+        """Сколько экскурсий каждый краевед довёл до конца — одним запросом на страницу рейтинга."""
+        ids = list(guide_ids)
+        if not ids:
+            return {}
+        rows = self.db.execute(
+            select(Excursion.guide_id, func.count(Excursion.id))
+            .where(Excursion.guide_id.in_(ids), Excursion.status == ExcursionStatus.finished)
+            .group_by(Excursion.guide_id)
+        )
+        return {guide_id: int(count) for guide_id, count in rows}
+
+    def titles(self, excursion_ids: Iterable[str]) -> dict[str, str]:
+        ids = list(dict.fromkeys(excursion_ids))
+        if not ids:
+            return {}
+        rows = self.db.execute(select(Excursion.id, Excursion.title).where(Excursion.id.in_(ids)))
+        return {excursion_id: title for excursion_id, title in rows}

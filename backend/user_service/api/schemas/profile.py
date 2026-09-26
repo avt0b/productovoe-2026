@@ -49,6 +49,8 @@ class ProfileBriefOut(BaseModel):
     id: str
     display_name: str
     avatar_url: PublicUrl | None
+    # Город — для рейтинга краеведов и подписей: адрес он не раскрывает.
+    city: str
     role: str
     is_verified: bool
 

@@ -17,12 +17,15 @@ from core.models import (
 from core.security import Principal
 from core.timeutil import as_utc, utcnow
 from repositories.excursion_repository import ExcursionRepository
+from repositories.lost_alert_repository import OPEN_ALERT_BLOCKS_CLOSING, LostAlertRepository
 from services import achievement_client, notify_client, stats_client
 from services.bump_matcher import bump_matcher
 from services.permissions import can_guide, is_staff
 
 # Вид уведомления «краевед открыл сбор» — по нему приложение решает, куда вести.
 KIND_GATHERING_STARTED = "excursion_gathering_started"
+# «Оцените экскурсию» — после её завершения; приложение сразу открывает оценку.
+KIND_RATE_EXCURSION = "rate_excursion"
 
 # Часы телефона краеведа могут отставать: экскурсию «на сейчас» не отвергаем.
 PAST_GRACE = timedelta(minutes=5)
@@ -123,6 +126,8 @@ class ExcursionService:
         self._ensure_guide(principal, excursion)
         if excursion.status in (ExcursionStatus.finished, ExcursionStatus.cancelled):
             raise Conflict("Экскурсия уже завершена или отменена")
+        if LostAlertRepository(self.db).has_active(excursion.id):
+            raise Conflict(OPEN_ALERT_BLOCKS_CLOSING)
         excursion.status = ExcursionStatus.cancelled
         self.db.commit()
         bump_matcher.forget(excursion_id)
@@ -348,8 +353,21 @@ class ExcursionService:
         achievement_client.award_achievement(
             user_id=excursion.guide_id, code=achievement_client.HISTORIAN_FIRST_EXCURSION
         )
-        for participant in self.repo.checked_in_for(excursion.id):
-            stats_client.increment_stat(user_id=participant.user_id, metric="excursions_completed")
+        attendees = [participant.user_id for participant in self.repo.checked_in_for(excursion.id)]
+        for user_id in attendees:
+            stats_client.increment_stat(user_id=user_id, metric="excursions_completed")
+        # Без напоминания оценку ставят единицы: на экран экскурсии после неё
+        # сами почти не возвращаются, и рейтинг краеведов остаётся пустым.
+        # Оценить может только тот, кто пришёл, — ему и пишем.
+        if not attendees:
+            return
+        notify_client.notify_users(
+            user_ids=attendees,
+            kind=KIND_RATE_EXCURSION,
+            title="Как прошла экскурсия?",
+            body=f"Оцените «{excursion.title}» — по оценкам другие выбирают, к кому идти.",
+            payload={"excursion_id": excursion.id},
+        )
 
     @staticmethod
     def _close_if_expired(excursion: Excursion) -> bool:

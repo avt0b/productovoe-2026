@@ -512,6 +512,7 @@ export interface GuideLeaderboard {
   period: RatingPeriod
   global_average: number
   prior_weight: number
+  prior_mean: number
   total: number
   items: GuideRank[]
 }
