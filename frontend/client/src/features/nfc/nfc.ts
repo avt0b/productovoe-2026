@@ -1,4 +1,7 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
+import type { Router } from 'vue-router'
+
+import { appLinkPath } from '@/core/deeplinks'
 
 /**
  * NFC-метки: что лежит на метке и как записать свою.
@@ -51,6 +54,7 @@ interface NfcPluginApi {
   consumeLaunchTag(): Promise<{ tag?: NfcTag }>
   openSettings(): Promise<void>
   addListener(event: 'nfcTag', handler: (tag: NfcTag) => void): Promise<PluginListenerHandle>
+  addListener(event: 'nfcLink', handler: (link: { url: string }) => void): Promise<PluginListenerHandle>
 }
 
 const plugin = registerPlugin<NfcPluginApi>('MarshrutyNfc')
@@ -103,13 +107,27 @@ export function tagPayload(tag: NfcTag): NfcRecord | null {
 
 /** Ссылка внутри приложения: `marshruty://routes/abc` → `/routes/abc`. */
 export function appPath(uri: string | undefined): string | null {
-  if (!uri) return null
-  try {
-    const parsed = new URL(uri)
-    if (parsed.protocol !== 'marshruty:') return null
-    const path = `/${parsed.host}${parsed.pathname}`.replace(/\/+$/, '')
-    return `${path || '/'}${parsed.search}`
-  } catch {
-    return null
-  }
+  return appLinkPath(uri)
+}
+
+/**
+ * Метка с нашей ссылкой открывает свой экран — где бы человек ни был и даже
+ * если приложение было закрыто: ссылку с системного запуска меткой присылает
+ * плагин (`nfcLink`). Метки, прочитанные на экране NFC, сюда не попадают — там
+ * человек сам решает, открывать ли ссылку.
+ */
+export function listenNfcLinks(router: Router): void {
+  if (!isNfcAvailable()) return
+  void plugin.addListener('nfcLink', ({ url }) => {
+    // На экране NFC метки пишут и прикладывают для проверки — не уводим с него.
+    if (router.currentRoute.value.name === 'nfc') return
+    const path = appLinkPath(url)
+    if (!path) return
+    const target = router.resolve(path)
+    // Экран, на который ведёт метка, мог уйти из сборки вместе со своим модулем.
+    if (!target.matched.length) return
+    // Сама метка ждёт экран NFC; раз ведёт не туда, показывать её потом незачем.
+    if (target.name !== 'nfc') void consumeLaunchTag()
+    void router.push(path)
+  })
 }

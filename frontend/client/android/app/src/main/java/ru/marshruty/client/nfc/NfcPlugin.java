@@ -2,6 +2,7 @@ package ru.marshruty.client.nfc;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.nfc.FormatException;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
@@ -24,9 +25,10 @@ import java.nio.charset.StandardCharsets;
  *
  * Пока приложение открыто, метки ловит режим чтения (`enableReaderMode`): он
  * работает, только когда экран активен, и не даёт системе перехватывать метку
- * своим окном. Метку с нашей ссылкой (`marshruty://nfc…`) система отдаёт
+ * своим окном. Метку с нашей ссылкой (`marshruty://…`) система отдаёт
  * приложению и когда оно закрыто — такое открытие разбирается в
- * {@link #load()} и {@link #handleOnNewIntent(Intent)}.
+ * {@link #load()} и {@link #handleOnNewIntent(Intent)}: ссылка уходит событием
+ * `nfcLink` и открывает свой экран, сама метка ждёт экран NFC.
  *
  * Разрешений у пользователя не спрашиваем: NFC выдаётся при установке.
  */
@@ -157,9 +159,14 @@ public class NfcPlugin extends Plugin implements NfcAdapter.ReaderCallback {
         notifyListeners("nfcTag", describe(tag));
     }
 
+    /**
+     * Сюда приходит и запуск приложения меткой: мост вызывает этот метод и для
+     * интента, с которым приложение стартовало.
+     */
     @Override
     protected void handleOnNewIntent(Intent intent) {
         super.handleOnNewIntent(intent);
+        announceLink(intent);
         JSObject tag = fromIntent(intent);
         if (tag == null) {
             return;
@@ -261,6 +268,26 @@ public class NfcPlugin extends Plugin implements NfcAdapter.ReaderCallback {
                 }
             }
         }
+    }
+
+    /**
+     * Ссылка с нашей метки должна открыть свой экран. Системный запуск меткой
+     * приходит как NDEF_DISCOVERED, а плагин App из Capacitor передаёт в
+     * `appUrlOpen` только VIEW, поэтому без этого события приложение
+     * открывалось на главной. Событие ждёт, пока приложение подпишется:
+     * при запуске с метки оно приходит раньше, чем загрузится страница.
+     */
+    private void announceLink(Intent intent) {
+        if (intent == null || !NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
+            return;
+        }
+        Uri data = intent.getData();
+        if (data == null || !"marshruty".equals(data.getScheme())) {
+            return;
+        }
+        JSObject link = new JSObject();
+        link.put("url", data.toString());
+        notifyListeners("nfcLink", link, true);
     }
 
     /** Метка из системного открытия приложения (NDEF_DISCOVERED). */
