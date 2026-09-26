@@ -8,6 +8,7 @@ from core.models.excursion import (
     ExcursionStop,
     ExcursionWalk,
 )
+from core.models.lost_alert import LostAlert, LostAlertStatus, LostAlertWatcher
 from core.models.need import Donation, DonationStatus, NeedKind, NeedStatus, SquadNeed
 from core.models.rating import GuideRating
 from core.models.squad import Squad, SquadKind
@@ -26,6 +27,9 @@ __all__ = [
     "ExcursionStop",
     "ExcursionWalk",
     "GuideRating",
+    "LostAlert",
+    "LostAlertStatus",
+    "LostAlertWatcher",
     "NeedKind",
     "NeedStatus",
     "RegistrationStatus",

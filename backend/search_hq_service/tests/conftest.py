@@ -72,6 +72,16 @@ def no_real_achievement_calls(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def no_real_user_service_lookups(monkeypatch):
+    """Семья и имена — тоже user_service. По умолчанию семьи нет и профилей
+    нет; тестам «Я потерялся» и рейтинга, которым они важны, подставляют свои."""
+    from services import family_client, profile_client
+
+    monkeypatch.setattr(family_client, "family_member_ids", lambda user_id: [])
+    monkeypatch.setattr(profile_client, "profile_briefs", lambda user_ids: {})
+
+
+@pytest.fixture(autouse=True)
 def no_real_notifications(monkeypatch):
     """Уведомления о сборе — тоже поход в user_service; тесты, которым они
     важны, подменяют заглушку на свою и смотрят, что ушло."""
