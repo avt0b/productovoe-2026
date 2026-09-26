@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { useAsync } from '@/core/async'
 import { errorText, plural } from '@/core/format'
@@ -35,6 +35,7 @@ import { formatStart } from './format'
 const props = defineProps<{ excursionId: string }>()
 
 const router = useRouter()
+const route = useRoute()
 
 /** Чат сбора: читать и писать может краевед и тот, кто записался. */
 const chatOpen = ref(false)
@@ -192,6 +193,22 @@ const canRate = computed(
     !rated.value,
 )
 
+// Пришли из уведомления «Оцените экскурсию» (?rate=1) — открываем оценку один
+// раз и убираем метку из адреса, чтобы «Назад» и обновление не открывали лист снова.
+let rateHandled = false
+watch(
+  [excursion, canRate],
+  () => {
+    if (rateHandled || route.query.rate !== '1' || !canRate.value) return
+    rateHandled = true
+    sheet.value = 'rate'
+    const query = { ...route.query }
+    delete query.rate
+    void router.replace({ query })
+  },
+  { immediate: true },
+)
+
 async function submitRating(rating: number, comment: string): Promise<void> {
   if (busy.value) return
   busy.value = true
@@ -289,7 +306,7 @@ function openWalk(): void {
       </section>
 
       <!-- Рейтинг краеведа из ТЗ: по нему выбирают, к кому идти -->
-      <GuideRatingBadge :summary="guideRating" />
+      <GuideRatingBadge :summary="guideRating" :guide-id="excursion?.guide_id" />
 
       <p v-if="excursion.description" class="font-body-md text-body-md leading-relaxed text-on-surface-variant">
         {{ excursion.description }}
